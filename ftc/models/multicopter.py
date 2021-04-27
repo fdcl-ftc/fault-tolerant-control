@@ -14,13 +14,9 @@ class multicopter(BaseEnv):
     d = 0.0315  # m
     c = 8.004e-4  # m
     g = 9.81  # m/s^2
-    state_lower_bound = np.array(-np.inf * np.ones(13))
-    state_upper_bound = np.array(np.inf * np.ones(13))
-    control_lower_bound = np.array(-np.inf * np.ones(4))
-    control_upper_bound = np.array(np.inf * np.ones(4))
 
     def __init__(self, pos, vel, quat, omega, rtype, **kwargs):
-        super().__init__(**kwargs)
+        super().__init__()
         self.pos = BaseSystem(pos)
         self.vel = BaseSystem(vel)
         self.quat = BaseSystem(quat)
@@ -61,14 +57,6 @@ class multicopter(BaseEnv):
         pos, vel, quat, omega = self.observe_list()
         dots = self.deriv(pos, vel, quat, omega, control, fault, ctype)
         self.pos.dot, self.vel.dot, self.quat.dot, self.omega.dot = dots
-
-    def hat(self, v):
-        v1, v2, v3 = v.squeeze()
-        return np.array([
-            [0, -v3, v2],
-            [v3, 0, -v1],
-            [-v2, v1, 0]
-        ])
 
     def mixing(self, rtype):
         d, c = self.d, self.c
