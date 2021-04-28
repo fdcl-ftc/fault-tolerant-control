@@ -14,8 +14,11 @@ class Fault:
     def __repr__(self):
         return f"Fault name: {self.name}"
 
-    def act_fault(t, u):
-        raise NotImplementedError("`Fault` class needs `act_fault`")
+    def get(t, u):
+        raise NotImplementedError("`Fault` class needs `get`")
+
+    def __call__(self, *args, **kwargs):
+        return self.get(*args, **kwargs)
 
 """
     LoE(time=0, index=1, level=1.0)
@@ -38,7 +41,7 @@ class LoE(Fault):
         print(super().__repr__())
         return f"time = {self.time}, index = {self.index}, level = {self.level}"
 
-    def act_fault(self, t, u):
+    def get(self, t, u):
         effectiveness = np.ones_like(u)
         if t >= self.time:
             effectiveness[self.index] = self.level
@@ -57,8 +60,8 @@ class Float(LoE):
     def __init__(self, time=0, index=1, name="Float"):
         super().__init__(time=time, index=index, level=0.0, name=name)
 
-    def act_fault(self, t, u):
-        return super().act_fault(t, u)
+    def get(self, t, u):
+        return super().get(t, u)
 
 
 ## Deprecated
@@ -96,7 +99,7 @@ if __name__ == "__main__":
         u = np.ones(n)
         for t in ts:
             print(f"Actuator command: {u}, time: {t}")
-            u_fault = fault.act_fault(t, u)
+            u_fault = fault(t, u)
             print(f"Actual input: {u_fault}")
     # LoE
     faults = [
