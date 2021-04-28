@@ -42,10 +42,9 @@ class LoE(Fault):
         return f"time = {self.time}, index = {self.index}, level = {self.level}"
 
     def get(self, t, u):
-        effectiveness = np.ones_like(u)
         if t >= self.time:
-            effectiveness[self.index-1] = self.level
-        return u * effectiveness
+            u[self.index] *= self.level
+        return u
 
 """
     Float(time=0, index=1)
