@@ -21,7 +21,6 @@ setup(
     python_requires=">=3.7",
     install_requires=[
         "matplotlib",
-        "numpy"
         "h5py",
         "tqdm"
     ]
