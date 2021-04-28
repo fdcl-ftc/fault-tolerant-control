@@ -148,7 +148,7 @@ if __name__ == "__main__":
         fault = LiP(2, 0, 0.1)
         print(fault.get(1.9, [3, 0]))  # 3
         print(fault.get(1.95, [4, 1]))  # 4
-        print(fault.get(2.05, [5, 2]))  # 4
+        print(fault.get(2.05, [5, 2]))  # 4.5
         print(fault.get(1.96, [6, 3]))  # 6
-        print(fault.get(2.06, [7, 4]))  # 4
+        print(fault.get(2.06, [7, 4]))  # 4.5
     small_test()
