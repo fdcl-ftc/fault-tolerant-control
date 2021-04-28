@@ -91,11 +91,13 @@ class LiP(Fault):
 
     def get(self, t, u):
         if abs(t - self.time) < 0.5*self.dt:  # consider errors e.g. machine precision
-            self.u_locked = u
-        if self.u_locked is None:
-            return u
+            self.u_locked = u[self.index]
+        if t > self.time + 0.5*self.dt:  # after LiP occurs
+            u_fault = deepcopy(u)
+            u_fault[self.index] = self.u_locked
+            return u_fault
         else:
-            return self.u_locked
+            return u
 
 
 # """
