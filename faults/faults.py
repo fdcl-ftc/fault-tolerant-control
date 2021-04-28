@@ -84,20 +84,23 @@ class LiP(Fault):
         super().__init__(time=time, index=index, name=name)
         self.dt = dt
         self.u_locked = None  # by default
+        self.t_locked = None
+        self.is_locked = False
 
     def __repr__(self):
         _str = super().__repr__()
         return _str + f", dt = {self.dt}"
 
     def get(self, t, u):
-        if abs(t - self.time) < 0.5*self.dt:  # consider errors e.g. machine precision
+        if self.is_locked is False and abs(t - self.time) < 0.5*self.dt:  # consider errors e.g. machine precision
             self.u_locked = u[self.index]
-        if t > self.time + 0.5*self.dt:  # after LiP occurs
-            u_fault = deepcopy(u)
-            u_fault[self.index] = self.u_locked
-            return u_fault
-        else:
-            return u
+            self.t_locked = t
+            self.is_locked = True
+        u_fault = deepcopy(u)
+        if self.is_locked:
+            if t >= self.t_locked:
+                u_fault[self.index] = self.u_locked
+        return u_fault
 
 
 # """
@@ -137,3 +140,13 @@ if __name__ == "__main__":
     ]
     for fault in faults:
         test(fault)
+
+    # small test
+    def small_test():
+        fault = LiP(2, 0, 0.1)
+        print(fault.get(1.9, [3, 0]), fault.is_locked, fault.u_locked,)  # 3
+        print(fault.get(1.97, [4, 1]), fault.is_locked, fault.u_locked,)  # 4
+        print(fault.get(2.06, [5, 2]), fault.is_locked, fault.u_locked,)  # 4
+        print(fault.get(1.96, [6, 3]), fault.is_locked, fault.u_locked,)  # 6
+        print(fault.get(2.06, [7, 4]), fault.is_locked, fault.u_locked,)  # 4
+    small_test()
