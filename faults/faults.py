@@ -1,5 +1,6 @@
 import numpy as np
 from copy import deepcopy
+import sys
 
 
 ## Fault models
@@ -75,22 +76,26 @@ A fault class for lock-in-place (LiP).
 # Parameters
 time: from when LoE is applied
 index: actuator index to which LoE is applied
-u_locked: locked value
 """
 class LiP(Fault):
-    def __init__(self, time=0, index=0, u_locked=0, name="LiP"):
+    def __init__(self, time=0, index=0, dt=0.00, name="LiP"):
+        if dt < 0 or dt < sys.float_info.epsilon:  # negative or too small
+            raise ValueError("Invalid time step to detect actuator value at the fault time")
         super().__init__(time=time, index=index, name=name)
-        self.u_locked = u_locked
+        self.dt = dt
+        self.u_locked = None  # by default
 
     def __repr__(self):
         _str = super().__repr__()
-        return _str + f", u_locked = {self.u_locked}"
+        return _str + f", dt = {self.dt}"
 
     def get(self, t, u):
-        u_fault = deepcopy(u)
-        if t >= self.time:
-            u_fault[self.index] = self.u_locked
-        return u_fault
+        if abs(t - self.time) < 0.5*self.dt:  # consider errors e.g. machine precision
+            self.u_locked = u
+        if self.u_locked is None:
+            return u
+        else:
+            return self.u_locked
 
 
 # """
@@ -116,17 +121,17 @@ if __name__ == "__main__":
     def test(fault):
         print(fault)
         n = 6
-        ts = [0.0, 1.0, 2.0, 3.0]
-        u = np.ones(n)
+        ts = [0, 1.99, 2.0, 2.01, 10]
         for t in ts:
+            u = t*np.ones(n)
             print(f"Actuator command: {u}, time: {t}")
             u_fault = fault(t, u)
             print(f"Actual input: {u_fault}")
     # LoE
     faults = [
-        LoE(time=2, index=1, level=0.2),
+        LoE(time=2, index=1, level=0.1),
         Float(time=2, index=1),
-        LiP(time=2, index=1, u_locked=0.1),
+        LiP(time=2, index=1, dt=0.01),
     ]
     for fault in faults:
         test(fault)
