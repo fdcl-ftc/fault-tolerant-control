@@ -17,10 +17,12 @@ setup(
     long_description_content_type="text/markdown",
     license="",
     include_package_data=True,
-    packages=find_packages(),
+    packages=fine_packages(),
     python_requires=">=3.7",
     install_requires=[
-        "fym",
-        "matplotlib"
+        "matplotlib",
+        "numpy"
+        "h5py",
+        "tqdm"
     ]
 )
