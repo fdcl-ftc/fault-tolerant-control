@@ -31,7 +31,7 @@ index: actuator index to which LoE is applied
 level: effectiveness (e.g., level=1.0 means no fault)
 """
 class LoE(Fault):
-    def __init__(self, time=0, index=1, level=1.0, name = "LoE"):
+    def __init__(self, time=0, index=1, level=1.0, name="LoE"):
         super().__init__(name=name)
         self.time = time
         self.index = index
