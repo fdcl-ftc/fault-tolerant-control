@@ -20,8 +20,7 @@ setup(
     packages=find_packages(),
     python_requires=">=3.7",
     install_requires=[
-        "matplotlib",
-        "h5py",
-        "tqdm"
+        "fym",
+        "matplotlib"
     ]
 )
