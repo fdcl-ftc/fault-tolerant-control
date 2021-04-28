@@ -83,23 +83,25 @@ class LiP(Fault):
             raise ValueError("Invalid time step to detect actuator value at the fault time")
         super().__init__(time=time, index=index, name=name)
         self.dt = dt
-        self.u_locked = None  # by default
-        self.t_locked = None
-        self.is_locked = False
+        self.memory = None
 
     def __repr__(self):
         _str = super().__repr__()
         return _str + f", dt = {self.dt}"
 
     def get(self, t, u):
-        if self.is_locked is False and abs(t - self.time) < 0.5*self.dt:  # consider errors e.g. machine precision
-            self.u_locked = u[self.index]
-            self.t_locked = t
-            self.is_locked = True
+        if self.memory is None or t > self.memory[0]:
+            if t <= self.time:
+                self.memory = (t, u[self.index], False)
+            elif not self.memory[2]:
+                # Linear interpolation
+                dudt = (u[self.index] - self.memory[1]) / (t - self.memory[0])
+                u0 = self.memory[1] + dudt * (self.time - self.memory[0])
+                self.memory = (self.time, u0, True)
+
         u_fault = deepcopy(u)
-        if self.is_locked:
-            if t >= self.t_locked:
-                u_fault[self.index] = self.u_locked
+        if t > self.time:
+            u_fault[self.index] = self.memory[1]
         return u_fault
 
 
@@ -144,9 +146,9 @@ if __name__ == "__main__":
     # small test
     def small_test():
         fault = LiP(2, 0, 0.1)
-        print(fault.get(1.9, [3, 0]), fault.is_locked, fault.u_locked,)  # 3
-        print(fault.get(1.97, [4, 1]), fault.is_locked, fault.u_locked,)  # 4
-        print(fault.get(2.06, [5, 2]), fault.is_locked, fault.u_locked,)  # 4
-        print(fault.get(1.96, [6, 3]), fault.is_locked, fault.u_locked,)  # 6
-        print(fault.get(2.06, [7, 4]), fault.is_locked, fault.u_locked,)  # 4
+        print(fault.get(1.9, [3, 0]))  # 3
+        print(fault.get(1.95, [4, 1]))  # 4
+        print(fault.get(2.05, [5, 2]))  # 4
+        print(fault.get(1.96, [6, 3]))  # 6
+        print(fault.get(2.06, [7, 4]))  # 4
     small_test()
