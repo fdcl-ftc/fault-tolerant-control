@@ -7,6 +7,11 @@ from ftc.models.multicopter import Multicopter
 from ftc.faults.actuator import LoE, LiP, Float, HardOver
 
 
+class FDI(BaseSystem):
+    def __init__(self, mixer):
+        super().__init__()
+
+
 class Env(BaseEnv):
     def __init__(self):
         super().__init__(dt=0.01, max_t=20)
@@ -24,6 +29,9 @@ class Env(BaseEnv):
         #              limit=self.plant.umax, rate=self.plant.udot_max),
         # ]
 
+        # Define FDI
+        self.fdi = FDI(self.plant.mixer)
+
     def step(self):
         *_, done = self.update()
         return done
@@ -36,6 +44,7 @@ class Env(BaseEnv):
             x = sen_fault(t, x)
 
         f = self.get_forces(x)
+        What = self.fdi.get(t)
         u = self.plant.mixer(f)  # Control surfaces
 
         # Set actuator faults
