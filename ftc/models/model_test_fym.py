@@ -108,32 +108,23 @@ class Multicopter(BaseEnv):
         dots = self.deriv(*states)
         self.pos.dot, self.vel.dot, self.quat.dot, self.omega.dot = dots
 
-    def reset(self):
-        super().reset()
-
     def step(self):
         t = self.clock.get()
-        pos = self.pos.state
-        vel = self.vel.state
-        quat = self.quat.state
-        omega = self.omega.state
+        states = self.observe_dict()
 
         *_, done = self.update()
-        return t, pos, vel, quat, omega, done
+        return t, states, done
 
 
 def run(rotors):
     system = Multicopter(rotors=rotors)
-    pos = system.reset()
-    vel = system.reset()
-    quat = system.reset()
-    omega = system.reset()
-    system.logger = fym.logging.Logger(path='data.h5')
+    system.reset()
+    logger = fym.logging.Logger(path='data.h5')
 
     while True:
         system.render()
-        t, pos, vel, quat, omega, done = system.step()
-        system.logger.record(t=t, pos=pos, vel=vel, quat=quat, omega=omega)
+        t, states, done = system.step()
+        logger.record(t=t, **states)
 
         if done:
             break
@@ -171,8 +162,8 @@ def plot_var():
     plt.tight_layout()
 
 
-# input값 조절 가능
-rotors = 50*np.zeros((6, 1))
-run(rotors)
-plot_var()
-plt.show()
+if __name__ == "__main__":
+    # input값 조절 가능
+    run(50*np.ones((6, 1)))
+    plot_var()
+    plt.show()
