@@ -145,7 +145,6 @@ def plot_var():
     data = fym.logging.load('data.h5')
     fig = plt.figure()
 
-    fig = plt.figure()
     ax1 = fig.add_subplot(4, 1, 1)
     ax2 = fig.add_subplot(4, 1, 2, sharex=ax1)
     ax3 = fig.add_subplot(4, 1, 3, sharex=ax1)
