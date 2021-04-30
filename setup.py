@@ -17,7 +17,7 @@ setup(
     long_description_content_type="text/markdown",
     license="",
     include_package_data=True,
-    packages=fine_packages(),
+    packages=find_packages(),
     python_requires=">=3.7",
     install_requires=[
         "matplotlib"
