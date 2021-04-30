@@ -3,13 +3,12 @@ from copy import deepcopy
 import sys
 
 
-## Fault models
-"""
-    Fault(name=None)
-
-The base class of fault models.
-"""
 class Fault:
+    """
+        Fault(name=None)
+
+    The base class of fault models.
+    """
     def __init__(self, time=0, index=0, name=None):
         self.time = time
         self.index = index
@@ -25,17 +24,17 @@ class Fault:
         raise NotImplementedError("`Fault` class needs `get`")
 
 
-"""
-    LoE(time=0, index=0, level=1.0)
-
-A fault class for loss of effectiveness (LoE).
-
-# Parameters
-time: from when LoE is applied
-index: actuator index to which LoE is applied
-level: effectiveness (e.g., level=1.0 means no fault)
-"""
 class LoE(Fault):
+    """
+        LoE(time=0, index=0, level=1.0)
+
+    A fault class for loss of effectiveness (LoE).
+
+    # Parameters
+    time: from when LoE is applied
+    index: actuator index to which LoE is applied
+    level: effectiveness (e.g., level=1.0 means no fault)
+    """
     def __init__(self, time=0, index=0, level=1.0, name="LoE"):
         super().__init__(time=time, index=index, name=name)
         self.level = level
@@ -51,16 +50,16 @@ class LoE(Fault):
         return u * effectiveness
 
 
-"""
-    Float(time=0, index=0)
-
-A fault class for floating.
-
-# Parameters
-time: from when LoE is applied
-index: actuator index to which LoE is applied
-"""
 class Float(LoE):
+    """
+        Float(time=0, index=0)
+
+    A fault class for floating.
+
+    # Parameters
+    time: from when LoE is applied
+    index: actuator index to which LoE is applied
+    """
     def __init__(self, time=0, index=0, name="Float"):
         super().__init__(time=time, index=index, level=0.0, name=name)
 
@@ -68,26 +67,19 @@ class Float(LoE):
         return super().get(t, u)
 
 
-"""
-    LiP(time=0, index=0)
-
-A fault class for lock-in-place (LiP).
-
-# Parameters
-time: from when LoE is applied
-index: actuator index to which LoE is applied
-"""
 class LiP(Fault):
-    def __init__(self, time=0, index=0, dt=0.00, name="LiP"):
-        if dt < 0 or dt < sys.float_info.epsilon:  # negative or too small
-            raise ValueError("Invalid time step to detect actuator value at the fault time")
-        super().__init__(time=time, index=index, name=name)
-        self.dt = dt
-        self.memory = None
+    """
+        LiP(time=0, index=0)
 
-    def __repr__(self):
-        _str = super().__repr__()
-        return _str + f", dt = {self.dt}"
+    A fault class for lock-in-place (LiP).
+
+    # Parameters
+    time: from when LoE is applied
+    index: actuator index to which LoE is applied
+    """
+    def __init__(self, time=0, index=0, name="LiP"):
+        super().__init__(time=time, index=index, name=name)
+        self.memory = None
 
     def get(self, t, u):
         if self.memory is None or t > self.memory[0]:
