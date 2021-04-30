@@ -5,19 +5,20 @@ from fym.core import BaseEnv, BaseSystem
 import fym.logging
 
 from ftc.models.multicopter import Multicopter
-from ftc.faults.actuator import LoE, LiP, Float, HardOver
+from ftc.faults.actuator import LoE, LiP, Float
 
 
 class FDI(BaseSystem):
-    def __init__(self, m, tau):
-        super().__init__(np.eye(m))
+    def __init__(self, no_act, tau):
+        super().__init__(np.eye(no_act))
         self.tau = tau
 
     def get_true(self, u, uc):
-        w = [ui / uci
-             if (ui != 0 and uci != 0) else 1
-             if (ui == 0 and uci == 0) else 0
-             for ui, uci in zip(u, uc)]
+        w = np.hstack([
+            ui / uci
+            if (ui != 0 and uci != 0) else 1
+            if (ui == 0 and uci == 0) else 0
+            for ui, uci in zip(u, uc)])
         return np.diag(w)
 
     def set_dot(self, W):
@@ -35,12 +36,12 @@ class Env(BaseEnv):
         self.actuator_faults = [
             LoE(time=3, index=1, level=0.5),
             LoE(time=5, index=2, level=0.2),
-            LiP(time=7, index=1),
+            LoE(time=7, index=1, level=0.1),
             Float(time=10, index=0),
         ]
 
         # Define FDI
-        self.fdi = FDI(self.plant.mixer.B.shape[1], 10)
+        self.fdi = FDI(no_act=self.plant.mixer.B.shape[1], tau=0.1)
 
     def step(self):
         *_, done = self.update()
@@ -56,7 +57,7 @@ class Env(BaseEnv):
         self.fdi.set_dot(W)
 
     def get_forces(self, x):
-        return np.zeros((4, 1))
+        return np.vstack((50, 0, 0, 0))
 
     def control_allocation(self, f, What):
         return np.linalg.pinv(self.plant.mixer.B.dot(What)).dot(f)
