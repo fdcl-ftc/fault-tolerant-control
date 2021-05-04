@@ -42,6 +42,7 @@ class Mixer:
             B = np.eye(4)
 
         self.B = B
+        self.n_rotor = B.shape[1]
         self.Binv = np.linalg.pinv(B)
 
     def inverse(self, rotors):
