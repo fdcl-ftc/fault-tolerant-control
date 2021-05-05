@@ -4,7 +4,6 @@ from fym.core import BaseEnv, BaseSystem
 from fym.utils.rot import dcm2quat, quat2dcm, angle2quat, quat2angle
 
 
-
 class Mixer:
     """Definition:
         Mixer takes force commands and translate them to actuator commands.
@@ -39,9 +38,23 @@ class Mixer:
                  [c, -c, c, -c, -c, c]]
             )
 
+            self.b_gyro = np.vstack((1, -1, 1, -1, 1, -1))
+
+            s2 = 1/2
+            s3 = np.sqrt(3)/2
+            self.d_rotor = np.array([
+                [d, 0, 0],
+                [d*s2, -d*s3, 0],
+                [-d*s2, -d*s3, 0],
+                [-d, 0, 0],
+                [-d*s2, d*s3, 0],
+                [d*s2, d*s3, 0],
+            ])
+
         else:
             B = np.eye(4)
 
+        self.b = b
         self.B = B
         self.Binv = np.linalg.pinv(B)
 
@@ -67,8 +80,22 @@ class Multicopter(BaseEnv):
     d = 0.0315  # m
     c = 8.004e-4  # m
     g = 9.81  # m/s^2
-    rotor_max = 100
+    rotor_max = m * g
     rotor_min = 0
+
+    # Parameters from Baldini et al., 2020
+    kr = 1e-3 * np.eye(3)  # Rotational friction coefficient (avg.) [N*s*m/rad]
+    Jr = 6e-5  # Rotor inertia [N*m]
+    rho = 1.225  # Air density [kg/m^3]
+    CdA = 0.08  # Flat plate area [m^2]
+    R = 0.15  # Rotor radius [m]
+    ch = 0.04  # Propeller chord [m]
+    a0 = 6  # Slope of the lift curve per radian [-]
+
+    # Parameters from P. Pounds et al., 2010
+    sigma = 0.054  # Solidity ratio [-]
+    thetat = np.deg2rad(4.4)  # Blade tip angle [rad]
+    CT = 0.0047  # Thrust coefficient [-]
 
     def __init__(self,
                  pos=np.zeros((3, 1)),
@@ -107,6 +134,53 @@ class Multicopter(BaseEnv):
         states = self.observe_list()
         dots = self.deriv(*states, rotors)
         self.pos.dot, self.vel.dot, self.quat.dot, self.omega.dot = dots
+
+    def get_Omega(self, f):
+        f = np.clip(f, 0, self.rotor_max)
+        Omega = self.mixer.b_gyro.T.dot(np.sqrt(f / self.mixer.b))
+        return Omega
+
+    def get_FM_wind(self, f, vel, omega, windvel):
+        relvel = windvel - vel
+
+        f = np.clip(f, 0, self.rotor_max)
+
+        # Frame drag
+        F_drag = 1/2 * self.rho * self.CdA * np.linalg.norm(relvel) * relvel
+
+        # Blade Flapping
+        F_blade = np.zeros((3, 1))
+        M_blade = np.zeros((3, 1))
+        for fi, di in zip(f, self.mixer.d_rotor):
+            di = di[:, None]
+            if fi != 0:
+                Omegai = np.sqrt(fi / self.mixer.b)
+                vr = relvel + np.cross(omega, di, axis=0)
+                mur = np.linalg.norm(vr[:2]) / (Omegai * self.R)
+                psir = np.arctan2(vr[1, 0], vr[0, 0])
+                lambdah = np.sqrt(self.CT / 2)
+                gamma = self.rho * self.a0 * self.ch * self.R**4 / self.Jr
+                v1s = 1 / (1 + mur**2 / 2) * 4 / 3 * (
+                    self.CT / self.sigma * 2 / 3 * mur * gamma / self.a0 + mur)
+                u1s = 1 / (1 - mur**2 / 2) * mur * (
+                    4 * self.thetat - 2 * lambdah**2)
+                alpha1s, beta1s = np.array([
+                    [np.cos(psir), -np.sin(psir)],
+                    [np.sin(psir), np.cos(psir)]
+                ]).dot(np.vstack((u1s, v1s)))
+
+                ab = np.vstack((
+                    -np.sin(alpha1s),
+                    -np.cos(alpha1s) * np.sin(beta1s),
+                    np.cos(alpha1s) * np.cos(beta1s) - 1))
+
+                F_blade += self.mixer.b * Omegai**2 * ab
+                M_blade += np.cross(di, self.mixer.b * Omegai**2 * ab, axis=0)
+
+        F_wind = F_blade + F_drag
+        M_wind = M_blade
+
+        return F_wind, M_wind
 
 
 if __name__ == "__main__":
