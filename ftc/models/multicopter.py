@@ -2,7 +2,7 @@ import numpy as np
 
 from fym.core import BaseEnv, BaseSystem
 from fym.utils.rot import dcm2quat, quat2dcm, angle2quat, quat2angle
-   
+
 
 
 class Mixer:

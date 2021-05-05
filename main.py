@@ -7,6 +7,7 @@ import fym.logging
 
 from ftc.models.multicopter import Multicopter
 from ftc.agents.backstepping import BacksteppingController
+from ftc.agents.grouping import Grouping
 from ftc.faults.actuator import LoE, LiP, Float
 
 
@@ -31,23 +32,21 @@ class FDI(BaseSystem):
 class Env(BaseEnv):
     def __init__(self):
         super().__init__(dt=0.01, max_t=20)
-        # initial states
-        yaw0, pitch0, roll0 = np.deg2rad(30), np.deg2rad(30), np.deg2rad(30)
-        quat0 = angle2quat(yaw0, pitch0, roll0)
-        self.plant = Multicopter(pos=np.vstack((0.1, 0.2, -0.1)), quat=quat0, omega=np.vstack((1, 1, 1.0)))
-        self.controller = BacksteppingController(self.plant.pos.state, self.plant.m, self.plant.g)
+        self.plant = Multicopter()
+        # self.controller = BacksteppingController(self.plant.pos.state, self.plant.m, self.plant.g)
 
         # Define faults
         self.sensor_faults = []
         self.actuator_faults = [
-            LoE(time=3, index=1, level=0.5),
-            LoE(time=5, index=2, level=0.2),
-            LoE(time=7, index=1, level=0.1),
-            Float(time=10, index=0),
+            LoE(time=3, index=0, level=0.5),
+            LoE(time=5, index=1, level=0.2),
+            LoE(time=7, index=2, level=0.5),
+            # Float(time=10, index=0),
         ]
 
         # Define FDI
         self.fdi = FDI(no_act=self.plant.mixer.B.shape[1], tau=0.1)
+        self.grouping = Grouping(self.plant.mixer.B)
 
     def step(self):
         *_, done = self.update()
@@ -57,31 +56,38 @@ class Env(BaseEnv):
         x = self.plant.state
         What = self.fdi.state
 
-        u, W, _, Td_dot, xc, *_ = self._get_derivs(t, x, What)
+        # u, W, _, Td_dot, xc, *_ = self._get_derivs(t, x, What)
+        u, W, *_ = self._get_derivs(t, x, What)
 
         self.plant.set_dot(t, u)
         self.fdi.set_dot(W)
-        self.controller.set_dot(Td_dot, xc)
+        # self.controller.set_dot(Td_dot, xc)
 
-    # def get_forces(self, x):
-    #     return np.vstack((50, 0, 0, 0))
+    def get_forces(self, x):
+        return np.vstack((self.plant.m * self.plant.g, 0, 0, 0))
 
     def control_allocation(self, f, What):
-        return np.linalg.pinv(self.plant.mixer.B.dot(What)).dot(f)
+        # find index of faulted rotor
+        fault_index = np.where(np.diag(What) != 1)[0]
+        if len(fault_index) == 0:
+            return np.linalg.pinv(self.plant.mixer.B.dot(What)).dot(f)
+        else:
+            G = self.grouping.get(fault_index[0])
+            return np.linalg.pinv(G.dot(What)).dot(f)
 
     def _get_derivs(self, t, x, What):
         # Set sensor faults
         for sen_fault in self.sensor_faults:
             x = sen_fault(t, x)
 
-        # f = self.get_forces(x)
-        # u = u_command = self.control_allocation(f, What)
-        FM, Td_dot = self.controller.command(
-            *self.plant.observe_list(), *self.controller.observe_list(),
-            self.plant.m, self.plant.J, np.vstack((0, 0, self.plant.g)),
-        )
-        pos_c = np.zeros((3, 1))  # TODO: position commander
-        u = u_command = self.control_allocation(FM, What)
+        f = self.get_forces(x)
+        u = u_command = self.control_allocation(f, What)
+        # FM, Td_dot = self.controller.command(
+        #     *self.plant.observe_list(), *self.controller.observe_list(),
+        #     self.plant.m, self.plant.J, np.vstack((0, 0, self.plant.g)),
+        # )
+        # pos_c = np.zeros((3, 1))  # TODO: position commander
+        # u = u_command = self.control_allocation(FM, What)
 
         # Set actuator faults
         for act_fault in self.actuator_faults:
@@ -89,15 +95,18 @@ class Env(BaseEnv):
 
         W = self.fdi.get_true(u, u_command)
 
-        return u, W, u_command, Td_dot, pos_c
+        # return u, W, u_command, Td_dot, pos_c
+        return u, W, u_command
 
     def logger_callback(self, i, t, y, *args):
         states = self.observe_dict(y)
         x = states["plant"]
         What = states["fdi"]
-        x_controller = states["controller"]
-        u, W, uc, Td_dot, pos_c, *_ = self._get_derivs(t, x, What)
-        return dict(t=t, x=x, What=What, u=u, uc=uc, W=W, x_controller=x_controller, pos_c=pos_c)
+        u, W, uc = self._get_derivs(t, x, What)
+        return dict(t=t, x=x, What=What, u=u, uc=uc, W=W)
+        # x_controller = states["controller"]
+        # u, W, uc, Td_dot, pos_c, *_ = self._get_derivs(t, x, What)
+        # return dict(t=t, x=x, What=What, u=u, uc=uc, W=W, x_controller=x_controller, pos_c=pos_c)
 
 
 def run():
@@ -127,6 +136,12 @@ def exp1_plot():
     plt.plot(data["t"], np.diagonal(data["W"], axis1=1, axis2=2), "r--")
     plt.plot(data["t"], np.diagonal(data["What"], axis1=1, axis2=2), "k-")
 
+    plt.figure()
+    plt.plot(data["t"], data["x"]["pos"][:, 0, 0], "k-", label="x")  # x
+    plt.plot(data["t"], data["x"]["pos"][:, 1, 0], "k--", label="y")  # y
+    plt.plot(data["t"], -data["x"]["pos"][:, 2, 0], "k-.", label="z")  # z
+    plt.legend()
+
     plt.show()
 
 def exp2():
@@ -145,7 +160,7 @@ def exp2_plot():
 
 
 if __name__ == "__main__":
-    # exp1()
-    # exp1_plot()
-    exp2()
-    exp2_plot()
+    exp1()
+    exp1_plot()
+    # exp2()
+    # exp2_plot()
