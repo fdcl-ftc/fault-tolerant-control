@@ -24,6 +24,10 @@ class FDI(BaseSystem):
             for ui, uci in zip(u, uc)])
         return np.diag(w)
 
+    def get_index(self, W):
+        fault_index = np.where(np.diag(W) != 1)[0]
+        return fault_index
+
     def set_dot(self, W):
         What = self.state
         self.dot = - 1 / self.tau * (What - W)
@@ -67,8 +71,7 @@ class Env(BaseEnv):
         return np.vstack((self.plant.m * self.plant.g, 0, 0, 0))
 
     def control_allocation(self, f, What):
-        # find index of faulted rotor
-        fault_index = np.where(np.diag(What) != 1)[0]
+        fault_index = self.fdi.get_index(What)
         if len(fault_index) == 0:
             return np.linalg.pinv(self.plant.mixer.B.dot(What)).dot(f)
         else:
