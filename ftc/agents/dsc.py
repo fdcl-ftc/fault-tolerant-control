@@ -8,9 +8,9 @@ cfg = SN()
 
 
 def load_config():
-    cfg.K1 = np.diag([10, 10, 10, 10]) * 30
-    cfg.K2 = np.diag([10, 10, 10, 10]) * 30
-    cfg.Kbar = np.diag([10, 10, 10, 10]) * 30
+    cfg.K1 = np.diag([10, 10, 10, 10]) * 60
+    cfg.K2 = np.diag([10, 10, 10, 10]) * 60
+    cfg.Kbar = np.diag([10, 10, 10, 10]) * 60
 
 
 class DSCController(BaseEnv):

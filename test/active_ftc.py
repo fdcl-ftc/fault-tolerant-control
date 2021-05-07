@@ -17,7 +17,7 @@ cfg = SN()
 
 def load_config():
     cfg.env = SN()
-    cfg.env.dt = 0.01
+    cfg.env.dt = 0.001
     cfg.env.max_t = 5
 
     cfg.act_dyn = SN()
@@ -33,6 +33,13 @@ def load_config():
     cfg.CA.alpha = 0.5
     cfg.CA.c = 0.9
     cfg.CA.eps = 1e-8
+    cfg.CA.d_step = 0
+    cfg.CA.gamma_step = 0
+
+    dsc.load_config()
+    dsc.cfg.K1 = np.diag([10, 10, 10, 10]) * 60
+    dsc.cfg.K2 = np.diag([10, 10, 10, 10]) * 60
+    dsc.cfg.Kbar = np.diag([10, 10, 10, 10]) * 60
 
 
 class FDI(BaseSystem):
@@ -114,14 +121,15 @@ class Env(BaseEnv):
 
         gamma = 1e-2
 
-        for _ in range(15):
+        for _ in range(cfg.CA.d_step):
 
-            d = - What.T.dot(B.T).dot(cfg.CA.W.T).dot(f - B.dot(What).dot(rotors))
+            d = - What.T.dot(B.T).dot(cfg.CA.W.T).dot(
+                f - B.dot(What).dot(rotors))
 
             if d.T.dot(d) < cfg.CA.eps:
                 return rotors
 
-            for _ in range(30):
+            for _ in range(cfg.CA.gamma_step):
                 rotors_next = rotors - gamma * d
                 rotors_next = np.clip(rotors_next, 0, self.plant.rotor_max)
 
@@ -239,7 +247,6 @@ def run():
 def exp1():
     """Exp 1 runs DSC for a faulty multicopter."""
     load_config()
-    dsc.load_config()
     run()
 
 
