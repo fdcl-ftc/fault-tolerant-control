@@ -113,24 +113,6 @@ def exp1_plot():
     plt.show()
 
 
-def exp2():
-    run()
-
-
-def exp2_plot():
-    data = fym.logging.load("data.h5")
-
-    plt.figure()
-    plt.plot(data["t"], data["x"]["pos"][:, :, 0], "r--", label="pos")  # position
-    plt.plot(data["t"], data["pos_c"][:, :, 0], "k--", label="position command")  # position command
-    plt.plot(data["t"], data["x_controller"]["xd"][:, :, 0], "b--", label="desired pos")  # desired position
-
-    plt.legend()
-    plt.show()
-
-
 if __name__ == "__main__":
     exp1()
     exp1_plot()
-    # exp2()
-    # exp2_plot()
