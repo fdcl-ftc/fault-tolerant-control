@@ -8,6 +8,7 @@ import fym.logging
 
 from ftc.models.multicopter import Multicopter
 import ftc.agents.dsc as dsc
+from ftc.agents.fdi import SimpleFDI
 from ftc.faults.actuator import LoE, LiP, Float
 from ftc.models.dryden import Wind
 
@@ -42,24 +43,6 @@ def load_config():
     dsc.cfg.Kbar = np.diag([10, 10, 10, 10]) * 60
 
 
-class FDI(BaseSystem):
-    def __init__(self, no_act, tau):
-        super().__init__(np.eye(no_act))
-        self.tau = tau
-
-    def get_true(self, u, uc):
-        w = np.hstack([
-            ui / uci
-            if (ui != 0 and uci != 0) else 1
-            if (ui == 0 and uci == 0) else 0
-            for ui, uci in zip(u, uc)])
-        return np.diag(w)
-
-    def set_dot(self, W):
-        What = self.state
-        self.dot = - 1 / self.tau * (What - W)
-
-
 class ActuatorDynamcs(BaseSystem):
     def __init__(self, tau, **kwargs):
         super().__init__(**kwargs)
@@ -82,7 +65,7 @@ class Env(BaseEnv):
         self.wind = Wind(cfg.env.dt, cfg.env.max_t)
 
         # Define FDI
-        self.fdi = FDI(no_act=n, tau=cfg.FDI.tau)
+        self.fdi = SimpleFDI(no_act=n, tau=cfg.FDI.tau)
 
         J, m, g, Jr, d, c = [
             getattr(self.plant, k) for k in ["J", "m", "g", "Jr", "d", "c"]]
