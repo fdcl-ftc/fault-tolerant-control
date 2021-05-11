@@ -123,10 +123,18 @@ class Multicopter(BaseEnv):
         dcm = quat2dcm(quat)
         dvel = g*e3 - F*dcm.dot(e3)/m
         # ddcm = self.skew(omega)*dcm
-        dquat = 0.5 * np.vstack((
-            -omega.T.dot(quat[1:]),
-            omega*quat[0] - np.cross(omega, quat[1:], axis=0)
-        ))
+        # dquat = 0.5 * np.vstack((
+        #     -omega.T.dot(quat[1:]),
+        #     omega*quat[0] - np.cross(omega, quat[1:], axis=0)
+        # ))
+        _w = np.ravel(omega)
+        dquat = 0.5 * np.array([[0., -_w[0], -_w[1], -_w[2]],
+                                [_w[0], 0., _w[2], -_w[1]],
+                                [_w[1], -_w[2], 0., _w[0]],
+                                [_w[2], _w[1], -_w[0], 0.]]).dot(quat)
+        eps = 1 - (quat[0]**2+quat[1]**2+quat[2]**2+quat[3]**2)
+        K = 0.01*np.eye(4)
+        dquat = dquat + eps*K.dot(quat)
         domeg = self.Jinv.dot(M - np.cross(omega, J.dot(omega), axis=0))
 
         return dpos, dvel, dquat, domeg
