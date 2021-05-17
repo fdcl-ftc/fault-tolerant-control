@@ -47,6 +47,8 @@ class Env(BaseEnv):
 def run(env, pos, quat, dtype, agent=None):
     obs = env.reset()
     logger = fym.logging.Logger(path='data.h5')
+    gamma_tune = np.array([2, 5, 5, 5])
+    kd_tune = np.array([25, 100, 100, 100])
 
     while True:
         env.render()
@@ -54,7 +56,7 @@ def run(env, pos, quat, dtype, agent=None):
         if agent is None:
             action = 0
         else:
-            action = agent.get_action(obs, np.array([2, 5, 5, 5]), np.array([25, 100, 100, 100]), dtype=dtype)
+            action = agent.get_action(obs, gamma_tune, kd_tune, dtype=dtype)
 
         t, next_obs, info, rotors, done = env.step(action)
         obs = next_obs

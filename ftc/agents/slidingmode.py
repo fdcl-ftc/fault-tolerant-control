@@ -1,6 +1,7 @@
 import numpy as np
 from numpy import sin, cos
 from math import sqrt
+
 from fym.core import BaseEnv, BaseSystem
 from fym.utils.rot import quat2angle
 
