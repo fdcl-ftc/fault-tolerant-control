@@ -49,25 +49,17 @@ class SlidingModeController(BaseEnv):
         self.env = env
 
         self.d, self.m, self.g, self.J = env.plant.d, env.plant.m, env.plant.g, env.plant.J
-        self.Jr = 6e-5  # inertia of the rotor
         self.n_rotors = env.plant.mixer.B.shape[1]
         trim_rotors = np.vstack([self.m * self.g / self.n_rotors] * self.n_rotors)
         self.u = env.plant.mixer.inverse(trim_rotors)
 
-    def get_rotor_value(self):
-        if self.n_rotors == 6:
-            rotor1, rotor2, rotor3, rotor4, rotor5, rotor6 = self.env.plant.mixer.Binv.dot(self.u)
-            return -sqrt(rotor1) + sqrt(rotor2) - sqrt(rotor3) + sqrt(rotor4) - sqrt(rotor5) + sqrt(rotor6)
-
     def dynamics(self, pos, vel, acc, angle, omega, omega_dot):
         F, M1, M2, M3 = self.u
-        Omega = self.get_rotor_value()
         phi, theta, psi = angle
         p, q, r = omega
         Ix = self.J[0, 0]
         Iy = self.J[1, 1]
         Iz = self.J[2, 2]
-        Jr = self.Jr
         d = self.d
 
         dpos = vel
@@ -77,8 +69,8 @@ class SlidingModeController(BaseEnv):
                           +self.g - (cos(phi)*cos(theta))/self.m*F))
         dangle = omega
         domega = omega_dot
-        domega_dot = np.vstack((-p*r*(Iy-Iz)/Ix - Jr/Ix*q*Omega + d/Ix*M1,
-                                -p*r*(Iz-Ix)/Iy + Jr/Iy*q*Omega + d/Iy*M2,
+        domega_dot = np.vstack((-p*r*(Iy-Iz)/Ix + d/Ix*M1,
+                                -p*r*(Iz-Ix)/Iy + d/Iy*M2,
                                 -p*q*(Ix-Iy)/Iz - 1/Iz*M3))
         return dpos, dvel, dacc, dangle, domega, domega_dot
 
@@ -92,11 +84,9 @@ class SlidingModeController(BaseEnv):
         kt_F, kt_M1, kt_M2, kt_M3 = kdTune
         # model
         m, g = self.m, self.g
-        Omega = self.get_rotor_value()
         Ix = self.J[0, 0]
         Iy = self.J[1, 1]
         Iz = self.J[2, 2]
-        Jr = self.Jr
         d = self.d
         # reference
         zd, wd, dot_wd = self.pos.state[2], self.vel.state[2], self.acc.state[2]
@@ -112,8 +102,8 @@ class SlidingModeController(BaseEnv):
 
         # continuous part
         Feq = (g + gt_F*(wd-w) + dot_wd) * m / (cos(phi)*cos(psi))
-        M1eq = (gt_M1*(pd-p) + pdd - q*r*(Iy-Iz)/Ix + Jr/Ix*q*Omega)*Ix/d
-        M2eq = (gt_M2*(qd-q) + qdd - p*r*(Iz-Ix)/Iy - Jr/Iy*q*Omega)*Iy/d
+        M1eq = (gt_M1*(pd-p) + pdd - q*r*(Iy-Iz)/Ix)*Ix/d
+        M2eq = (gt_M2*(qd-q) + qdd - p*r*(Iz-Ix)/Iy)*Iy/d
         M3eq = (gt_M3*(rd-r) + rdd - p*q*(Ix-Iy)/Iz)*Iz
 
         # discrete part
