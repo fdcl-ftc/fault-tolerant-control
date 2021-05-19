@@ -65,8 +65,8 @@ class SlidingModeController(BaseEnv):
         dpos = vel
         dvel = acc
         dacc = np.vstack(((cos(phi)*sin(theta)*cos(-psi) + sin(phi)*sin(-psi))/self.m*F,
-                          (cos(phi)*sin(theta)*cos(-psi) - sin(phi)*sin(-psi))/self.m*F,
-                          +self.g - (cos(phi)*cos(theta))/self.m*F))
+                          (cos(phi)*sin(theta)*cos(-psi) - sin(phi)*cos(-psi))/self.m*F,
+                          self.g - (cos(phi)*cos(theta))/self.m*F))
         dangle = omega
         domega = omega_dot
         domega_dot = np.vstack((-p*r*(Iy-Iz)/Ix + d/Ix*M1,
@@ -76,7 +76,7 @@ class SlidingModeController(BaseEnv):
 
     def set_dot(self):
         pos, vel, acc, angle, omega, omega_dot = self.observe_list()
-        self.pos.dot, self.vel.dot, self.acc.dot, self.angle.dot, self.omega.dot, self.omega_dot.dot = self.dynamics(pos, vel, acc, angle. omega, omega_dot, self.u)
+        self.pos.dot, self.vel.dot, self.acc.dot, self.angle.dot, self.omega.dot, self.omega_dot.dot = self.dynamics(pos, vel, acc, angle, omega, omega_dot)
 
     def get_action(self, obs, gammaTune, kdTune, dtype="sat"):
         # Tuning parameters
@@ -127,7 +127,6 @@ class SlidingModeController(BaseEnv):
         M3 = M3eq + kt_M3*M3d
 
         action = np.vstack((F, M1, M2, M3))
-        # self.u = action
 
         return action
 

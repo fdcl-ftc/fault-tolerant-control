@@ -149,9 +149,9 @@ if __name__ == "__main__":
     rquat = np.vstack((1, 0, 0, 0))
     romega = np.zeros((3, 1))
     # perturbation
-    pos_pertb = rpos + np.vstack([0, 0, -5])
+    pos_pertb = rpos + np.vstack([0, 0, 0])
     yaw = 0
     pitch = 0
     roll = 0
-    quat_pertb = angle2quat(*np.deg2rad([yaw, pitch, roll]))
-    test_slidingmode(pos_pertb, quat_pertb, rpos, rvel, rquat, romega, "sat")
+    quat_pertb = angle2quat(*np.deg2rad([yaw, pitch, roll])[::-1])
+    test_slidingmode(pos_pertb, quat_pertb, rpos, rvel, rquat, romega, "Herrera")
