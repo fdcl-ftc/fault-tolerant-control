@@ -49,9 +49,10 @@ class SlidingModeController(BaseEnv):
         self.env = env
 
         self.d, self.m, self.g, self.J = env.plant.d, env.plant.m, env.plant.g, env.plant.J
-        self.n_rotors = env.plant.mixer.B.shape[1]
-        trim_rotors = np.vstack([self.m * self.g / self.n_rotors] * self.n_rotors)
-        self.u = env.plant.mixer.inverse(trim_rotors)
+        # self.n_rotors = env.plant.mixer.B.shape[1]
+        # trim_rotors = np.vstack([self.m * self.g / self.n_rotors] * self.n_rotors)
+        # self.u = env.plant.mixer.inverse(trim_rotors)
+        self.u = np.zeros((4, 1))
 
     def dynamics(self, pos, vel, acc, angle, omega, omega_dot):
         F, M1, M2, M3 = self.u
@@ -64,14 +65,14 @@ class SlidingModeController(BaseEnv):
 
         dpos = vel
         dvel = acc
-        dacc = np.vstack(((cos(phi)*sin(theta)*cos(-psi) + sin(phi)*sin(-psi))/self.m*F,
-                          (cos(phi)*sin(theta)*cos(-psi) - sin(phi)*cos(-psi))/self.m*F,
-                          self.g - (cos(phi)*cos(theta))/self.m*F))
+        dacc = np.vstack(((cos(phi)*sin(theta)*cos(psi) + sin(phi)*sin(psi))/self.m*F,
+                          (cos(phi)*sin(theta)*sin(psi) + sin(phi)*cos(psi))/self.m*F,
+                          self.g - (cos(phi)*cos(psi))/self.m*F))
         dangle = omega
         domega = omega_dot
-        domega_dot = np.vstack((-p*r*(Iy-Iz)/Ix + d/Ix*M1,
-                                -p*r*(Iz-Ix)/Iy + d/Iy*M2,
-                                -p*q*(Ix-Iy)/Iz - 1/Iz*M3))
+        domega_dot = np.vstack((p*r*(Iy-Iz)/Ix + d/Ix*M1,
+                                p*r*(Iz-Ix)/Iy + d/Iy*M2,
+                                p*q*(Ix-Iy)/Iz + 1/Iz*M3))
         return dpos, dvel, dacc, dangle, domega, domega_dot
 
     def set_dot(self):
@@ -95,10 +96,10 @@ class SlidingModeController(BaseEnv):
         pdd, qdd, rdd = self.omega_dot.state
         # observation
         obs = np.vstack((obs))
-        obs = np.vstack((obs[0:6], np.vstack(quat2angle(obs[6:10])[::-1]), obs[10::]))
-        z, w = obs[2], obs[5]
-        phi, theta, psi = obs[6:9]
-        p, q, r = obs[9:]
+        obs_ = np.vstack((obs[0:6], np.vstack(quat2angle(obs[6:10])[::-1]), obs[10::]))
+        z, w = obs_[2], obs_[5]
+        phi, theta, psi = obs_[6:9]
+        p, q, r = obs_[9:]
 
         # continuous part
         Feq = (g + gt_F*(wd-w) + dot_wd) * m / (cos(phi)*cos(psi))
@@ -127,7 +128,7 @@ class SlidingModeController(BaseEnv):
         M3 = M3eq + kt_M3*M3d
 
         action = np.vstack((F, M1, M2, M3))
-
+        self.u = action
         return action
 
 
