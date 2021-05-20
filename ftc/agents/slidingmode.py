@@ -102,10 +102,10 @@ class SlidingModeController(BaseEnv):
         p, q, r = obs_[9:]
 
         # continuous part
-        Feq = (g + gt_F*(wd-w) + dot_wd) * m / (cos(phi)*cos(psi))
+        Feq = (g - gt_F*(wd-w) - dot_wd) * m / (cos(phi)*cos(psi))
         M1eq = (gt_M1*(pd-p) + pdd - q*r*(Iy-Iz)/Ix)*Ix/d
         M2eq = (gt_M2*(qd-q) + qdd - p*r*(Iz-Ix)/Iy)*Iy/d
-        M3eq = (gt_M3*(rd-r) + rdd - p*q*(Ix-Iy)/Iz)*Iz
+        M3eq = (gt_M3*(rd-r) + rdd - p*q*(Iy-Ix)/Iz)*Iz
 
         # discrete part
         sF = wd - w + gt_F*(zd - z)
