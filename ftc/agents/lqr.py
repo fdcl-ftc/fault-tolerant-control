@@ -10,19 +10,16 @@ from fym.core import BaseEnv, BaseSystem
 
 
 class LQRController:
-    def __init__(self, env, ref):
-        self.ref = np.vstack((ref[:6], np.vstack(quat2angle(ref[6:10])[::-1]), ref[10:]))
-        Jinv = env.plant.Jinv
-        m, g = env.plant.m, env.plant.g
-        n_rotors = env.plant.mixer.B.shape[1]
-        trim_rotors = np.vstack([m * g / n_rotors] * n_rotors)
-        self.trim_forces = env.plant.mixer.inverse(trim_rotors)
+    def __init__(self, Jinv, m, g):
+        self.Jinv = Jinv
+        self.m, self.g = m, g
+        self.trim_forces = np.vstack([self.m * self.g, 0, 0, 0])
 
         A = np.array([[0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
                       [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
                       [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
-                      [0, 0, 0, 0, 0, 0, 0, -g, 0, 0, 0, 0],
-                      [0, 0, 0, 0, 0, 0, g, 0, 0, 0, 0, 0],
+                      [0, 0, 0, 0, 0, 0, 0, -self.g, 0, 0, 0, 0],
+                      [0, 0, 0, 0, 0, 0, self.g, 0, 0, 0, 0, 0],
                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
@@ -35,23 +32,23 @@ class LQRController:
                       [0, 0, 0, 0],
                       [0, 0, 0, 0],
                       [0, 0, 0, 0],
-                      [-1/m, 0, 0, 0],
+                      [-1/self.m, 0, 0, 0],
                       [0, 0, 0, 0],
                       [0, 0, 0, 0],
                       [0, 0, 0, 0],
-                      [0, Jinv[0, 0], 0, 0],
-                      [0, 0, Jinv[1, 1], 0],
-                      [0, 0, 0, Jinv[2, 2]]])
+                      [0, self.Jinv[0, 0], 0, 0],
+                      [0, 0, self.Jinv[1, 1], 0],
+                      [0, 0, 0, self.Jinv[2, 2]]])
         Q = np.diag([1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0])
         R = np.diag([1, 1, 1, 1])
 
         self.K, *_ = LQR.clqr(A, B, Q, R)
 
-    def observation(self, obs):
-        obs = np.vstack((obs))
-        return np.vstack((obs[0:6], np.vstack(quat2angle(obs[6:10])[::-1]), obs[10::]))
+    def transform(self, y):
+        return np.vstack((y[0:6], np.vstack(quat2angle(y[6:10])[::-1]), y[10:]))
 
-    def get_action(self, obs):
-        x = self.observation(obs)
-        action = -self.K.dot(x - self.ref) + self.trim_forces
-        return action
+    def get_forces(self, obs, ref):
+        x = self.transform(obs)
+        x_ref = self.transform(ref)
+        forces = -self.K.dot(x - x_ref) + self.trim_forces
+        return forces
