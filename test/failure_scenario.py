@@ -63,6 +63,7 @@ class Env(BaseEnv):
             BB = self.CA.get(fault_index)
             rotors = np.linalg.pinv(BB.dot(What)).dot(forces)
 
+        # actuator saturation
         rotors = np.clip(rotors, 0, self.plant.rotor_max)
 
         return rotors
@@ -81,13 +82,13 @@ class Env(BaseEnv):
         for sen_fault in self.sensor_faults:
             x = sen_fault(t, x)
 
+        fault_index = self.fdi.get_index(What)
         ref = self.get_ref(t)
 
         # Controller
         forces = self.controller.get_forces(x, ref)
 
         # Switching logic
-        # fault_index = self.fdi.get_index(What)
         # if len(fault_index) >= 1:
         #     forces = self.controll2.get_forces(x)
 
@@ -98,6 +99,8 @@ class Env(BaseEnv):
             rotors = act_fault(t, rotors)
 
         W = self.fdi.get_true(rotors, rotors_cmd)
+        # it works on failure only
+        W[fault_index, fault_index] = 0
 
         return rotors_cmd, W, rotors
 
