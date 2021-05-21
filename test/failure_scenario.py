@@ -35,38 +35,44 @@ class Env(BaseEnv):
         # Define faults
         self.sensor_faults = []
         self.actuator_faults = [
-            LoE(time=3, index=0, level=0.),
-            # LoE(time=6, index=2, level=0.),
+            LoE(time=3, index=0, level=0.),  # scenario a
+            # LoE(time=6, index=2, level=0.),  # scenario b
         ]
 
         # Define FDI
         self.fdi = SimpleFDI(no_act=n, tau=0.1)
 
         # Define agents
+        self.grouping = Grouping(self.plant.mixer.B)
         self.CA = CA(self.plant.mixer.B)
         self.controller = lqr.LQRController(self.plant.Jinv,
                                             self.plant.m,
                                             self.plant.g)
+        # self.controller2 = SecondController()
 
     def step(self):
         *_, done = self.update()
         return done
 
-    def control_allocation(self, f, What):
+    def control_allocation(self, forces, What):
         fault_index = self.fdi.get_index(What)
 
         if len(fault_index) == 0:
-            rotors = np.linalg.pinv(self.plant.mixer.B.dot(What)).dot(f)
+            rotors = np.linalg.pinv(self.plant.mixer.B.dot(What)).dot(forces)
         else:
             BB = self.CA.get(fault_index)
-            rotors = np.linalg.pinv(BB.dot(What)).dot(f)
+            rotors = np.linalg.pinv(BB.dot(What)).dot(forces)
 
         rotors = np.clip(rotors, 0, self.plant.rotor_max)
 
         return rotors
 
     def get_ref(self, t):
-        ref = np.vstack([0, 0, -0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0])
+        pos_des = np.vstack([0, 0, 0])
+        vel_des = np.vstack([0, 0, 0])
+        quat_des = np.vstack([1, 0, 0, 0])
+        omega_des = np.vstack([0, 0, 0])
+        ref = np.vstack([pos_des, vel_des, quat_des, omega_des])
 
         return ref
 
@@ -75,10 +81,15 @@ class Env(BaseEnv):
         for sen_fault in self.sensor_faults:
             x = sen_fault(t, x)
 
-        # controller
-        # switching logic
         ref = self.get_ref(t)
+
+        # Controller
         forces = self.controller.get_forces(x, ref)
+
+        # Switching logic
+        # fault_index = self.fdi.get_index(What)
+        # if len(fault_index) >= 1:
+        #     forces = self.controll2.get_forces(x)
 
         rotors = rotors_cmd = self.control_allocation(forces, What)
 
@@ -140,8 +151,9 @@ def exp1_plot():
     plt.figure()
 
     ax = plt.subplot(321)
-    plt.plot(data["t"], data["W"][:, 0, 0], "r--")
-    plt.plot(data["t"], data["What"][:, 0, 0], "k-")
+    plt.plot(data["t"], data["W"][:, 0, 0], "r--", label="Fault")
+    plt.plot(data["t"], data["What"][:, 0, 0], "k-", label="estimated")
+    plt.legend()
 
     plt.subplot(322, sharex=ax)
     plt.plot(data["t"], data["W"][:, 1, 1], "r--")
@@ -150,6 +162,7 @@ def exp1_plot():
     plt.subplot(323, sharex=ax)
     plt.plot(data["t"], data["W"][:, 2, 2], "r--")
     plt.plot(data["t"], data["What"][:, 2, 2], "k-")
+    plt.ylabel("FDI")
 
     plt.subplot(324, sharex=ax)
     plt.plot(data["t"], data["W"][:, 3, 3], "r--")
@@ -177,6 +190,7 @@ def exp1_plot():
     plt.subplot(323, sharex=ax)
     plt.plot(data["t"], data["rotors_cmd"][:, 2], "r--")
     plt.plot(data["t"], data["rotors"][:, 2], "k-")
+    plt.ylabel("Rotors")
 
     plt.subplot(324, sharex=ax)
     plt.plot(data["t"], data["rotors_cmd"][:, 3], "r--")
@@ -189,7 +203,9 @@ def exp1_plot():
     plt.subplot(326, sharex=ax)
     plt.plot(data["t"], data["rotors_cmd"][:, 5], "r--")
     plt.plot(data["t"], data["rotors"][:, 5], "k-")
+
     plt.figure()
+
     plt.plot(data["t"], data["x"]["pos"][:, 0, 0], "k-", label="x")  # x
     plt.plot(data["t"], data["x"]["pos"][:, 1, 0], "k--", label="y")  # y
     plt.plot(data["t"], -data["x"]["pos"][:, 2, 0], "k-.", label="z")  # z
