@@ -3,7 +3,9 @@ import matplotlib.pyplot as plt
 
 from fym.core import BaseEnv, BaseSystem
 import fym.logging
-from fym.utils.rot import angle2quat
+from fym.utils.rot import angle2quat, quat2angle
+from fym.utils.linearization import jacob_analytic
+from fym.agents.LQR import LQR
 
 from ftc.models.multicopter import Multicopter
 from ftc.agents.CA import Grouping
@@ -20,6 +22,48 @@ class ActuatorDynamcs(BaseSystem):
 
     def set_dot(self, rotors, rotors_cmd):
         self.dot = - 1 / self.tau * (rotors - rotors_cmd)
+
+
+class LQRLibrary:
+    def __init__(self, plant):
+        self.plant = plant
+        self.xtrim, self.utrim = self.get_trims(alt=1)
+
+        # Get the linear model
+        self.A = jacob_analytic(self.deriv, 0)(self.xtrim, self.utrim)
+        self.B = jacob_analytic(self.deriv, 1)(self.xtrim, self.utrim)
+
+        # Get the optimal gain
+        self.K, self.P = LQR.clqr(self.A, self.B, cfg.agent.Q, cfg.agent.R)
+
+    def deriv(self, x, u):
+        pos, vel, angle, omega = x[:3], x[3:6], x[6:9], x[9:12]
+        R = self.plant.angle2R(angle)
+        dpos, dvel, _, domega = self.plant.deriv(pos, vel, R, omega, u)
+        phi, theta, _ = angle.ravel()
+        dangle = self.omega2dangle(omega, phi, theta)
+        xdot = np.vstack((dpos, dvel, dangle, domega))
+        return xdot
+
+    def transform(self, y):
+        return np.vstack((y[0:6], np.vstack(quat2angle(y[6:10])[::-1]), y[10:]))
+
+    def get_forces(self, obs, ref):
+        pass
+
+    def get_trims(self, alt=1):
+        pos = np.vstack((0, 0, -alt))
+        vel = angle = omega = np.zeros((3, 1))
+        u = np.vstack([self.plant.m * self.plant.g / 4] * 4)
+        return np.vstack((pos, vel, angle, omega)), u
+
+    def omega2dangle(self, omega, phi, theta):
+        dangle = np.array([
+            [1, np.sin(phi)*np.tan(theta), np.cos(phi)*np.tan(theta)],
+            [0, np.cos(phi), -np.sin(phi)],
+            [0, np.sin(phi)/np.cos(theta), np.cos(phi)/np.cos(theta)]
+        ]) @ omega
+        return dangle
 
 
 class Env(BaseEnv):
@@ -48,7 +92,8 @@ class Env(BaseEnv):
         self.controller = lqr.LQRController(self.plant.Jinv,
                                             self.plant.m,
                                             self.plant.g)
-        # self.controller2 = SecondController()
+
+        self.controller2 = LQRLibrary(self.plant)
 
     def step(self):
         *_, done = self.update()
@@ -89,8 +134,8 @@ class Env(BaseEnv):
         forces = self.controller.get_forces(x, ref)
 
         # Switching logic
-        # if len(fault_index) >= 1:
-        #     forces = self.controll2.get_forces(x)
+        if len(fault_index) >= 1:
+            forces = self.controller2.get_forces(x, ref, fault_index)
 
         rotors = rotors_cmd = self.control_allocation(forces, What)
 
@@ -117,7 +162,7 @@ class Env(BaseEnv):
 
     def logger_callback(self, i, t, y, *args):
         states = self.observe_dict(y)
-        x_flat = self.plant.state
+        x_flat = self.plant.observe_vec(y[self.plant.flat_index])
         x = states["plant"]
         What = states["fdi"]
         # rotors = states["act_dyn"]
