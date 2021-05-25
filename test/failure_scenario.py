@@ -185,27 +185,33 @@ def exp1_plot():
     ax = plt.subplot(321)
     plt.plot(data["t"], data["rotors_cmd"][:, 0], "r--")
     plt.plot(data["t"], data["rotors"][:, 0], "k-")
+    plt.ylim([-0.1, 12.1])
 
     plt.subplot(322, sharex=ax)
     plt.plot(data["t"], data["rotors_cmd"][:, 1], "r--")
     plt.plot(data["t"], data["rotors"][:, 1], "k-")
+    plt.ylim([-0.1, 12.1])
 
     plt.subplot(323, sharex=ax)
     plt.plot(data["t"], data["rotors_cmd"][:, 2], "r--")
     plt.plot(data["t"], data["rotors"][:, 2], "k-")
     plt.ylabel("Rotors")
+    plt.ylim([-0.1, 12.1])
 
     plt.subplot(324, sharex=ax)
     plt.plot(data["t"], data["rotors_cmd"][:, 3], "r--")
     plt.plot(data["t"], data["rotors"][:, 3], "k-")
+    plt.ylim([-0.1, 12.1])
 
     plt.subplot(325, sharex=ax)
     plt.plot(data["t"], data["rotors_cmd"][:, 4], "r--")
     plt.plot(data["t"], data["rotors"][:, 4], "k-")
+    plt.ylim([-0.1, 12.1])
 
     plt.subplot(326, sharex=ax)
     plt.plot(data["t"], data["rotors_cmd"][:, 5], "r--")
     plt.plot(data["t"], data["rotors"][:, 5], "k-")
+    plt.ylim([-0.1, 12.1])
 
     plt.figure()
 
