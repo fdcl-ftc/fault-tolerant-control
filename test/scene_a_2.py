@@ -102,6 +102,7 @@ class Env(BaseEnv):
         # Switching logic
         elif len(fault_index) >= 1:
             rotors = self.controller2.get_rotors(x, ref, fault_index)
+            rotors = np.clip(rotors, 0, self.plant.rotor_max)
             rotors_cmd = rotors.copy()
             rotors_cmd[fault_index] = 1
 
