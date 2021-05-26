@@ -155,6 +155,7 @@ def exp1_plot():
     for i in range(data["W"].shape[1]):
         if i is not 0:
             plt.subplot(321+i, sharex=ax)
+        plt.ylim([0-0.1, 1+0.1])
         plt.plot(data["t"], data["W"][:, i, i], "r--", label="true")
         plt.plot(data["t"], data["What"][:, i, i], "k-", label="estimated")
         if i == 0:
@@ -170,7 +171,7 @@ def exp1_plot():
     for i in range(data["rotors"].shape[1]):
         if i is not 0:
             plt.subplot(321+i, sharex=ax)
-        plt.ylim([info["rotor_min"], info["rotor_max"]])
+        plt.ylim([info["rotor_min"]-5, info["rotor_max"]+5])
         plt.plot(data["t"], data["rotors_cmd"][:, i], "r--")
         plt.plot(data["t"], data["rotors"][:, i], "k-")
 
