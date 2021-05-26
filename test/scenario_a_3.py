@@ -6,11 +6,9 @@ import fym.logging
 from fym.utils.rot import angle2quat
 
 from ftc.models.multicopter import Multicopter
-from ftc.agents.CA import Grouping
-from ftc.agents.CA import CA
 from ftc.agents.fdi import SimpleFDI
 from ftc.faults.actuator import LoE, LiP, Float
-import ftc.agents.lqr as lqr
+from ftc.agents.backstepping import DirectBacksteppingController
 
 
 class ActuatorDynamcs(BaseSystem):
@@ -43,37 +41,24 @@ class Env(BaseEnv):
         self.fdi = SimpleFDI(no_act=n, tau=0.1)
 
         # Define agents
-        self.grouping = Grouping(self.plant.mixer.B)
-        self.CA = CA(self.plant.mixer.B)
-        self.controller = lqr.LQRController(self.plant.Jinv,
-                                            self.plant.m,
-                                            self.plant.g)
-        # self.controller2 = SecondController()
+        self.controller = DirectBacksteppingController(
+            self.plant.pos.state,
+            self.plant.m,
+            self.plant.g,
+        )
 
     def step(self):
         *_, done = self.update()
         return done
 
-    def control_allocation(self, forces, What):
-        fault_index = self.fdi.get_index(What)
-
-        if len(fault_index) == 0:
-            rotors = np.linalg.pinv(self.plant.mixer.B.dot(What)).dot(forces)
-        else:
-            BB = self.CA.get(fault_index)
-            rotors = np.linalg.pinv(BB.dot(What)).dot(forces)
-
-        # actuator saturation
-        rotors = np.clip(rotors, 0, self.plant.rotor_max)
-
-        return rotors
-
     def get_ref(self, t):
-        pos_des = np.vstack([0, 0, 0])
-        vel_des = np.vstack([0, 0, 0])
-        quat_des = np.vstack([1, 0, 0, 0])
-        omega_des = np.vstack([0, 0, 0])
-        ref = np.vstack([pos_des, vel_des, quat_des, omega_des])
+        # pos_des = np.vstack([0, 0, 0])
+        # vel_des = np.vstack([0, 0, 0])
+        # quat_des = np.vstack([1, 0, 0, 0])
+        # omega_des = np.vstack([0, 0, 0])
+        # ref = np.vstack([pos_des, vel_des, quat_des, omega_des])
+        pos_des = np.vstack([-1, 1, 2])
+        ref = {"pos": pos_des,}
 
         return ref
 
@@ -86,13 +71,15 @@ class Env(BaseEnv):
         ref = self.get_ref(t)
 
         # Controller
-        forces = self.controller.get_forces(x, ref)
+        FM, Td_dot, Theta_hat_dot = self.controller.command(
+            *self.plant.observe_list(), *self.controller.observe_list(),
+            self.plant.m, self.plant.J, np.vstack((0, 0, self.plant.g)), self.plant.mixer.B,
+        )
 
-        # Switching logic
-        # if len(fault_index) >= 1:
-        #     forces = self.controll2.get_forces(x)
-
-        rotors = rotors_cmd = self.control_allocation(forces, What)
+        Theta_hat = self.controller.Theta_hat.state
+        rotors_cmd = (self.plant.mixer.Binv + Theta_hat) @ FM
+        rotors = np.clip(rotors_cmd,
+                         self.plant.rotor_min, self.plant.rotor_max)
 
         # Set actuator faults
         for act_fault in self.actuator_faults:
@@ -102,18 +89,21 @@ class Env(BaseEnv):
         # it works on failure only
         W[fault_index, fault_index] = 0
 
-        return rotors_cmd, W, rotors
+        # return rotors_cmd, W, rotors
+        return rotors_cmd, W, rotors, Td_dot, Theta_hat_dot, ref["pos"]
 
     def set_dot(self, t):
         x = self.plant.state
         What = self.fdi.state
         # rotors = self.act_dyn.state
 
-        rotors_cmd, W, rotors = self._get_derivs(t, x, What)
+        # rotors_cmd, W, rotors = self._get_derivs(t, x, What)
+        rotors_cmd, W, rotors, Td_dot, Theta_hat_dot, pos_cmd = self._get_derivs(t, x, What)
 
         self.plant.set_dot(t, rotors)
         self.fdi.set_dot(W)
         # self.act_dyn.set_dot(rotors, rotors_cmd)
+        self.controller.set_dot(Td_dot, Theta_hat_dot, pos_cmd)
 
     def logger_callback(self, i, t, y, *args):
         states = self.observe_dict(y)
@@ -122,9 +112,12 @@ class Env(BaseEnv):
         What = states["fdi"]
         # rotors = states["act_dyn"]
 
-        rotors_cmd, W, rotors = self._get_derivs(t, x_flat, What)
-        return dict(t=t, x=x, What=What, rotors=rotors, rotors_cmd=rotors_cmd,
-                    W=W)
+        # rotors_cmd, W, rotors = self._get_derivs(t, x_flat, What)
+        rotors_cmd, W, rotors, Td_dot, Theta_hat_dot, pos_cmd = self._get_derivs(t, x, What)
+        return dict(
+            t=t, x=x, What=What, rotors=rotors, rotors_cmd=rotors_cmd, W=W,
+            pos_cmd=pos_cmd,
+        )
 
 
 def run():
@@ -138,6 +131,11 @@ def run():
         done = env.step()
 
         if done:
+            env_info = {
+                "rotor_min": env.plant.rotor_min,
+                "rotor_max": env.plant.rotor_max,
+            }
+            env.logger.set_info(**env_info)
             break
 
     env.close()
@@ -148,70 +146,43 @@ def exp1():
 
 
 def exp1_plot():
-    data = fym.logging.load("data.h5")
+    data, info = fym.logging.load("data.h5", with_info=True)
 
     # FDI
     plt.figure()
+    plt.title("FDI")
 
     ax = plt.subplot(321)
-    plt.plot(data["t"], data["W"][:, 0, 0], "r--", label="Fault")
-    plt.plot(data["t"], data["What"][:, 0, 0], "k-", label="estimated")
-    plt.legend()
+    for i in range(data["W"].shape[1]):
+        if i is not 0:
+            plt.subplot(321+i, sharex=ax)
+        plt.plot(data["t"], data["W"][:, i, i], "r--", label="true")
+        plt.plot(data["t"], data["What"][:, i, i], "k-", label="estimated")
+        if i == 0:
+            plt.legend()
+        if i == 2:
+            plt.ylabel("Effectiveness")
 
-    plt.subplot(322, sharex=ax)
-    plt.plot(data["t"], data["W"][:, 1, 1], "r--")
-    plt.plot(data["t"], data["What"][:, 1, 1], "k-")
-
-    plt.subplot(323, sharex=ax)
-    plt.plot(data["t"], data["W"][:, 2, 2], "r--")
-    plt.plot(data["t"], data["What"][:, 2, 2], "k-")
-    plt.ylabel("FDI")
-
-    plt.subplot(324, sharex=ax)
-    plt.plot(data["t"], data["W"][:, 3, 3], "r--")
-    plt.plot(data["t"], data["What"][:, 3, 3], "k-")
-
-    plt.subplot(325, sharex=ax)
-    plt.plot(data["t"], data["W"][:, 4, 4], "r--")
-    plt.plot(data["t"], data["What"][:, 4, 4], "k-")
-
-    plt.subplot(326, sharex=ax)
-    plt.plot(data["t"], data["W"][:, 5, 5], "r--")
-    plt.plot(data["t"], data["What"][:, 5, 5], "k-")
-
-    # Rotor
+    # rotor
     plt.figure()
+    plt.title("rotor inputs")
 
     ax = plt.subplot(321)
-    plt.plot(data["t"], data["rotors_cmd"][:, 0], "r--")
-    plt.plot(data["t"], data["rotors"][:, 0], "k-")
+    for i in range(data["rotors"].shape[1]):
+        if i is not 0:
+            plt.subplot(321+i, sharex=ax)
+        plt.ylim([info["rotor_min"], info["rotor_max"]])
+        plt.plot(data["t"], data["rotors_cmd"][:, i], "r--")
+        plt.plot(data["t"], data["rotors"][:, i], "k-")
 
-    plt.subplot(322, sharex=ax)
-    plt.plot(data["t"], data["rotors_cmd"][:, 1], "r--")
-    plt.plot(data["t"], data["rotors"][:, 1], "k-")
-
-    plt.subplot(323, sharex=ax)
-    plt.plot(data["t"], data["rotors_cmd"][:, 2], "r--")
-    plt.plot(data["t"], data["rotors"][:, 2], "k-")
-    plt.ylabel("Rotors")
-
-    plt.subplot(324, sharex=ax)
-    plt.plot(data["t"], data["rotors_cmd"][:, 3], "r--")
-    plt.plot(data["t"], data["rotors"][:, 3], "k-")
-
-    plt.subplot(325, sharex=ax)
-    plt.plot(data["t"], data["rotors_cmd"][:, 4], "r--")
-    plt.plot(data["t"], data["rotors"][:, 4], "k-")
-
-    plt.subplot(326, sharex=ax)
-    plt.plot(data["t"], data["rotors_cmd"][:, 5], "r--")
-    plt.plot(data["t"], data["rotors"][:, 5], "k-")
-
+    # position
     plt.figure()
+    plt.title("position")
+    plt.ylim([-5, 5])
 
-    plt.plot(data["t"], data["x"]["pos"][:, 0, 0], "k-", label="x")  # x
-    plt.plot(data["t"], data["x"]["pos"][:, 1, 0], "k--", label="y")  # y
-    plt.plot(data["t"], -data["x"]["pos"][:, 2, 0], "k-.", label="z")  # z
+    for (i, _label, _ls) in zip(range(data["x"]["pos"].shape[1]), ["x", "y", "z"], ["-", "--", "-."]):
+        plt.plot(data["t"], data["x"]["pos"][:, i, 0], "k"+_ls, label=_label)
+        plt.plot(data["t"], data["pos_cmd"][:, i, 0], "r"+_ls, label=_label+" (cmd)")
     plt.legend()
 
     plt.show()
