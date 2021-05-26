@@ -34,7 +34,7 @@ class Env(BaseEnv):
         self.sensor_faults = []
         self.actuator_faults = [
             LoE(time=3, index=0, level=0.),  # scenario a
-            # LoE(time=6, index=2, level=0.),  # scenario b
+            LoE(time=6, index=2, level=0.),  # scenario b
         ]
 
         # Define FDI
@@ -110,12 +110,13 @@ class Env(BaseEnv):
         x = states["plant"]
         What = states["fdi"]
         # rotors = states["act_dyn"]
+        Theta_hat = self.controller.Theta_hat.state
 
         # rotors_cmd, W, rotors = self._get_derivs(t, x_flat, What)
         rotors_cmd, W, rotors, Td_dot, Theta_hat_dot, pos_cmd = self._get_derivs(t, x, What)
         return dict(
             t=t, x=x, What=What, rotors=rotors, rotors_cmd=rotors_cmd, W=W,
-            pos_cmd=pos_cmd,
+            pos_cmd=pos_cmd, adaptation_params=Theta_hat.flatten(),
         )
 
 
@@ -174,6 +175,18 @@ def exp1_plot():
         plt.ylim([info["rotor_min"]-5, info["rotor_max"]+5])
         plt.plot(data["t"], data["rotors_cmd"][:, i], "r--")
         plt.plot(data["t"], data["rotors"][:, i], "k-")
+
+    # adaptation parameter
+    plt.figure()
+    plt.title("Adaptation parameter")
+    # breakpoint()
+    ax = plt.subplot(6, 4, 1)
+    for i in range(data["adaptation_params"].shape[1]):
+        if i is not 0:
+            plt.subplot(6, 4, 1+i, sharex=ax)
+        plt.plot(data["t"], data["adaptation_params"][:, i], "k-")
+
+    plt.legend()
 
     # position
     plt.figure()
