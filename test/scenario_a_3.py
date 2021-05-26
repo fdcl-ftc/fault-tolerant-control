@@ -78,8 +78,7 @@ class Env(BaseEnv):
 
         Theta_hat = self.controller.Theta_hat.state
         rotors_cmd = (self.plant.mixer.Binv + Theta_hat) @ FM
-        rotors = np.clip(rotors_cmd,
-                         self.plant.rotor_min, self.plant.rotor_max)
+        rotors = np.clip(rotors_cmd, self.plant.rotor_min, self.plant.rotor_max)
 
         # Set actuator faults
         for act_fault in self.actuator_faults:
@@ -150,7 +149,7 @@ def exp1_plot():
 
     # FDI
     plt.figure()
-    plt.title("FDI")
+    plt.suptitle("FDI")
 
     ax = plt.subplot(321)
     for i in range(data["W"].shape[1]):
@@ -165,7 +164,7 @@ def exp1_plot():
 
     # rotor
     plt.figure()
-    plt.title("rotor inputs")
+    plt.suptitle("rotor inputs")
 
     ax = plt.subplot(321)
     for i in range(data["rotors"].shape[1]):
