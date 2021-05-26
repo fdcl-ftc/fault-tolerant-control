@@ -178,7 +178,7 @@ def exp1_plot():
 
     # adaptation parameter
     plt.figure()
-    plt.title("Adaptation parameter")
+    plt.suptitle("Adaptation parameter")
     # breakpoint()
     ax = plt.subplot(6, 4, 1)
     for i in range(data["adaptation_params"].shape[1]):
