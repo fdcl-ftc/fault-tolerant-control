@@ -11,6 +11,7 @@ from ftc.agents.CA import CA
 from ftc.agents.fdi import SimpleFDI
 from ftc.faults.actuator import LoE, LiP, Float
 import ftc.agents.lqr as lqr
+from copy import deepcopy
 
 
 class ActuatorDynamcs(BaseSystem):
@@ -63,9 +64,6 @@ class Env(BaseEnv):
             BB = self.CA.get(fault_index)
             rotors = np.linalg.pinv(BB.dot(What)).dot(forces)
 
-        # actuator saturation
-        rotors = np.clip(rotors, 0, self.plant.rotor_max)
-
         return rotors
 
     def get_ref(self, t):
@@ -92,13 +90,17 @@ class Env(BaseEnv):
         # if len(fault_index) >= 1:
         #     forces = self.controll2.get_forces(x)
 
-        rotors = rotors_cmd = self.control_allocation(forces, What)
+        rotors_cmd = self.control_allocation(forces, What)
+
+        # actuator saturation
+        _rotors = np.clip(rotors_cmd, 0, self.plant.rotor_max)
+        rotors = deepcopy(_rotors)
 
         # Set actuator faults
         for act_fault in self.actuator_faults:
             rotors = act_fault(t, rotors)
 
-        W = self.fdi.get_true(rotors, rotors_cmd)
+        W = self.fdi.get_true(rotors, _rotors)
         # it works on failure only
         W[fault_index, fault_index] = 0
 
@@ -185,33 +187,33 @@ def exp1_plot():
     ax = plt.subplot(321)
     plt.plot(data["t"], data["rotors_cmd"][:, 0], "r--")
     plt.plot(data["t"], data["rotors"][:, 0], "k-")
-    plt.ylim([-0.1, 12.1])
+    plt.ylim([-5.1, 12.1])
 
     plt.subplot(322, sharex=ax)
     plt.plot(data["t"], data["rotors_cmd"][:, 1], "r--")
     plt.plot(data["t"], data["rotors"][:, 1], "k-")
-    plt.ylim([-0.1, 12.1])
+    plt.ylim([-5.1, 12.1])
 
     plt.subplot(323, sharex=ax)
     plt.plot(data["t"], data["rotors_cmd"][:, 2], "r--")
     plt.plot(data["t"], data["rotors"][:, 2], "k-")
     plt.ylabel("Rotors")
-    plt.ylim([-0.1, 12.1])
+    plt.ylim([-5.1, 12.1])
 
     plt.subplot(324, sharex=ax)
     plt.plot(data["t"], data["rotors_cmd"][:, 3], "r--")
     plt.plot(data["t"], data["rotors"][:, 3], "k-")
-    plt.ylim([-0.1, 12.1])
+    plt.ylim([-5.1, 12.1])
 
     plt.subplot(325, sharex=ax)
     plt.plot(data["t"], data["rotors_cmd"][:, 4], "r--")
     plt.plot(data["t"], data["rotors"][:, 4], "k-")
-    plt.ylim([-0.1, 12.1])
+    plt.ylim([-5.1, 12.1])
 
     plt.subplot(326, sharex=ax)
     plt.plot(data["t"], data["rotors_cmd"][:, 5], "r--")
     plt.plot(data["t"], data["rotors"][:, 5], "k-")
-    plt.ylim([-0.1, 12.1])
+    plt.ylim([-5.1, 12.1])
 
     plt.figure()
 
