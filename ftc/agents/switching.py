@@ -105,7 +105,7 @@ class LQRLibrary:
 
     def get_rotors(self, obs, ref, fault_index):
         x = self.transform(obs)
-        # x_ref = self.transform(ref)
+        x_ref = self.transform(ref)
         indices = tuple(fault_index)
-        rotors = self.lqr_table[indices].get(x)
+        rotors = self.lqr_table[indices].get(x - x_ref)
         return rotors

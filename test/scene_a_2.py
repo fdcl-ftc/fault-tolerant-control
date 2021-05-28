@@ -25,7 +25,7 @@ class ActuatorDynamcs(BaseSystem):
 
 class Env(BaseEnv):
     def __init__(self):
-        super().__init__(dt=0.01, max_t=20)
+        super().__init__(dt=10, max_t=20, solver="odeint", ode_step_len=100)
         self.plant = Multicopter()
         self.trim_forces = np.vstack([self.plant.m * self.plant.g, 0, 0, 0])
         n = self.plant.mixer.B.shape[1]
@@ -37,7 +37,7 @@ class Env(BaseEnv):
         self.sensor_faults = []
         self.actuator_faults = [
             LoE(time=3, index=0, level=0),  # scenario a
-            LoE(time=5, index=3, level=0.),  # scenario a
+            LoE(time=6, index=2, level=0),  # scenario a
         ]
 
         # Define FDI
@@ -51,13 +51,15 @@ class Env(BaseEnv):
                                             self.plant.g)
 
         Q = np.diag(np.hstack((
-            [10, 10, 10],
-            [1, 1, 1],
-            [10, 10, 10],
+            [1000, 1000, 1000],
+            [100, 100, 100],
+            [0, 0, 0],
             [1, 1, 1],
         )))
-        R = np.diag([10, 10, 10, 10, 10, 10])
+        R = np.diag([1, 1, 1, 1, 1, 1])
         self.controller2 = switching.LQRLibrary(self.plant, Q, R)
+
+        self.detection_time = [[] for _ in range(len(self.actuator_faults))]
 
     def step(self):
         *_, done = self.update()
@@ -78,7 +80,7 @@ class Env(BaseEnv):
         return rotors
 
     def get_ref(self, t):
-        pos_des = np.vstack([0, 0, 0])
+        pos_des = np.vstack([-1, 1, 2])
         vel_des = np.vstack([0, 0, 0])
         quat_des = np.vstack([1, 0, 0, 0])
         omega_des = np.vstack([0, 0, 0])
@@ -101,6 +103,9 @@ class Env(BaseEnv):
 
         # Switching logic
         elif len(fault_index) >= 1:
+            if len(self.detection_time[len(fault_index) - 1]) == 0:
+                print(t)
+                self.detection_time[len(fault_index) - 1] = [t]
             rotors = self.controller2.get_rotors(x, ref, fault_index)
             rotors = np.clip(rotors, 0, self.plant.rotor_max)
             rotors_cmd = rotors.copy()
@@ -130,11 +135,12 @@ class Env(BaseEnv):
         x_flat = self.plant.observe_vec(y[self.plant.flat_index])
         x = states["plant"]
         What = states["fdi"]
+        ref = self.get_ref(t)
         # rotors = states["act_dyn"]
 
         rotors_cmd, W, rotors = self._get_derivs(t, x_flat, What)
         return dict(t=t, x=x, What=What, rotors=rotors, rotors_cmd=rotors_cmd,
-                    W=W)
+                    W=W, ref=ref)
 
 
 def run():
@@ -160,34 +166,55 @@ def exp1():
 def exp1_plot():
     data = fym.logging.load("data.h5")
 
+    # Figure setup
+    plt.rcParams.update({
+        "text.usetex": True,
+        "font.family": "sans-serif",
+        "font.sans-serif": ["Helvetica"]})
+    # for Palatino and other serif fonts use:
+    plt.rcParams.update({
+        "text.usetex": True,
+        "font.family": "serif",
+        "font.serif": ["Palatino"],
+    })
+
     # FDI
     plt.figure()
 
     ax = plt.subplot(321)
     plt.plot(data["t"], data["W"][:, 0, 0], "r--", label="Fault")
     plt.plot(data["t"], data["What"][:, 0, 0], "k-", label="estimated")
+    plt.ylim((-0.1, 1.1))
     plt.legend()
 
     plt.subplot(322, sharex=ax)
     plt.plot(data["t"], data["W"][:, 1, 1], "r--")
     plt.plot(data["t"], data["What"][:, 1, 1], "k-")
+    plt.ylim((-0.1, 1.1))
 
     plt.subplot(323, sharex=ax)
     plt.plot(data["t"], data["W"][:, 2, 2], "r--")
     plt.plot(data["t"], data["What"][:, 2, 2], "k-")
-    plt.ylabel("FDI")
+    plt.ylim((-0.1, 1.1))
 
     plt.subplot(324, sharex=ax)
     plt.plot(data["t"], data["W"][:, 3, 3], "r--")
     plt.plot(data["t"], data["What"][:, 3, 3], "k-")
+    plt.ylim((-0.1, 1.1))
 
     plt.subplot(325, sharex=ax)
     plt.plot(data["t"], data["W"][:, 4, 4], "r--")
     plt.plot(data["t"], data["What"][:, 4, 4], "k-")
+    plt.ylim((-0.1, 1.1))
 
     plt.subplot(326, sharex=ax)
     plt.plot(data["t"], data["W"][:, 5, 5], "r--")
     plt.plot(data["t"], data["What"][:, 5, 5], "k-")
+    plt.ylim((-0.1, 1.1))
+
+    plt.gcf().supylabel("FDI")
+    plt.gcf().supxlabel("Time, sec")
+    plt.tight_layout()
 
     # Rotor
     plt.figure()
@@ -203,7 +230,6 @@ def exp1_plot():
     plt.subplot(323, sharex=ax)
     plt.plot(data["t"], data["rotors_cmd"][:, 2], "r--")
     plt.plot(data["t"], data["rotors"][:, 2], "k-")
-    plt.ylabel("Rotors")
 
     plt.subplot(324, sharex=ax)
     plt.plot(data["t"], data["rotors_cmd"][:, 3], "r--")
@@ -217,16 +243,40 @@ def exp1_plot():
     plt.plot(data["t"], data["rotors_cmd"][:, 5], "r--")
     plt.plot(data["t"], data["rotors"][:, 5], "k-")
 
+    plt.gcf().supxlabel("Time, sec")
+    plt.gcf().supylabel("Rotor force")
+    plt.tight_layout()
+
     plt.figure()
 
-    plt.plot(data["t"], data["x"]["pos"][:, 0, 0], "k-", label="x")  # x
-    plt.plot(data["t"], data["x"]["pos"][:, 1, 0], "k--", label="y")  # y
-    plt.plot(data["t"], -data["x"]["pos"][:, 2, 0], "k-.", label="z")  # z
-    plt.legend()
+    plt.plot(data["t"], data["ref"][:, 0, 0], "r-", label="x (cmd)")
+    plt.plot(data["t"], data["x"]["pos"][:, 0, 0], "k-", label="x")
+
+    plt.plot(data["t"], data["ref"][:, 1, 0], "r--", label="y (cmd)")
+    plt.plot(data["t"], data["x"]["pos"][:, 1, 0], "k--", label="y")
+
+    plt.plot(data["t"], data["ref"][:, 2, 0], "r-.", label="z (cmd)")
+    plt.plot(data["t"], data["x"]["pos"][:, 2, 0], "k-.", label="z")
+
+    plt.axvspan(3, 3.042, alpha=0.2, color="b")
+    plt.axvline(3.042, alpha=0.8, color="b", linewidth=0.5)
+
+    plt.axvspan(6, 6.011, alpha=0.2, color="b")
+    plt.axvline(6.011, alpha=0.8, color="b", linewidth=0.5)
+
+    plt.annotate("Rotor 0 fails", xy=(3, 0), xytext=(3.5, 0.5),
+                 arrowprops=dict(arrowstyle='->', lw=1.5))
+    plt.annotate("Rotor 1 fails", xy=(6, 0), xytext=(7.5, 0.2),
+                 arrowprops=dict(arrowstyle='->', lw=1.5))
+
+    plt.xlabel("Time, sec")
+    plt.ylabel("Position")
+    plt.legend(loc="right")
+    plt.tight_layout()
 
     plt.show()
 
 
 if __name__ == "__main__":
-    exp1()
+    # exp1()
     exp1_plot()
