@@ -15,13 +15,13 @@ def sgn(s):
         return 0
 
 
-def sat(s, BoundaryLayer):
-    if s > BoundaryLayer:
+def sat(s, eps):
+    if s > eps:
         return 1
-    elif s < -BoundaryLayer:
+    elif s < -eps:
         return -1
     else:
-        return s
+        return s/eps
 
 
 def Herrera(s, delta):
@@ -49,9 +49,6 @@ class SlidingModeController(BaseEnv):
         self.env = env
 
         self.d, self.m, self.g, self.J = env.plant.d, env.plant.m, env.plant.g, env.plant.J
-        # self.n_rotors = env.plant.mixer.B.shape[1]
-        # trim_rotors = np.vstack([self.m * self.g / self.n_rotors] * self.n_rotors)
-        # self.u = env.plant.mixer.inverse(trim_rotors)
         self.u = np.zeros((4, 1))
 
     def dynamics(self, pos, vel, acc, angle, omega, omega_dot):
@@ -65,12 +62,12 @@ class SlidingModeController(BaseEnv):
 
         dpos = vel
         dvel = acc
-        dacc = np.vstack(((cos(phi)*sin(theta)*cos(psi) + sin(phi)*sin(psi))/self.m*F,
-                          (cos(phi)*sin(theta)*sin(psi) + sin(phi)*cos(psi))/self.m*F,
-                          self.g - (cos(phi)*cos(psi))/self.m*F))
+        dacc = np.vstack((-(cos(phi)*sin(theta)*cos(psi) + sin(phi)*sin(psi))/self.m*F,
+                          -(cos(phi)*sin(theta)*sin(psi) - sin(phi)*cos(psi))/self.m*F,
+                          self.g - (cos(phi)*cos(theta))/self.m*F))
         dangle = omega
         domega = omega_dot
-        domega_dot = np.vstack((p*r*(Iy-Iz)/Ix + d/Ix*M1,
+        domega_dot = np.vstack((q*r*(Iy-Iz)/Ix + d/Ix*M1,
                                 p*r*(Iz-Ix)/Iy + d/Iy*M2,
                                 p*q*(Ix-Iy)/Iz + 1/Iz*M3))
         return dpos, dvel, dacc, dangle, domega, domega_dot
@@ -96,32 +93,44 @@ class SlidingModeController(BaseEnv):
         pdd, qdd, rdd = self.omega_dot.state
         # observation
         obs = np.vstack((obs))
-        obs_ = np.vstack((obs[0:6], np.vstack(quat2angle(obs[6:10])[::-1]), obs[10::]))
+        obs_ = np.vstack((obs[0:6], np.vstack(quat2angle(obs[6:10])[::-1]), obs[10:]))
         z, w = obs_[2], obs_[5]
         phi, theta, psi = obs_[6:9]
         p, q, r = obs_[9:]
 
+        # error term
+        e_z = zd - z
+        e_z_dot = wd - w
+        e_phi = phid - phi
+        e_phi_dot = pd - p
+        e_theta = thetad - theta
+        e_theta_dot = qd - q
+        e_psi = psid - psi
+        e_psi_dot = rd - r
+
+        # sliding surface
+        sF = e_z_dot + gt_F*e_z
+        sM1 = e_phi_dot + gt_M1*e_phi
+        sM2 = e_theta_dot + gt_M2*e_theta
+        sM3 = e_psi_dot + gt_M3*e_psi
+
         # continuous part
-        Feq = (g - gt_F*(wd-w) - dot_wd) * m / (cos(phi)*cos(psi))
-        M1eq = (gt_M1*(pd-p) + pdd - q*r*(Iy-Iz)/Ix)*Ix/d
-        M2eq = (gt_M2*(qd-q) + qdd - p*r*(Iz-Ix)/Iy)*Iy/d
-        M3eq = (gt_M3*(rd-r) + rdd - p*q*(Iy-Ix)/Iz)*Iz
+        Feq = (g - gt_F*e_z_dot - dot_wd) * m / (cos(phi)*cos(theta))
+        M1eq = (gt_M1*e_phi_dot + pdd - q*r*(Iy-Iz)/Ix)*Ix/d
+        M2eq = (gt_M2*e_theta_dot + qdd - p*r*(Iz-Ix)/Iy)*Iy/d
+        M3eq = (gt_M3*e_psi_dot + rdd - p*q*(Ix-Iy)/Iz)*Iz
 
         # discrete part
-        sF = wd - w + gt_F*(zd - z)
-        sM1 = pd - p + gt_M1*(phid - phi)
-        sM2 = qd - q + gt_M2*(thetad - theta)
-        sM3 = rd - r + gt_M3*(psid - psi)
-
         if dtype == "sgn":
             Fd, M1d, M2d, M3d = sgn(sF), sgn(sM1), sgn(sM2), sgn(sM3)
         elif dtype == "sat":
-            BoundaryLayer = 1
-            Fd, M1d, M2d, M3d = sat(sF, BoundaryLayer), sat(sM1, BoundaryLayer), sat(sM2, BoundaryLayer), sat(sM3, BoundaryLayer)
+            eps = 1
+            Fd, M1d, M2d, M3d = sat(sF, eps), sat(sM1, eps), sat(sM2, eps), sat(sM3, eps)
         elif dtype == "Herrera":
             delta = 0.3
             Fd, M1d, M2d, M3d = Herrera(sF, delta), Herrera(sM1, delta), Herrera(sM2, delta), Herrera(sM3, delta)
 
+        # F = Feq + kt_F*Fd
         F = Feq + kt_F*Fd
         M1 = M1eq + kt_M1*M1d
         M2 = M2eq + kt_M2*M2d
