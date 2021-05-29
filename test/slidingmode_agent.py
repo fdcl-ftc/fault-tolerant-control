@@ -47,8 +47,8 @@ class Env(BaseEnv):
 def run(env, pos, quat, dtype, agent=None):
     obs = env.reset()
     logger = fym.logging.Logger(path='data.h5')
-    gamma_tune = np.array([2, 5, 5, 5])
-    kd_tune = np.array([25, 100, 100, 100])
+    gamma_tune = np.array([1, 1, 1, 1])
+    kd_tune = np.array([25, 10, 10, 10])
 
     while True:
         env.render()
@@ -134,9 +134,9 @@ def plot_var():
     plt.tight_layout()
 
 
-def test_slidingmode(pos, quat, rpos, rvel, rquat, romega, dtype):
+def test_slidingmode(pos, quat, ref, dtype):
     env = Env(pos=pos, quat=quat)
-    agent = SlidingModeController(env, rpos, rvel, rquat, romega)
+    agent = SlidingModeController(env, ref)
     run(env=env, pos=pos, quat=quat, agent=agent, dtype=dtype)
     plot_var()
     plt.show()
@@ -144,14 +144,15 @@ def test_slidingmode(pos, quat, rpos, rvel, rquat, romega, dtype):
 
 if __name__ == "__main__":
     # reference
-    rpos = np.vstack((0, 0, -20))
+    rpos = np.vstack((0, 0, -10))
     rvel = np.zeros((3, 1))
     rquat = np.vstack((1, 0, 0, 0))
     romega = np.zeros((3, 1))
+    ref = np.vstack((rpos, rvel, rquat, romega))
     # perturbation
-    pos_pertb = rpos + np.vstack([0, 0, 0])
+    pos_pertb = np.vstack([0, 0, -0])
     yaw = 0
     pitch = 0
     roll = 0
     quat_pertb = angle2quat(*np.deg2rad([yaw, pitch, roll])[::-1])
-    test_slidingmode(pos_pertb, quat_pertb, rpos, rvel, rquat, romega, "Herrera")
+    test_slidingmode(pos_pertb, quat_pertb, ref, "sat")
