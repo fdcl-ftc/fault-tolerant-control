@@ -106,9 +106,8 @@ class Env(BaseEnv):
             if len(self.detection_time[len(fault_index) - 1]) == 0:
                 print(t)
                 self.detection_time[len(fault_index) - 1] = [t]
-            rotors = self.controller2.get_rotors(x, ref, fault_index)
-            rotors = np.clip(rotors, 0, self.plant.rotor_max)
-            rotors_cmd = rotors.copy()
+            rotors_cmd = self.controller2.get_rotors(x, ref, fault_index)
+            rotors = np.clip(rotors_cmd, 0, self.plant.rotor_max)
             rotors_cmd[fault_index] = 1
 
         # Set actuator faults
@@ -182,8 +181,8 @@ def exp1_plot():
     plt.figure()
 
     ax = plt.subplot(321)
-    plt.plot(data["t"], data["W"][:, 0, 0], "r--", label="Fault")
-    plt.plot(data["t"], data["What"][:, 0, 0], "k-", label="estimated")
+    plt.plot(data["t"], data["W"][:, 0, 0], "r--", label="Actual")
+    plt.plot(data["t"], data["What"][:, 0, 0], "k-", label="Estimated")
     plt.ylim((-0.1, 1.1))
     plt.legend()
 
@@ -220,28 +219,29 @@ def exp1_plot():
     plt.figure()
 
     ax = plt.subplot(321)
-    plt.plot(data["t"], data["rotors_cmd"][:, 0], "r--")
-    plt.plot(data["t"], data["rotors"][:, 0], "k-")
+    plt.plot(data["t"], data["rotors"][:, 0], "k-", label="Response")
+    plt.plot(data["t"], data["rotors_cmd"][:, 0], "r--", label="Command")
+    plt.legend()
 
     plt.subplot(322, sharex=ax)
-    plt.plot(data["t"], data["rotors_cmd"][:, 1], "r--")
     plt.plot(data["t"], data["rotors"][:, 1], "k-")
+    plt.plot(data["t"], data["rotors_cmd"][:, 1], "r--")
 
     plt.subplot(323, sharex=ax)
-    plt.plot(data["t"], data["rotors_cmd"][:, 2], "r--")
     plt.plot(data["t"], data["rotors"][:, 2], "k-")
+    plt.plot(data["t"], data["rotors_cmd"][:, 2], "r--")
 
     plt.subplot(324, sharex=ax)
-    plt.plot(data["t"], data["rotors_cmd"][:, 3], "r--")
     plt.plot(data["t"], data["rotors"][:, 3], "k-")
+    plt.plot(data["t"], data["rotors_cmd"][:, 3], "r--")
 
     plt.subplot(325, sharex=ax)
-    plt.plot(data["t"], data["rotors_cmd"][:, 4], "r--")
     plt.plot(data["t"], data["rotors"][:, 4], "k-")
+    plt.plot(data["t"], data["rotors_cmd"][:, 4], "r--")
 
     plt.subplot(326, sharex=ax)
-    plt.plot(data["t"], data["rotors_cmd"][:, 5], "r--")
     plt.plot(data["t"], data["rotors"][:, 5], "k-")
+    plt.plot(data["t"], data["rotors_cmd"][:, 5], "r--")
 
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Rotor force")
@@ -266,7 +266,7 @@ def exp1_plot():
 
     plt.annotate("Rotor 0 fails", xy=(3, 0), xytext=(3.5, 0.5),
                  arrowprops=dict(arrowstyle='->', lw=1.5))
-    plt.annotate("Rotor 1 fails", xy=(6, 0), xytext=(7.5, 0.2),
+    plt.annotate("Rotor 2 fails", xy=(6, 0), xytext=(7.5, 0.2),
                  arrowprops=dict(arrowstyle='->', lw=1.5))
 
     plt.xlabel("Time, sec")
