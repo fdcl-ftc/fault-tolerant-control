@@ -84,7 +84,7 @@ class Env(BaseEnv):
         ref = self.get_ref(t)
 
         # Controller
-        forces = self.controller.get_forces(x, ref)
+        forces = self.controller.get_FM(x, ref)
 
         # Switching logic
         # if len(fault_index) >= 1:
@@ -219,7 +219,7 @@ def exp1_plot():
 
     plt.plot(data["t"], data["x"]["pos"][:, 0, 0], "k-", label="x")  # x
     plt.plot(data["t"], data["x"]["pos"][:, 1, 0], "k--", label="y")  # y
-    plt.plot(data["t"], -data["x"]["pos"][:, 2, 0], "k-.", label="z")  # z
+    plt.plot(data["t"], data["x"]["pos"][:, 2, 0], "k-.", label="z")  # z
     plt.legend()
 
     plt.show()
