@@ -49,7 +49,6 @@ def run(env, pos, quat, ref, dtype, agent=None):
     gamma_tune = np.array([1, 1, 1, 1])
     kd_tune = np.array([25, 1, 1, 1])
 
-    breakpoint()
     while True:
         env.render()
 
@@ -135,7 +134,7 @@ def plot_var():
 
 
 def test_slidingmode(pos, quat, ref, dtype):
-    env = Env(pos, quat)
+    env = Env(pos=pos, quat=quat)
     agent = SlidingModeController(env)
     run(env, pos, quat, ref, dtype, agent)
     plot_var()

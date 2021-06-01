@@ -64,7 +64,6 @@ class SlidingModeController(BaseEnv):
         # observation
         obs = np.vstack((obs))
         obs_ = np.vstack((obs[0:6], np.vstack(quat2angle(obs[6:10])[::-1]), obs[10:]))
-        breakpoint()
         z, w = obs_[2], obs_[5]
         phi, theta, psi, p, q, r = obs_[6:]
         # error term
