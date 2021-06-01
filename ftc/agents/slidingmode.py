@@ -37,14 +37,14 @@ class SlidingModeController(BaseEnv):
     "Sliding mode control of quadrotor."
     2013 The International Conference on Technological Advances in Electrical, Electronics and Computer Engineering (TAEECE). IEEE, 2013.
     '''
-    def __init__(self, env, ref):
+    def __init__(self, env):
         super().__init__()
-        self.ref_ = np.vstack((ref[0:6], np.vstack(quat2angle(ref[6:10])[::-1]), ref[10:]))
         self.env = env
 
         self.d, self.m, self.g, self.J = env.plant.d, env.plant.m, env.plant.g, env.plant.J
 
-    def get_action(self, obs, gammaTune, kdTune, dtype="sat"):
+    def get_action(self, obs, ref, gammaTune, kdTune, dtype="sat"):
+        ref_ = np.vstack((ref[0:6], np.vstack(quat2angle(ref[6:10])[::-1]), ref[10:]))
         # Tuning parameters
         gt_F, gt_M1, gt_M2, gt_M3 = gammaTune
         kt_F, kt_M1, kt_M2, kt_M3 = kdTune
@@ -55,8 +55,8 @@ class SlidingModeController(BaseEnv):
         Iz = self.J[2, 2]
         d = self.d
         # reference
-        z_r, w_r = self.ref_[2], self.ref_[5]
-        phi_r, theta_r, psi_r, p_r, q_r, r_r = self.ref_[6:]
+        z_r, w_r = ref_[2], ref_[5]
+        phi_r, theta_r, psi_r, p_r, q_r, r_r = ref_[6:]
         wd_r = 0
         pd_r = 0
         qd_r = 0
@@ -64,6 +64,7 @@ class SlidingModeController(BaseEnv):
         # observation
         obs = np.vstack((obs))
         obs_ = np.vstack((obs[0:6], np.vstack(quat2angle(obs[6:10])[::-1]), obs[10:]))
+        breakpoint()
         z, w = obs_[2], obs_[5]
         phi, theta, psi, p, q, r = obs_[6:]
         # error term

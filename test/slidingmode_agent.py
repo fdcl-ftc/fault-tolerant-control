@@ -15,7 +15,6 @@ class Env(BaseEnv):
                  vel=np.zeros((3, 1)),
                  quat=np.vstack((1, 0, 0, 0)),
                  omega=np.zeros((3, 1)),
-                 ref=np.vstack([0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]),
                  rtype="hexa-x"):
         super().__init__(dt=0.001, max_t=10)
         self.plant = Multicopter(pos, vel, quat, omega, rtype)
@@ -44,19 +43,20 @@ class Env(BaseEnv):
         self.plant.set_dot(t, rotors)
 
 
-def run(env, pos, quat, dtype, agent=None):
+def run(env, pos, quat, ref, dtype, agent=None):
     obs = env.reset()
     logger = fym.logging.Logger(path='data.h5')
     gamma_tune = np.array([1, 1, 1, 1])
-    kd_tune = np.array([25, 10, 10, 10])
+    kd_tune = np.array([25, 1, 1, 1])
 
+    breakpoint()
     while True:
         env.render()
 
         if agent is None:
             action = 0
         else:
-            action = agent.get_action(obs, gamma_tune, kd_tune, dtype=dtype)
+            action = agent.get_action(obs, ref, gamma_tune, kd_tune, dtype)
 
         t, next_obs, info, rotors, done = env.step(action)
         obs = next_obs
@@ -135,9 +135,9 @@ def plot_var():
 
 
 def test_slidingmode(pos, quat, ref, dtype):
-    env = Env(pos=pos, quat=quat)
-    agent = SlidingModeController(env, ref)
-    run(env=env, pos=pos, quat=quat, agent=agent, dtype=dtype)
+    env = Env(pos, quat)
+    agent = SlidingModeController(env)
+    run(env, pos, quat, ref, dtype, agent)
     plot_var()
     plt.show()
 
@@ -152,7 +152,7 @@ if __name__ == "__main__":
     # perturbation
     pos_pertb = np.vstack([0, 0, -0])
     yaw = 0
-    pitch = 0
+    pitch = 5
     roll = 0
     quat_pertb = angle2quat(*np.deg2rad([yaw, pitch, roll])[::-1])
-    test_slidingmode(pos_pertb, quat_pertb, ref, "sat")
+    test_slidingmode(pos_pertb, quat_pertb, ref, "Herrera")
