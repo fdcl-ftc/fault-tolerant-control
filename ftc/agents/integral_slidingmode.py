@@ -15,12 +15,11 @@ def sat(s, eps):
 
 
 class IntegralSMC(BaseEnv):
-    def __init__(self, env, ic, ref0):
+    def __init__(self, J, m, g, d, ic, ref0):
         super().__init__()
-        self.env = env
         self.ic_ = np.vstack((ic[0:6], np.vstack(quat2angle(ic[6:10])[::-1]), ic[10:]))
         self.ref0_ = np.vstack((ref0[0:6], np.vstack(quat2angle(ref0[6:10])[::-1]), ref0[10:]))
-        self.d, self.m, self.g, self.J = env.plant.d, env.plant.m, env.plant.g, env.plant.J
+        self.J, self.m, self.g, self.d = J, m, g, d
         self.p1 = BaseSystem(self.ic_[2] - self.ref0_[2])
         self.p2 = BaseSystem(self.ic_[6] - self.ref0_[6])
         self.p3 = BaseSystem(self.ic_[7] - self.ref0_[7])
@@ -48,17 +47,6 @@ class IntegralSMC(BaseEnv):
         return zdd, phidd, thetadd, psidd
 
     def deriv(self):
-        K = self.K
-        Kc = self.Kc
-
-        K1, K2, K3, K4 = K
-        k11, k12 = K1
-        k21, k22 = K2
-        k31, k32 = K3
-        k41, k42 = K4
-
-        kc1, kc2, kc3, kc4 = Kc
-
         dp1 = self.e_z
         dp2 = self.e_phi
         dp3 = self.e_theta
@@ -70,10 +58,10 @@ class IntegralSMC(BaseEnv):
         dots = self.deriv()
         self.p1.dot, self.p2.dot, self.p3.dot, self.p4.dot = dots
 
-    def get_action(self, obs, action, ref, K, Kc, PHI, t):
+    def get_FM(self, obs, ref, action, K, Kc, PHI, t):
         self.obs = obs
-        self.action = action
         self.ref = ref
+        self.action = action
         self.K = K
         self.Kc = Kc
         K1, K2, K3, K4 = K
@@ -92,12 +80,12 @@ class IntegralSMC(BaseEnv):
         # observation
         obs = np.vstack((obs))
         obs_ = np.vstack((obs[0:6], np.vstack(quat2angle(obs[6:10])[::-1]), obs[10:]))
-        z, zd = obs_[2], obs_[5]
+        x, y, z, xd, yd, zd = obs_[0:6]
         phi, theta, psi, phid, thetad, psid = obs_[6:]
         zdd, phidd, thetadd, psidd = self.get_ddot()
         # reference
         ref_ = np.vstack((ref[0:6], np.vstack(quat2angle(ref[6:10])[::-1]), ref[10:]))
-        z_r, zd_r = ref_[2], ref_[5]
+        x_r, y_r, z_r, xd_r, yd_r, zd_r = ref_[0:6]
         phi_r, theta_r, psi_r, phid_r, thetad_r, psid_r = ref_[6:]
         zdd_r = 0
         phidd_r = 0
@@ -108,6 +96,13 @@ class IntegralSMC(BaseEnv):
         phi0, theta0, psi0, phi0d, theta0d, psi0d = self.ic_[6:]
         z0_r, z0d_r = self.ref0_[2], self.ref0_[5]
         phi0_r, theta0_r, psi0_r, phi0d_r, theta0d_r, psi0d_r = self.ref0_[6:]
+        # position tracking (get phi_ref, theta_ref)
+        e_x = x - x_r
+        e_xd = xd - xd_r
+        e_y = y - y_r
+        e_yd = yd - yd_r
+        theta_r = (0.19*e_x + 0.2*e_xd)/abs(x_r)
+        phi_r = -(0.19*e_y + 0.2*e_yd)/abs(y_r)
         # error definition
         self.e_z = z - z_r
         self.e_zd = zd - zd_r
@@ -138,9 +133,8 @@ class IntegralSMC(BaseEnv):
         M3 = h4*(psidd_r - k42*self.e_psid - k41*self.e_psi - (Ixx-Iyy)/Izz*phid*thetad) - h4*kc4*sat(s4, PHI4)
 
         action = np.vstack((F, M1, M2, M3))
-        sliding_surface = np.array([s1, s2, s3, s4])
 
-        return action, sliding_surface
+        return action
 
 
 if __name__ == "__main__":
