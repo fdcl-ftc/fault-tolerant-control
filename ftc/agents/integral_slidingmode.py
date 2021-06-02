@@ -21,10 +21,10 @@ class IntegralSMC(BaseEnv):
         self.ic_ = np.vstack((ic[0:6], np.vstack(quat2angle(ic[6:10])[::-1]), ic[10:]))
         self.ref0_ = np.vstack((ref0[0:6], np.vstack(quat2angle(ref0[6:10])[::-1]), ref0[10:]))
         self.d, self.m, self.g, self.J = env.plant.d, env.plant.m, env.plant.g, env.plant.J
-        self.p1 = BaseSystem(0)
-        self.p2 = BaseSystem(0)
-        self.p3 = BaseSystem(0)
-        self.p4 = BaseSystem(0)
+        self.p1 = BaseSystem(self.ic_[2] - self.ref0_[2])
+        self.p2 = BaseSystem(self.ic_[6] - self.ref0_[6])
+        self.p3 = BaseSystem(self.ic_[7] - self.ref0_[7])
+        self.p4 = BaseSystem(self.ic_[8] - self.ref0_[8])
 
     def get_ddot(self):
         obs = self.obs
@@ -59,10 +59,10 @@ class IntegralSMC(BaseEnv):
 
         kc1, kc2, kc3, kc4 = Kc
 
-        dp1 = -self.e_zdd + k12*self.e_zd + k11*self.e_z
-        dp2 = -self.e_phidd + k22*self.e_phid + k21*self.e_phi
-        dp3 = -self.e_thetadd + k32*self.e_thetad + k31*self.e_theta
-        dp4 = -self.e_psidd + k42*self.e_psid + k41*self.e_psi
+        dp1 = self.e_z
+        dp2 = self.e_phi
+        dp3 = self.e_theta
+        dp4 = self.e_psi
 
         return dp1, dp2, dp3, dp4
 
@@ -127,26 +127,20 @@ class IntegralSMC(BaseEnv):
         h3 = Iyy/d
         h4 = Izz/d
         # sliding surface
-        s1 = self.e_z + self.e_zd - (z0-z0_r) - (z0d-z0d_r) + self.p1.state
-        s2 = self.e_phi + self.e_phid - (phi0-phi0_r) - (phi0d-phi0d_r) + self.p2.state
-        s3 = self.e_theta + self.e_thetad - (theta0-theta0_r) - (theta0d-theta0d_r) + self.p3.state
-        s4 = self.e_psi + self.e_psid - (psi0-psi0_r) - (psi0d-psi0d_r) + self.p4.state
+        s1 = self.e_zd + k12*self.e_z + k11*self.p1.state - k12*(z0-z0_r) - (z0d-z0d_r)
+        s2 = self.e_phid + k22*self.e_phi + k21*self.p2.state - k22*(phi0-phi0_r) - (phi0d-phi0d_r)
+        s3 = self.e_thetad + k32*self.e_theta + k31*self.p3.state - k32*(theta0-theta0_r) - (theta0d-theta0d_r)
+        s4 = self.e_psid + k42*self.e_psi + k41*self.p4.state - k42*(psi0-psi0_r) - (psi0d-psi0d_r)
         # get FM
         F = h1*(zdd_r - k12*self.e_zd - k11*self.e_z - g) - h1*kc1*sat(s1, PHI1)
         M1 = h2*(phidd_r - k22*self.e_phid - k21*self.e_phi - (Iyy-Izz)/Ixx*thetad*psid) - h2*kc2*sat(s2, PHI2)
         M2 = h3*(thetadd_r - k32*self.e_thetad - k31*self.e_theta - (Izz-Ixx)/Iyy*phid*psid) - h3*kc3*sat(s3, PHI3)
         M3 = h4*(psidd_r - k42*self.e_psid - k41*self.e_psi - (Ixx-Iyy)/Izz*phid*thetad) - h4*kc4*sat(s4, PHI4)
 
-        if F > m*g*5:
-            F = m*g*5
-        elif F < 0:
-            F = 0
-        else:
-            F = F
-
         action = np.vstack((F, M1, M2, M3))
+        sliding_surface = np.array([s1, s2, s3, s4])
 
-        return action
+        return action, sliding_surface
 
 
 if __name__ == "__main__":
