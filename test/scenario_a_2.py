@@ -132,13 +132,14 @@ class Env(BaseEnv):
                 self.detection_time[len(fault_index) - 1] = [t]
             rotors_cmd = self.controller2.get_rotors(x, ref, fault_index)
             rotors = np.clip(rotors_cmd, 0, self.plant.rotor_max)
-            rotors_cmd[fault_index] = 1
 
         # Set actuator faults
         for act_fault in self.actuator_faults:
             rotors = act_fault(t, rotors)
 
-        W = self.fdi.get_true(rotors, rotors_cmd)
+        _rotors_cmd = rotors_cmd.copy()
+        _rotors_cmd[fault_index] = 1
+        W = self.fdi.get_true(rotors, _rotors_cmd)
         # it works on failure only
         # W[fault_index, fault_index] = 0
 
