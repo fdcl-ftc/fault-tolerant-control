@@ -153,5 +153,5 @@ if __name__ == "__main__":
     yaw = 0
     pitch = 5
     roll = 0
-    quat_pertb = angle2quat(*np.deg2rad([yaw, pitch, roll])[::-1])
+    quat_pertb = angle2quat(*np.deg2rad([yaw, pitch, roll]))
     test_slidingmode(pos_pertb, quat_pertb, ref, "Herrera")
