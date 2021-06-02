@@ -1,4 +1,5 @@
 import numpy as np
+from copy import deepcopy
 import matplotlib.pyplot as plt
 
 from fym.core import BaseEnv, BaseSystem
@@ -80,16 +81,28 @@ class Env(BaseEnv):
         rotors_cmd = (self.plant.mixer.Binv + Theta_hat) @ FM
         rotors = np.clip(rotors_cmd, self.plant.rotor_min, self.plant.rotor_max)
 
+        # actuator saturation
+        _rotors = np.clip(rotors_cmd, 0, self.plant.rotor_max)
+        rotors = deepcopy(_rotors)
         # Set actuator faults
         for act_fault in self.actuator_faults:
             rotors = act_fault(t, rotors)
 
-        W = self.fdi.get_true(rotors, rotors_cmd)
-        # it works on failure only
-        W[fault_index, fault_index] = 0
+        _rotors[fault_index] = 1
+        W = self.fdi.get_true(rotors, _rotors)
 
         # return rotors_cmd, W, rotors
         return rotors_cmd, W, rotors, Td_dot, Theta_hat_dot, ref["pos"]
+        # Set actuator faults
+        # for act_fault in self.actuator_faults:
+        #     rotors = act_fault(t, rotors)
+
+        # W = self.fdi.get_true(rotors, rotors_cmd)
+        # # it works on failure only
+        # W[fault_index, fault_index] = 0
+
+        # # return rotors_cmd, W, rotors
+        # return rotors_cmd, W, rotors, Td_dot, Theta_hat_dot, ref["pos"]
 
     def set_dot(self, t):
         x = self.plant.state
@@ -157,8 +170,8 @@ def exp1_plot():
         if i is not 0:
             plt.subplot(321+i, sharex=ax)
         plt.ylim([0-0.1, 1+0.1])
-        plt.plot(data["t"], data["W"][:, i, i], "r--", label="true")
-        plt.plot(data["t"], data["What"][:, i, i], "k-", label="estimated")
+        plt.plot(data["t"], data["W"][:, i, i], "r--", label="Actual")
+        plt.plot(data["t"], data["What"][:, i, i], "k-", label="Estimated")
         if i == 0:
             plt.legend()
         if i == 2:
@@ -167,18 +180,22 @@ def exp1_plot():
     # rotor
     plt.figure()
     plt.suptitle("rotor inputs")
+    plt.supxlabel("Time (sec)")
+    plt.supylabel("Rotor force")
 
     ax = plt.subplot(321)
     for i in range(data["rotors"].shape[1]):
         if i is not 0:
             plt.subplot(321+i, sharex=ax)
         plt.ylim([info["rotor_min"]-5, info["rotor_max"]+5])
-        plt.plot(data["t"], data["rotors_cmd"][:, i], "r--")
-        plt.plot(data["t"], data["rotors"][:, i], "k-")
+        plt.plot(data["t"], data["rotors"][:, i], "k-", label="Response")
+        plt.plot(data["t"], data["rotors_cmd"][:, i], "r--", label="Command")
 
     # adaptation parameter
     plt.figure()
     plt.suptitle("Adaptation parameter")
+    plt.supxlabel("Time (sec)")
+    plt.supylabel("Adaptation parameter")
     # breakpoint()
     ax = plt.subplot(6, 4, 1)
     for i in range(data["adaptation_params"].shape[1]):
@@ -191,6 +208,8 @@ def exp1_plot():
     # position
     plt.figure()
     plt.title("position")
+    plt.supxlabel("Time (sec)")
+    plt.supylabel("Position")
     plt.ylim([-5, 5])
 
     for (i, _label, _ls) in zip(range(data["x"]["pos"].shape[1]), ["x", "y", "z"], ["-", "--", "-."]):
