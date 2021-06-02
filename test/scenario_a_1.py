@@ -211,7 +211,6 @@ def exp1_plot():
     plt.subplot(323, sharex=ax)
     plt.plot(data["t"], data["rotors"][:, 2], "k-")
     plt.plot(data["t"], data["rotors_cmd"][:, 2], "r--")
-    plt.ylabel("Rotors")
     plt.ylim([-5.1, 12.1])
 
     plt.subplot(324, sharex=ax)
