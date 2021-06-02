@@ -194,7 +194,6 @@ def exp1_plot():
     plt.gcf().supxlabel("Time, sec")
     plt.tight_layout()
 
-
     # Rotor
     plt.figure()
 
