@@ -10,8 +10,13 @@ from fym.core import BaseEnv, BaseSystem
 
 
 class LQRController:
-    def __init__(self, Jinv, m, g):
-        self.trim_forces = np.vstack([m * g, 0, 0, 0])
+    def __init__(self, Jinv, m, g,
+                 Q=np.diag([1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0]),
+                 R=np.diag([1, 1, 1, 1]),
+                 ):
+        self.Jinv = Jinv
+        self.m, self.g = m, g
+        self.trim_forces = np.vstack([self.m * self.g, 0, 0, 0])
 
         A = np.array([[0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
                       [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
@@ -37,8 +42,6 @@ class LQRController:
                       [0, Jinv[0, 0], 0, 0],
                       [0, 0, Jinv[1, 1], 0],
                       [0, 0, 0, Jinv[2, 2]]])
-        Q = np.diag([1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0])
-        R = np.diag([1, 1, 1, 1])
 
         self.K, *_ = LQR.clqr(A, B, Q, R)
 
