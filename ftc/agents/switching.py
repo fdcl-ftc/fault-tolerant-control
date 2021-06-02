@@ -58,12 +58,13 @@ class LQR:
 
 
 class LQRLibrary:
-    def __init__(self, plant, Q, R):
+    def __init__(self, plant, Qs, Rs):
         self.plant = plant
+        m = self.plant.mixer.B.shape[1]
 
         # LQR table
-        keys = [(k,) for k in range(len(R))]
-        keys += itertools.combinations(range(len(R)), 2)
+        keys = [(k,) for k in range(m)]
+        keys += itertools.combinations(range(m), 2)
         self.lqr_table = dict.fromkeys(keys)
 
         for indices in list(self.lqr_table.keys()):
@@ -73,6 +74,8 @@ class LQRLibrary:
             A = jacob_analytic(deriv, 0)(xtrim, utrim)
             B = jacob_analytic(deriv, 1)(xtrim, utrim)
 
+            Q = Qs[len(indices)]
+            R = Rs[len(indices)]
             self.lqr_table[indices] = LQR(A, B, Q, R, xtrim, utrim)
 
             if len(indices) > 1:

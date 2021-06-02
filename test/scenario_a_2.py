@@ -46,17 +46,41 @@ class Env(BaseEnv):
         # Define agents
         self.grouping = Grouping(self.plant.mixer.B)
         self.CA = CA(self.plant.mixer.B)
-        self.controller = lqr.LQRController(self.plant.Jinv,
-                                            self.plant.m,
-                                            self.plant.g)
 
-        Q = np.diag(np.hstack((
+        Q = [[] for _ in range(3)]
+        R = [[] for _ in range(3)]
+
+        # Nominal
+        Q[0] = np.diag(np.hstack((
+            [10, 10, 10],
+            [1, 1, 1],
+            [100, 100, 100],
+            [1, 1, 1],
+        )))
+        R[0] = np.diag([1, 1, 1, 1])
+
+        # One failure
+        Q[1] = np.diag(np.hstack((
+            [10, 10, 10],
+            [1, 1, 1],
+            [100, 100, 100],
+            [1, 1, 1],
+        )))
+        R[1] = np.diag([1, 1, 1, 1, 1, 1])
+
+        # Two failures
+        Q[2] = np.diag(np.hstack((
             [1000, 1000, 1000],
             [100, 100, 100],
             [0, 0, 0],
             [1, 1, 1],
         )))
-        R = np.diag([1, 1, 1, 1, 1, 1])
+        R[2] = np.diag([1, 1, 1, 1, 1, 1])
+
+        self.controller = lqr.LQRController(self.plant.Jinv,
+                                            self.plant.m,
+                                            self.plant.g,
+                                            Q[0], R[0])
         self.controller2 = switching.LQRLibrary(self.plant, Q, R)
 
         self.detection_time = [[] for _ in range(len(self.actuator_faults))]
