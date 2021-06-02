@@ -3,11 +3,13 @@ from fym.core import BaseEnv, BaseSystem
 
 
 class SimpleFDI(BaseSystem):
-    def __init__(self, no_act, tau):
+    def __init__(self, no_act, tau, threshold=0):
         super().__init__(np.eye(no_act))
         self.tau = tau
+        self.threshold = threshold
 
     def get_true(self, u, uc):
+        uc = np.clip(uc, 0, None)
         w = np.hstack([
             ui / uci if not np.isclose(uci, 0)
             else 1 if (np.isclose(ui, 0) and np.isclose(uci, 0))
@@ -16,7 +18,7 @@ class SimpleFDI(BaseSystem):
         return np.diag(w)
 
     def get_index(self, W):
-        fault_index = np.where(np.diag(W) != 1)[0]
+        fault_index = np.where(np.diag(W) < 1 - self.threshold)[0]
         return fault_index
 
     def set_dot(self, W):
