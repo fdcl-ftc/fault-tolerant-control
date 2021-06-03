@@ -17,11 +17,7 @@ class Env(BaseEnv):
         ic = np.vstack((0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0))
         self.pos_des = np.vstack((-1, 1, -2))
         self.vel_des = np.vstack((0, 0, 0))
-        yaw = 0
-        pitch = 0
-        roll = 0
-        quat_des = angle2quat(*np.deg2rad([yaw, pitch, roll]))
-        self.quat_des = quat_des
+        self.quat_des = np.vstack((1, 0, 0, 0))
         self.omega_des = np.vstack((0, 0, 0))
         ref0 = np.vstack((self.pos_des, self.vel_des, self.quat_des, self.omega_des))
 
@@ -48,7 +44,7 @@ class Env(BaseEnv):
 
         return ref
 
-    def _get_derivs(self, t, x):
+    def _get_derivs(self, t, x, p):
         ref = self.get_ref(t, x)
 
         K = np.array([[25, 20],
@@ -58,26 +54,26 @@ class Env(BaseEnv):
         Kc = np.vstack((1, 1, 1, 1))
         PHI = np.vstack([1] * 4)
 
-        forces = self.controller.get_FM(x, ref, self.action, K, Kc, PHI, t)
+        forces = self.controller.get_FM(x, ref, p, K, Kc, PHI, t)
         self.action = forces
         rotors = self.control_allocation(forces)
 
-        return rotors
+        return rotors, ref
 
     def set_dot(self, t):
         x = self.plant.state
-        rotors = self._get_derivs(t, x)
+        p = self.controller.state
+        rotors, ref = self._get_derivs(t, x, p)
 
         self.plant.set_dot(t, rotors)
-        self.controller.set_dot()
+        self.controller.set_dot(x, ref)
 
     def logger_callback(self, i, t, y, *args):
         states = self.observe_dict(y)
         x_flat = self.plant.observe_vec(y[self.plant.flat_index])
-        x = states["plant"]
-        rotors = self._get_derivs(t, x_flat)
-        ref = self.get_ref(t, x_flat)
-        return dict(t=t, x=x, rotors=rotors, ref=ref)
+        p = self.controller.observe_list(y[self.controller.flat_index])
+        rotors, ref = self._get_derivs(t, x_flat, p)
+        return dict(t=t, **states, rotors=rotors, ref=ref)
 
 
 def run():
@@ -109,13 +105,13 @@ def exp1_plot():
     ax3 = fig.add_subplot(4, 1, 3, sharex=ax1)
     ax4 = fig.add_subplot(4, 1, 4, sharex=ax1)
 
-    ax1.plot(data['t'], data['x']['pos'].squeeze(), "k-", label="x")
-    ax1.plot(data["t"], data["ref"][:, 0, 0], "r--", label="x (cmd)")
+    ax1.plot(data['t'], data['plant']['pos'].squeeze(), "k-", label="plant")
+    ax1.plot(data["t"], data["ref"][:, 0, 0], "r--", label="plant (cmd)")
     ax1.plot(data["t"], data["ref"][:, 1, 0], "r--", label="y (cmd)")
     ax1.plot(data["t"], data["ref"][:, 2, 0], "r--", label="z (cmd)")
-    ax2.plot(data['t'], data['x']['vel'].squeeze())
-    ax3.plot(data['t'], data['x']['quat'].squeeze())
-    ax4.plot(data['t'], data['x']['omega'].squeeze())
+    ax2.plot(data['t'], data['plant']['vel'].squeeze())
+    ax3.plot(data['t'], data['plant']['quat'].squeeze())
+    ax4.plot(data['t'], data['plant']['omega'].squeeze())
 
     ax1.set_ylabel('Position')
     ax1.legend([r'$x$', r'$y$', r'$z$'])
