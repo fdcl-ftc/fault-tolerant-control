@@ -163,7 +163,8 @@ class Env(BaseEnv):
         # rotors = states["act_dyn"]
 
         rotors_cmd, W, rotors = self._get_derivs(t, x_flat, What)
-        return dict(t=t, x=x, What=What, rotors=rotors, rotors_cmd=rotors_cmd,
+        return dict(t=t, **states,
+                    What=What, rotors=rotors, rotors_cmd=rotors_cmd,
                     W=W, ref=ref)
 
 
@@ -275,13 +276,13 @@ def exp1_plot():
     plt.figure()
 
     plt.plot(data["t"], data["ref"][:, 0, 0], "r-", label="x (cmd)")
-    plt.plot(data["t"], data["x"]["pos"][:, 0, 0], "k-", label="x")
+    plt.plot(data["t"], data["plant"]["pos"][:, 0, 0], "k-", label="x")
 
     plt.plot(data["t"], data["ref"][:, 1, 0], "r--", label="y (cmd)")
-    plt.plot(data["t"], data["x"]["pos"][:, 1, 0], "k--", label="y")
+    plt.plot(data["t"], data["plant"]["pos"][:, 1, 0], "k--", label="y")
 
     plt.plot(data["t"], data["ref"][:, 2, 0], "r-.", label="z (cmd)")
-    plt.plot(data["t"], data["x"]["pos"][:, 2, 0], "k-.", label="z")
+    plt.plot(data["t"], data["plant"]["pos"][:, 2, 0], "k-.", label="z")
 
     plt.axvspan(3, 3.042, alpha=0.2, color="b")
     plt.axvline(3.042, alpha=0.8, color="b", linewidth=0.5)
@@ -295,13 +296,104 @@ def exp1_plot():
                  arrowprops=dict(arrowstyle='->', lw=1.5))
 
     plt.xlabel("Time, sec")
-    plt.ylabel("Position")
-    plt.legend(loc="right")
+    plt.ylabel("Position, m")
+    plt.legend(loc=(0.8, 0.2))
     plt.tight_layout()
+    plt.savefig("pos.pdf")
+
+    plt.figure()
+
+    plt.plot(data["t"], data["ref"][:, 3, 0], "r-", label="vx (cmd)")
+    plt.plot(data["t"], data["plant"]["vel"][:, 0, 0], "k-", label="vx")
+
+    plt.plot(data["t"], data["ref"][:, 4, 0], "r--", label="vy (cmd)")
+    plt.plot(data["t"], data["plant"]["vel"][:, 1, 0], "k--", label="vy")
+
+    plt.plot(data["t"], data["ref"][:, 5, 0], "r-.", label="vz (cmd)")
+    plt.plot(data["t"], data["plant"]["vel"][:, 2, 0], "k-.", label="vz")
+
+    plt.axvspan(3, 3.042, alpha=0.2, color="b")
+    plt.axvline(3.042, alpha=0.8, color="b", linewidth=0.5)
+
+    plt.axvspan(6, 6.011, alpha=0.2, color="b")
+    plt.axvline(6.011, alpha=0.8, color="b", linewidth=0.5)
+
+    plt.annotate("Rotor 0 fails", xy=(3, 0), xytext=(3.5, -0.5),
+                 arrowprops=dict(arrowstyle='->', lw=1.5))
+    plt.annotate("Rotor 2 fails", xy=(6, 0), xytext=(7.5, 0.2),
+                 arrowprops=dict(arrowstyle='->', lw=1.5))
+
+    plt.xlabel("Time, sec")
+    plt.ylabel("Velocity, m/s")
+    plt.legend(loc="best")
+    plt.tight_layout()
+    plt.savefig("vel.pdf")
+
+    plt.figure()
+
+    quat2angle = lambda data: np.stack(
+        list(map(switching.quat2angle, data))).squeeze()
+    r2d = np.rad2deg
+    angleref = r2d(quat2angle(data["ref"][:, 6:10, 0]))
+    angle = r2d(quat2angle(data["plant"]["quat"][:, :, 0]))
+
+    plt.plot(data["t"], angleref[:, 0], "r-", label="phi (cmd)")
+    plt.plot(data["t"], angle[:, 0], "k-", label="phi")
+
+    plt.plot(data["t"], angleref[:, 1], "r--", label="theta (cmd)")
+    plt.plot(data["t"], angle[:, 1], "k--", label="theta")
+
+    plt.plot(data["t"], angleref[:, 2], "r-.", label="psi (cmd)")
+    plt.plot(data["t"], angle[:, 2], "k-.", label="psi")
+
+    plt.axvspan(3, 3.042, alpha=0.2, color="b")
+    plt.axvline(3.042, alpha=0.8, color="b", linewidth=0.5)
+
+    plt.axvspan(6, 6.011, alpha=0.2, color="b")
+    plt.axvline(6.011, alpha=0.8, color="b", linewidth=0.5)
+
+    plt.annotate("Rotor 0 fails", xy=(3, 0), xytext=(3.5, 7),
+                 arrowprops=dict(arrowstyle='->', lw=1.5))
+    plt.annotate("Rotor 2 fails", xy=(6, 0), xytext=(7.5, 4),
+                 arrowprops=dict(arrowstyle='->', lw=1.5))
+
+    plt.xlabel("Time, sec")
+    plt.ylabel("Attitude, deg")
+    plt.legend(loc="best")
+    plt.tight_layout()
+    plt.savefig("angle.pdf")
+
+    plt.figure()
+
+    plt.plot(data["t"], r2d(data["ref"][:, 10, 0]), "r-", label="p (cmd)")
+    plt.plot(data["t"], r2d(data["plant"]["omega"][:, 0, 0]), "k-", label="p")
+
+    plt.plot(data["t"], r2d(data["ref"][:, 11, 0]), "r--", label="q (cmd)")
+    plt.plot(data["t"], r2d(data["plant"]["omega"][:, 1, 0]), "k--", label="q")
+
+    plt.plot(data["t"], r2d(data["ref"][:, 12, 0]), "r-.", label="r (cmd)")
+    plt.plot(data["t"], r2d(data["plant"]["omega"][:, 2, 0]), "k-.", label="r")
+
+    plt.axvspan(3, 3.042, alpha=0.2, color="b")
+    plt.axvline(3.042, alpha=0.8, color="b", linewidth=0.5)
+
+    plt.axvspan(6, 6.011, alpha=0.2, color="b")
+    plt.axvline(6.011, alpha=0.8, color="b", linewidth=0.5)
+
+    plt.annotate("Rotor 0 fails", xy=(3, 0), xytext=(3.5, 30),
+                 arrowprops=dict(arrowstyle='->', lw=1.5))
+    plt.annotate("Rotor 2 fails", xy=(6, 0), xytext=(7.5, 20),
+                 arrowprops=dict(arrowstyle='->', lw=1.5))
+
+    plt.xlabel("Time, sec")
+    plt.ylabel("Angular velocity, deg/s")
+    plt.legend(loc="best")
+    plt.tight_layout()
+    plt.savefig("omega.pdf")
 
     plt.show()
 
 
 if __name__ == "__main__":
-    # exp1()
+    exp1()
     exp1_plot()
