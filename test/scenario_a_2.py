@@ -154,16 +154,12 @@ class Env(BaseEnv):
         self.plant.set_dot(t, rotors)
         self.fdi.set_dot(W)
 
-    def logger_callback(self, i, t, y, *args):
-        states = self.observe_dict(y)
-        x_flat = self.plant.observe_vec(y[self.plant.flat_index])
-        x = states["plant"]
-        What = states["fdi"]
+    def logger_callback(self, t):
         ref = self.get_ref(t)
-        # rotors = states["act_dyn"]
-
-        rotors_cmd, W, rotors = self._get_derivs(t, x_flat, What)
-        return dict(t=t, **states,
+        x = self.plant.state
+        What = self.fdi.state
+        rotors_cmd, W, rotors = self._get_derivs(t, x, What)
+        return dict(t=t, **self.observe_dict(),
                     What=What, rotors=rotors, rotors_cmd=rotors_cmd,
                     W=W, ref=ref)
 
