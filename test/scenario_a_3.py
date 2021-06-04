@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 from fym.core import BaseEnv, BaseSystem
 import fym.logging
-from fym.utils.rot import angle2quat
+from fym.utils.rot import angle2quat, quat2angle
 
 from ftc.models.multicopter import Multicopter
 from ftc.agents.fdi import SimpleFDI
@@ -177,12 +177,8 @@ def exp1_plot():
         if i == 2:
             plt.ylabel("Effectiveness")
 
-    # rotor
-    plt.figure()
-    plt.suptitle("rotor inputs")
-    plt.supxlabel("Time (sec)")
-    plt.supylabel("Rotor force")
-
+    # # rotor
+    fig, axes = plt.subplots(3, 2)
     ax = plt.subplot(321)
     for i in range(data["rotors"].shape[1]):
         if i is not 0:
@@ -191,30 +187,65 @@ def exp1_plot():
         plt.plot(data["t"], data["rotors"][:, i], "k-", label="Response")
         plt.plot(data["t"], data["rotors_cmd"][:, i], "r--", label="Command")
 
+    fig.suptitle("Rotor inputs")
+    fig.supxlabel("Time (sec)")
+    fig.supylabel("Rotor input")
+    plt.legend()
+
     # adaptation parameter
-    plt.figure()
-    plt.suptitle("Adaptation parameter")
-    plt.supxlabel("Time (sec)")
-    plt.supylabel("Adaptation parameter")
-    # breakpoint()
+    fig, axes = plt.subplots(6, 4)
     ax = plt.subplot(6, 4, 1)
     for i in range(data["adaptation_params"].shape[1]):
         if i is not 0:
             plt.subplot(6, 4, 1+i, sharex=ax)
         plt.plot(data["t"], data["adaptation_params"][:, i], "k-")
 
+    fig.suptitle("Adaptation parameter")
+    fig.supxlabel("Time (sec)")
+    fig.supylabel("Adaptation parameter")
     plt.legend()
 
     # position
     plt.figure()
-    plt.title("position")
-    plt.supxlabel("Time (sec)")
-    plt.supylabel("Position")
+    plt.title("Position")
+    plt.xlabel("Time (sec)")
+    plt.ylabel("Position (m)")
     plt.ylim([-5, 5])
 
     for (i, _label, _ls) in zip(range(data["x"]["pos"].shape[1]), ["x", "y", "z"], ["-", "--", "-."]):
         plt.plot(data["t"], data["x"]["pos"][:, i, 0], "k"+_ls, label=_label)
         plt.plot(data["t"], data["pos_cmd"][:, i, 0], "r"+_ls, label=_label+" (cmd)")
+    plt.legend()
+    # velocity
+    plt.figure()
+    plt.title("Velocity")
+    plt.xlabel("Time (sec)")
+    plt.ylabel("Velocity (m/s)")
+    plt.ylim([-5, 5])
+
+    for (i, _label, _ls) in zip(range(data["x"]["vel"].shape[1]), ["x", "y", "z"], ["-", "--", "-."]):
+        plt.plot(data["t"], data["x"]["vel"][:, i, 0], "k"+_ls, label=_label)
+    plt.legend()
+    # euler angles
+    plt.figure()
+    plt.title("Euler angles")
+    plt.xlabel("Time (sec)")
+    plt.ylabel("Euler angles (deg)")
+    plt.ylim([-40, 40])
+
+    angles = np.vstack([quat2angle(data["x"]["quat"][j, :, 0]) for j in range(len(data["x"]["quat"][:, 0, 0]))])
+    for (i, _label, _ls) in zip(range(angles.shape[1]), ["yaw", "pitch", "roll"], ["-", "--", "-."]):
+        plt.plot(data["t"], np.rad2deg(angles[:, i]), "k"+_ls, label=_label)
+    plt.legend()
+    # angular rates
+    plt.figure()
+    plt.title("Angular rates")
+    plt.xlabel("Time (sec)")
+    plt.ylabel("Angular rates (deg/s)")
+    plt.ylim([-10, 10])
+
+    for (i, _label, _ls) in zip(range(data["x"]["omega"].shape[1]), ["x", "y", "z"], ["-", "--", "-."]):
+        plt.plot(data["t"], np.rad2deg(data["x"]["omega"][:, i, 0]), "k"+_ls, label=_label)
     plt.legend()
 
     plt.show()
