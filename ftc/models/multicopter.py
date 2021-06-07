@@ -87,7 +87,7 @@ class Multicopter(BaseEnv):
         J = np.diag([0.0820, 0.0845, 0.1377])  # kg * m^2
         Jinv = np.linalg.inv(J)
         m = 4.34  # kg
-        d = 0.0315  # m
+        d = 0.315  # m
         c = 8.004e-4  # m
         b = 1
         g = 9.81  # m/s^2
