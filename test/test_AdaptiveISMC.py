@@ -5,27 +5,27 @@ import matplotlib.pyplot as plt
 import fym.logging
 from fym.core import BaseEnv, BaseSystem
 
-from copter import Copter
-from Active_ISMC import ActiveISMC
+from ftc.models.multicopter import Multicopter
+from ftc.agents.AdaptiveISMC import AdaptiveISMC
 
 
 class Env(BaseEnv):
     def __init__(self):
         super().__init__(solver="odeint", max_t=10, dt=5, ode_step_len=100)
-        self.plant = Copter()
-        ic = np.vstack((0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0))
-        pos_des0 = np.vstack((1, -1, 0))
+        self.plant = Multicopter()
+        ic = np.vstack((0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0))
+        pos_des0 = np.vstack((1, -1, -2))
         vel_des0 = np.vstack((0, 0, 0))
-        angle_des0 = np.vstack((0, 0, 0))
+        quat_des0 = np.vstack((1, 0, 0, 0))
         omega_des0 = np.vstack((0, 0, 0))
-        ref0 = np.vstack((pos_des0, vel_des0, angle_des0, omega_des0))
+        ref0 = np.vstack((pos_des0, vel_des0, quat_des0, omega_des0))
 
-        self.controller = ActiveISMC(self.plant.J,
-                                     self.plant.m,
-                                     self.plant.g,
-                                     self.plant.d,
-                                     ic,
-                                     ref0)
+        self.controller = AdaptiveISMC(self.plant.J,
+                                       self.plant.m,
+                                       self.plant.g,
+                                       self.plant.d,
+                                       ic,
+                                       ref0)
 
     def step(self):
         *_, done = self.update()
@@ -38,13 +38,13 @@ class Env(BaseEnv):
         return rotors
 
     def get_ref(self, t, x):
-        pos_des = np.vstack((1, -1, -0))
+        pos_des = np.vstack((1, -1, -2))
         vel_des = np.vstack((0, 0, 0))
         # pos_des = np.vstack((cos(t), sin(t), -t))
         # vel_des = np.vstack((-sin(t), cos(t), -1))
-        angle_des = np.vstack((0, 0, 0))
+        quat_des = np.vstack((1, 0, 0, 0))
         omega_des = np.zeros((3, 1))
-        ref = np.vstack((pos_des, vel_des, angle_des, omega_des))
+        ref = np.vstack((pos_des, vel_des, quat_des, omega_des))
 
         return ref
 
@@ -109,12 +109,12 @@ def exp1_plot():
     ax4 = fig.add_subplot(4, 1, 4, sharex=ax1)
 
     ax1.plot(data['t'], data['plant']['pos'].squeeze(), label="plant")
-    ax1.plot(data["t"], data["ref"][:, 0, 0], "r--", label="plant (cmd)")
+    ax1.plot(data["t"], data["ref"][:, 0, 0], "r--", label="x (cmd)")
     ax1.plot(data["t"], data["ref"][:, 1, 0], "r--", label="y (cmd)")
     ax1.plot(data["t"], data["ref"][:, 2, 0], "r--", label="z (cmd)")
     ax2.plot(data['t'], data['plant']['vel'].squeeze())
-    ax3.plot(data['t'], np.rad2deg(data['plant']['angle'].squeeze()))
-    ax4.plot(data['t'], np.rad2deg(data['plant']['omega'].squeeze()))
+    ax3.plot(data['t'], data['plant']['quat'].squeeze())
+    ax4.plot(data['t'], data['plant']['omega'].squeeze())
 
     ax1.set_ylabel('Position [m]')
     ax1.legend([r'$x$', r'$y$', r'$z$'])
@@ -124,11 +124,11 @@ def exp1_plot():
     ax2.legend([r'$u$', r'$v$', r'$w$'])
     ax2.grid(True)
 
-    ax3.set_ylabel('Euler angle [deg]')
-    ax3.legend([r'$phi$', r'$theta$', r'$psi$'])
+    ax3.set_ylabel('Quaternian')
+    ax3.legend([r'$p0$', r'$p1$', r'$p2$', r'$p3$'])
     ax3.grid(True)
 
-    ax4.set_ylabel('Angular Velocity [deg/s]')
+    ax4.set_ylabel('Omega [rad/s]')
     ax4.legend([r'$p$', r'$q$', r'$r$'])
     ax4.set_xlabel('Time [sec]')
     ax4.grid(True)
@@ -136,15 +136,19 @@ def exp1_plot():
     plt.tight_layout()
 
     fig2 = plt.figure()
-    ax1 = fig2.add_subplot(4, 1, 1)
-    ax2 = fig2.add_subplot(4, 1, 2, sharex=ax1)
-    ax3 = fig2.add_subplot(4, 1, 3, sharex=ax1)
-    ax4 = fig2.add_subplot(4, 1, 4, sharex=ax1)
+    ax1 = fig2.add_subplot(6, 1, 1)
+    ax2 = fig2.add_subplot(6, 1, 2, sharex=ax1)
+    ax3 = fig2.add_subplot(6, 1, 3, sharex=ax1)
+    ax4 = fig2.add_subplot(6, 1, 4, sharex=ax1)
+    ax5 = fig2.add_subplot(6, 1, 5, sharex=ax1)
+    ax6 = fig2.add_subplot(6, 1, 6, sharex=ax1)
 
     ax1.plot(data['t'], data['rotors'].squeeze()[:, 0])
     ax2.plot(data['t'], data['rotors'].squeeze()[:, 1])
     ax3.plot(data['t'], data['rotors'].squeeze()[:, 2])
     ax4.plot(data['t'], data['rotors'].squeeze()[:, 3])
+    ax5.plot(data['t'], data['rotors'].squeeze()[:, 4])
+    ax6.plot(data['t'], data['rotors'].squeeze()[:, 5])
 
     ax1.set_ylabel('rotor1')
     ax1.grid(True)
@@ -154,7 +158,11 @@ def exp1_plot():
     ax3.grid(True)
     ax4.set_ylabel('rotor4')
     ax4.grid(True)
-    ax4.set_xlabel('Time [sec]')
+    ax5.set_ylabel('rotor5')
+    ax5.grid(True)
+    ax6.set_ylabel('rotor6')
+    ax6.grid(True)
+    ax6.set_xlabel('Time [sec]')
 
     plt.tight_layout()
 

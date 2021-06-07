@@ -2,6 +2,7 @@ import numpy as np
 from numpy import cos
 
 from fym.core import BaseEnv, BaseSystem
+from fym.utils.rot import quat2angle
 
 
 def sat(s, eps):
@@ -13,7 +14,7 @@ def sat(s, eps):
         return s/eps
 
 
-class ActiveISMC(BaseEnv):
+class AdaptiveISMC(BaseEnv):
     '''
     reference
     Ban Wang, Youmin Zhang, "An Adaptive Fault-Tolerant Sliding Mode Control
@@ -24,14 +25,18 @@ class ActiveISMC(BaseEnv):
 
     def __init__(self, J, m, g, d, ic, ref0):
         super().__init__()
-        self.ic = ic
-        self.ref0 = ref0
+        self.ic_ = np.vstack((ic[0:6],
+                              np.vstack(quat2angle(ic[6:10])[::-1]),
+                              ic[10:]))
+        self.ref0_ = np.vstack((ref0[0:6],
+                                np.vstack(quat2angle(ref0[6:10])[::-1]),
+                                ref0[10:]))
         self.J, self.m, self.g, self.d = J, m, g, d
-        self.P = BaseSystem(np.vstack((self.ic[2] - self.ref0[2],
-                                       self.ic[6] - self.ref0[6],
-                                       self.ic[7] - self.ref0[7],
-                                       self.ic[8] - self.ref0[8])))
-        self.gamma = BaseSystem(np.vstack((-m/cos(ic[6])/cos(ic[7]),
+        self.P = BaseSystem(np.vstack((self.ic_[2] - self.ref0_[2],
+                                       self.ic_[6] - self.ref0_[6],
+                                       self.ic_[7] - self.ref0_[7],
+                                       self.ic_[8] - self.ref0_[8])))
+        self.gamma = BaseSystem(np.vstack((-m/cos(self.ic_[6])/cos(self.ic_[7]),
                                            J[0, 0]/d,
                                            J[1, 1]/d,
                                            J[2, 2]/d)))
@@ -53,12 +58,18 @@ class ActiveISMC(BaseEnv):
         PHI1, PHI2, PHI3, PHI4 = PHI
         # observation
         obs = np.vstack((obs))
-        z, zd = obs[2], obs[5]
-        phi, theta, psi, phid, thetad, psid = obs[6:]
+        obs_ = np.vstack((obs[0:6],
+                          np.vstack(quat2angle(obs[6:10])[::-1]),
+                          obs[10:]))
+        z, zd = obs_[2], obs_[5]
+        phi, theta, psi, phid, thetad, psid = obs_[6:]
         # reference
         ref = np.vstack((ref))
-        z_r, zd_r = ref[2], ref[5]
-        phi_r, theta_r, psi_r, phid_r, thetad_r, psid_r = ref[6:]
+        ref_ = np.vstack((ref[0:6],
+                          np.vstack(quat2angle(ref[6:10])[::-1]),
+                          ref[10:]))
+        z_r, zd_r = ref_[2], ref_[5]
+        phi_r, theta_r, psi_r, phid_r, thetad_r, psid_r = ref_[6:]
         # reference ddot term(z, phi, theta, psi)
         F_r = m*g
         M1_r = 0
@@ -99,8 +110,8 @@ class ActiveISMC(BaseEnv):
 
         return dP, dgamma
 
-    def set_dot(self, obs, ref, p):
-        dots = self.deriv(obs, ref, p)
+    def set_dot(self, obs, ref, sliding):
+        dots = self.deriv(obs, ref, sliding)
         self.P.dot, self.gamma.dot = dots
 
     def get_FM(self, obs, ref, p, gamma, K, Kc, PHI, t):
@@ -125,11 +136,17 @@ class ActiveISMC(BaseEnv):
         Izz = J[2, 2]
         # observation
         obs = np.vstack((obs))
-        x, y, z, xd, yd, zd = obs[0:6]
-        phi, theta, psi, phid, thetad, psid = obs[6:]
+        obs_ = np.vstack((obs[0:6],
+                          np.vstack(quat2angle(obs[6:10])[::-1]),
+                          obs[10:]))
+        x, y, z, xd, yd, zd = obs_[0:6]
+        phi, theta, psi, phid, thetad, psid = obs_[6:]
         # reference
-        x_r, y_r, z_r, xd_r, yd_r, zd_r = ref[0:6]
-        phi_r, theta_r, psi_r, phid_r, thetad_r, psid_r = ref[6:]
+        ref_ = np.vstack((ref[0:6],
+                          np.vstack(quat2angle(ref[6:10])[::-1]),
+                          ref[10:]))
+        x_r, y_r, z_r, xd_r, yd_r, zd_r = ref_[0:6]
+        phi_r, theta_r, psi_r, phid_r, thetad_r, psid_r = ref_[6:]
         # reference ddot term(z, phi, theta, psi)
         F_r = m*g
         M1_r = 0
@@ -140,10 +157,10 @@ class ActiveISMC(BaseEnv):
         thetadd_r = (Izz-Ixx)/Iyy*phid_r*psid_r + 1/Iyy*M2_r
         psidd_r = (Ixx-Iyy)/Izz*phid_r*thetad_r + 1/Izz*M3_r
         # initial condition
-        z0, z0d = self.ic[2], self.ic[5]
-        phi0, theta0, psi0, phi0d, theta0d, psi0d = self.ic[6:]
-        z0_r, z0d_r = self.ref0[2], self.ref0[5]
-        phi0_r, theta0_r, psi0_r, phi0d_r, theta0d_r, psi0d_r = self.ref0[6:]
+        z0, z0d = self.ic_[2], self.ic_[5]
+        phi0, theta0, psi0, phi0d, theta0d, psi0d = self.ic_[6:]
+        z0_r, z0d_r = self.ref0_[2], self.ref0_[5]
+        phi0_r, theta0_r, psi0_r, phi0d_r, theta0d_r, psi0d_r = self.ref0_[6:]
         # PD control for position tracking (get phi_ref, theta_ref)
         e_x = x - x_r
         e_xd = xd - xd_r
