@@ -55,7 +55,7 @@ class Env(BaseEnv):
                       [100, 20],
                       [100, 20],
                       [25, 10]])
-        Kc = np.vstack((10, 10, 10, 10))
+        Kc = np.vstack((5, 10, 10, 5))
         PHI = np.vstack([1] * 4)
 
         forces, sliding = self.controller.get_FM(x, ref, p, gamma, K, Kc, PHI, t)
@@ -65,7 +65,7 @@ class Env(BaseEnv):
 
     def set_dot(self, t):
         x = self.plant.state
-        p, gamma = self.controller.state[0:4], self.controller.state[4:]
+        p, gamma = self.controller.observe_list()
         forces, rotors, ref, sliding = self._get_derivs(t, x, p, gamma)
 
         self.plant.set_dot(t, rotors)
@@ -76,7 +76,7 @@ class Env(BaseEnv):
         x_flat = self.plant.observe_vec(y[self.plant.flat_index])
         ctrl_flat = self.controller.observe_list(y[self.controller.flat_index])
         forces, rotors, ref, sliding = self._get_derivs(t, x_flat, ctrl_flat[0], ctrl_flat[1])
-        return dict(t=t, **states, rotors=rotors, ref=ref, p=ctrl_flat[0], gamma=ctrl_flat[1], s=sliding)
+        return dict(t=t, **states, rotors=rotors, ref=ref, gamma=ctrl_flat[1], s=sliding)
 
 
 def run():
@@ -212,28 +212,6 @@ def exp1_plot():
 
     plt.tight_layout()
 
-    fig5 = plt.figure()
-    ax1 = fig5.add_subplot(4, 1, 1)
-    ax2 = fig5.add_subplot(4, 1, 2, sharex=ax1)
-    ax3 = fig5.add_subplot(4, 1, 3, sharex=ax1)
-    ax4 = fig5.add_subplot(4, 1, 4, sharex=ax1)
-
-    ax1.plot(data['t'], data['p'].squeeze()[:, 0])
-    ax2.plot(data['t'], data['p'].squeeze()[:, 1])
-    ax3.plot(data['t'], data['p'].squeeze()[:, 2])
-    ax4.plot(data['t'], data['p'].squeeze()[:, 3])
-
-    ax1.set_ylabel('p1')
-    ax1.grid(True)
-    ax2.set_ylabel('p2')
-    ax2.grid(True)
-    ax3.set_ylabel('p3')
-    ax3.grid(True)
-    ax4.set_ylabel('p4')
-    ax4.grid(True)
-    ax4.set_xlabel('Time [sec]')
-
-    plt.tight_layout()
     plt.show()
 
 
