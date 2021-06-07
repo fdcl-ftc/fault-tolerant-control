@@ -87,7 +87,7 @@ class Multicopter(BaseEnv):
         J = np.diag([0.0820, 0.0845, 0.1377])  # kg * m^2
         Jinv = np.linalg.inv(J)
         m = 4.34  # kg
-        d = 0.0315  # m
+        d = 0.315  # m
         c = 8.004e-4  # m
         b = 1
         g = 9.81  # m/s^2
@@ -136,6 +136,10 @@ class Multicopter(BaseEnv):
                  omega=np.zeros((3, 1)),
                  rtype="hexa-x"):
         super().__init__()
+        # if input is not quat, Euler angle with [roll, pitch , yaw]
+        if len(quat) == 3:
+            quat = np.vstack(angle2quat(*quat[::-1]))
+
         self.pos = BaseSystem(pos)
         self.vel = BaseSystem(vel)
         self.quat = BaseSystem(quat)
@@ -229,6 +233,6 @@ class Multicopter(BaseEnv):
 
 
 if __name__ == "__main__":
-    system = Multicopter()
+    system = Multicopter(quat=np.vstack((np.pi/12, 0, 0)))
     system.set_dot(t=0, rotors=np.zeros((6, 1)))
     print(repr(system))
