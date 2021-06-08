@@ -8,7 +8,7 @@ from fym.utils.rot import angle2quat
 from ftc.models.multicopter import Multicopter
 from ftc.agents.CA import Grouping, CA
 from ftc.agents.fdi import SimpleFDI
-from ftc.faults.actuator import LoE, Lip, Float
+from ftc.faults.actuator import LoE
 from ftc.agents.AdaptiveISMC import AdaptiveISMController
 from copy import deepcopy
 
@@ -17,7 +17,7 @@ class Env(BaseEnv):
     def __init__(self):
         super().__init__(solver="odeint", max_t=10, dt=5, ode_step_len=100)
         self.plant = Multicopter()
-        n = self.plant.mizer.B.shape[1]
+        n = self.plant.mixer.B.shape[1]
 
         # Define faults
         self.sensor_faults = []
@@ -74,13 +74,13 @@ class Env(BaseEnv):
             x = sen_fault(t, x)
 
         fault_index = self.fdi.get_index(What)
-        ref = self.get_ref(t)
+        ref = self.get_ref(t, x)
 
         K = np.array([[25, 10],
                       [100, 20],
                       [100, 20],
                       [25, 10]])
-        Kc = np.vstack((5, 10, 10, 5))
+        Kc = np.vstack((10, 10, 10, 5))
         PHI = np.vstack([1] * 4)
 
         forces, sliding = self.controller.get_FM(x, ref, p, gamma, K, Kc, PHI, t)
@@ -120,7 +120,7 @@ class Env(BaseEnv):
     def logger_callback(self, i, t, y, *args):
         states = self.observe_dict(y)
         x_flat = self.plant.observe_vec(y[self.plant.flat_index])
-        ctrl_flat = self.controller.observe_list(y[self.controller.falt_index])
+        ctrl_flat = self.controller.observe_list(y[self.controller.flat_index])
         x = states["plant"]
         What = states["fdi"]
         rotors_cmd, W, rotors, forces, ref, sliding = \
