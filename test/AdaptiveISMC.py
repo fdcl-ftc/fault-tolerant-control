@@ -1,18 +1,17 @@
 import numpy as np
-from numpy import arcsin, sin, cos
 import matplotlib.pyplot as plt
 
 import fym.logging
 from fym.core import BaseEnv, BaseSystem
 
-from copter import Copter_nonlinear
-from AdaptiveISMC import AdaptiveISMC
+from ftc.models.multicopter import Multicopter
+from ftc.agents.AdaptiveISMC import AdaptiveISMController
 
 
 class Env(BaseEnv):
     def __init__(self):
         super().__init__(solver="odeint", max_t=10, dt=5, ode_step_len=100)
-        self.plant = Copter_nonlinear()
+        self.plant = Multicopter()
         ic = np.vstack((0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0))
         pos_des0 = np.vstack((1, -1, -2))
         vel_des0 = np.vstack((0, 0, 0))
@@ -20,12 +19,12 @@ class Env(BaseEnv):
         omega_des0 = np.vstack((0, 0, 0))
         ref0 = np.vstack((pos_des0, vel_des0, quat_des0, omega_des0))
 
-        self.controller = AdaptiveISMC(self.plant.J,
-                                       self.plant.m,
-                                       self.plant.g,
-                                       self.plant.d,
-                                       ic,
-                                       ref0)
+        self.controller = AdaptiveISMController(self.plant.J,
+                                                self.plant.m,
+                                                self.plant.g,
+                                                self.plant.d,
+                                                ic,
+                                                ref0)
 
     def step(self):
         *_, done = self.update()

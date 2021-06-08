@@ -6,14 +6,14 @@ from fym.utils.rot import quat2angle, angle2quat
 import fym.logging
 from fym.core import BaseEnv, BaseSystem
 
-from copter import Copter_nonlinear
-from ISMC import IntegralSMC
+from ftc.models.multicopter import Multicopter
+from ftc.agents.ISMC import IntegralSMController
 
 
 class Env(BaseEnv):
     def __init__(self):
         super().__init__(solver="odeint", max_t=10, dt=5, ode_step_len=100)
-        self.plant = Copter_nonlinear()
+        self.plant = Multicopter()
         ic = np.vstack((0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0))
         self.pos_des = np.vstack((-1, 1, -2))
         self.vel_des = np.vstack((0, 0, 0))
@@ -21,12 +21,12 @@ class Env(BaseEnv):
         self.omega_des = np.vstack((0, 0, 0))
         ref0 = np.vstack((self.pos_des, self.vel_des, self.quat_des, self.omega_des))
 
-        self.controller = IntegralSMC(self.plant.J,
-                                      self.plant.m,
-                                      self.plant.g,
-                                      self.plant.d,
-                                      ic,
-                                      ref0)
+        self.controller = IntegralSMController(self.plant.J,
+                                               self.plant.m,
+                                               self.plant.g,
+                                               self.plant.d,
+                                               ic,
+                                               ref0)
 
     def step(self):
         *_, done = self.update()
