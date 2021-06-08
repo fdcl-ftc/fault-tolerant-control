@@ -6,7 +6,7 @@ import fym.logging
 from fym.core import BaseEnv, BaseSystem
 
 from copter import Copter_nonlinear
-from AdaptiveISMC import AdaptiveISMC_nonlinear
+from AdaptiveISMC import AdaptiveISMC
 
 
 class Env(BaseEnv):
@@ -20,12 +20,12 @@ class Env(BaseEnv):
         omega_des0 = np.vstack((0, 0, 0))
         ref0 = np.vstack((pos_des0, vel_des0, quat_des0, omega_des0))
 
-        self.controller = AdaptiveISMC_nonlinear(self.plant.J,
-                                                 self.plant.m,
-                                                 self.plant.g,
-                                                 self.plant.d,
-                                                 ic,
-                                                 ref0)
+        self.controller = AdaptiveISMC(self.plant.J,
+                                       self.plant.m,
+                                       self.plant.g,
+                                       self.plant.d,
+                                       ic,
+                                       ref0)
 
     def step(self):
         *_, done = self.update()

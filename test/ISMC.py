@@ -7,7 +7,7 @@ import fym.logging
 from fym.core import BaseEnv, BaseSystem
 
 from copter import Copter_nonlinear
-from ISMC import IntegralSMC_nonlinear
+from ISMC import IntegralSMC
 
 
 class Env(BaseEnv):
@@ -21,12 +21,12 @@ class Env(BaseEnv):
         self.omega_des = np.vstack((0, 0, 0))
         ref0 = np.vstack((self.pos_des, self.vel_des, self.quat_des, self.omega_des))
 
-        self.controller = IntegralSMC_nonlinear(self.plant.J,
-                                                self.plant.m,
-                                                self.plant.g,
-                                                self.plant.d,
-                                                ic,
-                                                ref0)
+        self.controller = IntegralSMC(self.plant.J,
+                                      self.plant.m,
+                                      self.plant.g,
+                                      self.plant.d,
+                                      ic,
+                                      ref0)
 
     def step(self):
         *_, done = self.update()
