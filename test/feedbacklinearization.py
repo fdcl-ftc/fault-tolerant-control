@@ -3,12 +3,12 @@ import matplotlib.pyplot as plt
 
 from fym.core import BaseEnv, BaseSystem
 import fym.logging
-from fym.utils.rot import angle2quat
+from fym.utils.rot import angle2quat, quat2angle
 
 from ftc.models.multicopter import Multicopter
 import ftc.agents.fl as fl
-# from ftc.agents.CA import Grouping
-# from ftc.agents.CA import CA
+from ftc.agents.CA import Grouping
+from ftc.agents.CA import CA
 from ftc.agents.fdi import SimpleFDI
 from ftc.faults.actuator import LoE, LiP, Float
 from copy import deepcopy
@@ -25,7 +25,7 @@ class ActuatorDynamcs(BaseSystem):
 
 class Env(BaseEnv):
     def __init__(self):
-        super().__init__(dt=0.01, max_t=20)
+        super().__init__(dt=0.01, max_t=10)
         self.plant = Multicopter()
         n = self.plant.mixer.B.shape[1]
 
@@ -44,8 +44,10 @@ class Env(BaseEnv):
 
         # Define agents
         # self.grouping = Grouping(self.plant.mixer.B)
-        # self.CA = CA(self.plant.mixer.B)
-        self.controller = fl.FLController()
+        self.CA = CA(self.plant.mixer.B)
+        self.controller = fl.FLController(self.plant.m,
+                                          self.plant.g,
+                                          self.plant.J)
 
         self.detection_time = [[] for _ in range(len(self.actuator_faults))]
 
@@ -54,25 +56,25 @@ class Env(BaseEnv):
         return done
 
     def control_allocation(self, forces, What):
-        # fault_index = self.fdi.get_index(What)
+        fault_index = self.fdi.get_index(What)
 
-        rotors = np.linalg.pinv(self.plant.mixer.B.dot(What)).dot(forces)
-        # if len(fault_index) == 0:
-        #     rotors = np.linalg.pinv(self.plant.mixer.B.dot(What)).dot(forces)
-        # else:
-        #     BB = self.CA.get(fault_index)
-        #     rotors = np.linalg.pinv(BB.dot(What)).dot(forces)
+        if len(fault_index) == 0:
+            rotors = np.linalg.pinv(self.plant.mixer.B.dot(What)).dot(forces)
+        else:
+            BB = self.CA.get(fault_index)
+            rotors = np.linalg.pinv(BB.dot(What)).dot(forces)
 
         return rotors
 
     def get_ref(self, t):
         pos_des = np.vstack([-1, 1, 2])
-        # vel_des = np.vstack([0, 0, 0])
-        # quat_des = np.vstack([1, 0, 0, 0])
-        # omega_des = np.vstack([0, 0, 0])
-        # ref = np.vstack([pos_des, vel_des, quat_des, omega_des])
+        # pos_des = np.vstack([0, 0, 0])
+        vel_des = np.vstack([0, 0, 0])
+        quat_des = np.vstack([1, 0, 0, 0])
+        omega_des = np.vstack([0, 0, 0])
+        ref = np.vstack([pos_des, vel_des, quat_des, omega_des])
 
-        return pos_des
+        return ref
 
     def _get_derivs(self, t, x, What):
         # Set sensor faults
@@ -82,7 +84,7 @@ class Env(BaseEnv):
         fault_index = self.fdi.get_index(What)
         ref = self.get_ref(t)
 
-        mult_states = x
+        mult_states = self.plant.observe_list()
         virtual_ctrl = self.controller.get_virtual(t, mult_states, ref)
         forces = self.controller.get_FM(virtual_ctrl)
 
@@ -111,8 +113,7 @@ class Env(BaseEnv):
         return rotors_cmd, W, rotors
 
     def set_dot(self, t):
-        mult_states = self.plant.state
-        # ctrl_states = self.controller.state
+        mult_states = self.plant.observe_list()
         ref = self.get_ref(t)
         What = self.fdi.state
         virtual_ctrl = self.controller.get_virtual(t, mult_states, ref)
@@ -121,19 +122,19 @@ class Env(BaseEnv):
 
         self.plant.set_dot(t, rotors)
         self.fdi.set_dot(W)
-        self.controller.set_dot(t, virtual_ctrl)
+        self.controller.set_dot(virtual_ctrl)
 
     def logger_callback(self, i, t, y, *args):
         states = self.observe_dict(y)
         x_flat = self.plant.state
         x = states["plant"]
+        ang = np.vstack(quat2angle(states["plant"]["quat"])[::-1])
         What = states["fdi"]
         ref = self.get_ref(t)
         # rotors = states["act_dyn"]
-
         rotors_cmd, W, rotors = self._get_derivs(t, x_flat, What)
-        return dict(t=t, x=x, What=What, rotors=rotors, rotors_cmd=rotors_cmd,
-                    W=W, ref=ref)
+        return dict(t=t, x=x, ang=ang, What=What, rotors=rotors,
+                    rotors_cmd=rotors_cmd, W=W, ref=ref)
 
 
 def run():
@@ -246,19 +247,24 @@ def exp1_plot():
     plt.plot(data["t"], data["ref"][:, 2, 0], "r-.", label="z (cmd)")
     plt.plot(data["t"], data["x"]["pos"][:, 2, 0], "k-.", label="z")
 
-    # plt.axvspan(3, 3.042, alpha=0.2, color="b")
-    # plt.axvline(3.042, alpha=0.8, color="b", linewidth=0.5)
-
-    # plt.axvspan(6, 6.011, alpha=0.2, color="b")
-    # plt.axvline(6.011, alpha=0.8, color="b", linewidth=0.5)
-
-    # plt.annotate("Rotor 0 fails", xy=(3, 0), xytext=(3.5, 0.5),
-    #              arrowprops=dict(arrowstyle='->', lw=1.5))
-    # plt.annotate("Rotor 2 fails", xy=(6, 0), xytext=(7.5, 0.2),
-    #              arrowprops=dict(arrowstyle='->', lw=1.5))
-
     plt.xlabel("Time, sec")
     plt.ylabel("Position")
+    plt.legend(loc="right")
+    plt.tight_layout()
+
+    plt.figure()
+
+    # plt.plot(data["t"], data["ref"][:, 0, 0], "r-", label="phi (cmd)")
+    plt.plot(data["t"], data["ang"][:, 0, 0], "k-", label="phi")
+
+    # plt.plot(data["t"], data["ref"][:, 1, 0], "r--", label="theta (cmd)")
+    plt.plot(data["t"], data["ang"][:, 1, 0], "k--", label="theta")
+
+    # plt.plot(data["t"], data["ref"][:, 2, 0], "r-.", label="psi (cmd)")
+    plt.plot(data["t"], data["ang"][:, 2, 0], "k-.", label="psi")
+
+    plt.xlabel("Time, sec")
+    plt.ylabel("Euler angle")
     plt.legend(loc="right")
     plt.tight_layout()
 
