@@ -73,16 +73,16 @@ class Env(BaseEnv):
         What = self.fdi.state
 
         if self.method == "indirect":
-            u, W, _, Td_dot, xc = self._get_derivs(t, x, What)
+            u, W, _, Td_dot, pos_c = self._get_derivs(t, x, What)
         elif self.method == "direct":
-            u, W, _, Td_dot, Theta_hat_dot, xc = self._get_derivs(t, x, What)
+            u, W, _, Td_dot, Theta_hat_dot, pos_c = self._get_derivs(t, x, What)
 
         self.plant.set_dot(t, u)
         self.fdi.set_dot(W)
         if self.method == "indirect":
-            self.controller.set_dot(Td_dot, xc)
+            self.controller.set_dot(Td_dot, pos_c)
         elif self.method == "direct":
-            self.controller.set_dot(Td_dot, Theta_hat_dot, xc)
+            self.controller.set_dot(Td_dot, Theta_hat_dot, pos_c)
 
     def control_allocation(self, f, What):
         fault_index = self.fdi.get_index(What)
