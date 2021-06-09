@@ -123,11 +123,11 @@ class AdaptiveISMController(BaseEnv):
         self.P.dot, self.gamma.dot = dots
 
     def get_FM(self, obs, ref, p, gamma, t):
-        K = np.array([[2, 1],
+        K = np.array([[1.5, 3],
                       [20, 2],
                       [20, 2],
                       [2, 1]])
-        Kc = np.vstack((5, 9, 5, 5))
+        Kc = np.vstack((5, 10, 5, 5))
         PHI = np.vstack([1] * 4)
         self.K = K
         self.Kc = Kc
@@ -180,8 +180,8 @@ class AdaptiveISMController(BaseEnv):
         e_xd = xd - xd_r
         e_y = y - y_r
         e_yd = yd - yd_r
-        kp1, kd1, ki1 = np.array([0.4, 0.4, 0.1])
-        kp2, kd2, ki2 = np.array([0.2, 0.1, 0.1])
+        kp1, kd1, ki1 = np.array([1, 0.6, 0.2])
+        kp2, kd2, ki2 = np.array([0.4, 0.5, 0.1])
         phi_r = -(kp1*e_y + kd1*e_yd + ki1*py)
         theta_r = kp2*e_x + kd2*e_xd + ki2*px
         # error definition
