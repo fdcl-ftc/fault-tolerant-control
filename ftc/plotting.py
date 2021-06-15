@@ -79,7 +79,7 @@ def exp_plot(plant):
     plt.ylim([-40, 40])
 
     angles = np.vstack([quat2angle(data["x"]["quat"][j, :, 0]) for j in range(len(data["x"]["quat"][:, 0, 0]))])
-    for (i, _label, _ls) in zip(range(angles.shape[1]), ["yaw", "pitch", "roll"], ["-", "--", "-."]):
+    for (i, _label, _ls) in zip(range(angles.shape[1]), ["yaw", "pitch", "roll"], ["-.", "--", "-"]):
         plt.plot(data["t"], np.rad2deg(angles[:, i]), "k"+_ls, label=_label)
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Euler angles, deg")
@@ -90,7 +90,7 @@ def exp_plot(plant):
     plt.figure()
     plt.ylim([-90, 90])
 
-    for (i, _label, _ls) in zip(range(data["x"]["omega"].shape[1]), ["x", "y", "z"], ["-", "--", "-."]):
+    for (i, _label, _ls) in zip(range(data["x"]["omega"].shape[1]), ["p", "q", "r"], ["-", "--", "-."]):
         plt.plot(data["t"], np.rad2deg(data["x"]["omega"][:, i, 0]), "k"+_ls, label=_label)
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Angular rates, deg/s")
