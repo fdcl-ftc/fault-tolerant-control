@@ -12,7 +12,7 @@ def calculate_recovery_rate(errors: np.ndarray, threshold: float=0.5):
 
 if __name__ == "__main__":
     errors = np.array([
-        [1, 2],
+        [-1, 2],
         [2, 3],
         [0, 1],
     ])
