@@ -19,6 +19,8 @@ cfg = fym.parser.parse({
         "omega": (-5, 5),
         "angle": (-5, 5),
     },
+    "evaluation.cuttime": 5,
+    "evaluation.threshold": 0.5,
     "env.kwargs": {
         "dt": 0.01,
         "max_t": 10,
@@ -43,12 +45,13 @@ class Env(fym.BaseEnv):
         rotors = np.zeros((self.plant.mixer.B.shape[1], 1))
         self.plant.set_dot(t, rotors)
 
-        return dict(rotors=rotors, **self.observe_dict())
+        return dict(t=t, rotors=rotors, **self.observe_dict())
 
 
 def single_run(i, initial):
+    loggerpath = Path(cfg.path.run, f"env-{i:03d}.h5")
     env = Env(initial)
-    env.logger = fym.Logger(Path(cfg.path.run, f"env-{i:03d}.h5"))
+    env.logger = fym.Logger(loggerpath)
     env.reset()
 
     while True:
@@ -58,6 +61,12 @@ def single_run(i, initial):
             break
 
     env.close()
+
+    data, info = fym.load(loggerpath, with_info=True)
+    time_index = data["t"] > cfg.env.kwargs.max_t - cfg.evaluation.cuttime
+    alt_error = cfg.ref.pos[2] - data["plant"]["pos"][time_index, 2, 0]
+    fym.parser.update(info, dict(alt_error=np.mean(alt_error)))
+    fym.save(loggerpath, data, info=info)
 
 
 def main():
