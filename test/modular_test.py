@@ -43,6 +43,8 @@ class Env(fym.BaseEnv):
         rotors = np.zeros((self.plant.mixer.B.shape[1], 1))
         self.plant.set_dot(t, rotors)
 
+        return dict(rotors=rotors, **self.observe_dict())
+
 
 def single_run(i, initial):
     env = Env(initial)
