@@ -53,10 +53,10 @@ class FLController(BaseEnv):
                + u1*dphi*cos(theta)*cos(phi))) / m
 
         # no-failure
-        kp1 = 1*np.diag([1, 2, 5])
-        kp2 = 2.5*np.diag([1, 2, 5])
-        kp3 = 2.5*np.diag([1, 2, 5])
-        kp4 = 1*np.diag([1, 2, 5])
+        kp1 = 0.3*np.diag([1, 5, 8])
+        kp2 = 0.7*np.diag([1, 5, 8])
+        kp3 = 0.7*np.diag([1, 5, 8])
+        kp4 = 0.3*np.diag([1, 5, 8])
         v = (- kp1.dot(pos-posd)
              - kp2.dot(vel-np.vstack((0, 0, 0)))
              - kp3.dot(np.vstack((d2x, d2y, d2z))-np.vstack((0, 0, 0)))

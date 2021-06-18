@@ -124,8 +124,8 @@ class Env(BaseEnv):
         self.fdi.set_dot(W)
         self.controller.set_dot(virtual_ctrl)
 
-    def logger_callback(self, i, t, y, *args):
-        states = self.observe_dict(y)
+    def logger_callback(self, t):
+        states = self.observe_dict()
         x_flat = self.plant.state
         x = states["plant"]
         ang = np.vstack(quat2angle(states["plant"]["quat"])[::-1])
