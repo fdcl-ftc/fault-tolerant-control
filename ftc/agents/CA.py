@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.optimize import linprog
 
 
 class Grouping():
@@ -33,6 +34,30 @@ class CA():
         BB = self.B
 
         return BB
+
+
+class CCA():
+    def __init__(self, B):
+        self.B = B
+        self.n_rotor = len(B[0])
+
+    def get_faulted_B(self, fault_index):
+        _B = np.delete(self.B, fault_index[0], 1)
+
+        return _B
+
+    def solve_lp(self, fault_index, v, rotor_max, rotor_min):
+        n = self.n_rotor - len(fault_index)
+        c = np.ones((n,))
+        A_ub = np.vstack((np.eye(n), -np.eye(n)))
+        b_ub = np.hstack((rotor_max*np.ones((n,)), -rotor_min*np.ones((n,))))
+        A_eq = self.get_faulted_B(fault_index)
+        b_eq = v.reshape((len(v),))
+
+        sol = linprog(c, A_ub, b_ub, A_eq, b_eq, method="interior-point")
+        _u = sol.x
+
+        return np.vstack(np.insert(_u, fault_index[0], 0))
 
 
 if __name__ == "__main__":

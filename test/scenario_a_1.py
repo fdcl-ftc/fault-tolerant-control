@@ -3,11 +3,12 @@ import matplotlib.pyplot as plt
 
 from fym.core import BaseEnv, BaseSystem
 import fym.logging
-from fym.utils.rot import angle2quat
+from fym.utils.rot import angle2quat, quat2angle
 
 from ftc.models.multicopter import Multicopter
 from ftc.agents.CA import Grouping
 from ftc.agents.CA import CA
+from ftc.agents.CA import CCA
 from ftc.agents.fdi import SimpleFDI
 from ftc.faults.actuator import LoE, LiP, Float
 import ftc.agents.lqr as lqr
@@ -46,6 +47,7 @@ class Env(BaseEnv):
         # Define agents
         self.grouping = Grouping(self.plant.mixer.B)
         self.CA = CA(self.plant.mixer.B)
+        self.CCA = CCA(self.plant.mixer.B)
         self.controller = lqr.LQRController(self.plant.Jinv,
                                             self.plant.m,
                                             self.plant.g)
@@ -63,9 +65,9 @@ class Env(BaseEnv):
         if len(fault_index) == 0:
             rotors = np.linalg.pinv(self.plant.mixer.B.dot(What)).dot(forces)
         else:
-            BB = self.CA.get(fault_index)
-            rotors = np.linalg.pinv(BB.dot(What)).dot(forces)
-
+            rotors = self.CCA.solve_lp(fault_index, forces,
+                                       self.plant.rotor_max,
+                                       self.plant.rotor_min)
         return rotors
 
     def get_ref(self, t):
@@ -112,25 +114,21 @@ class Env(BaseEnv):
         return rotors_cmd, W, rotors
 
     def set_dot(self, t):
-        x = self.plant.state
+        mult_states = self.plant.state
         What = self.fdi.state
+        ref = self.get_ref(t)
+        # rotors = states["act_dyn"]
 
-        rotors_cmd, W, rotors = self._get_derivs(t, x, What)
+        rotors_cmd, W, rotors = self._get_derivs(t, mult_states, What)
 
         self.plant.set_dot(t, rotors)
         self.fdi.set_dot(W)
 
-    def logger_callback(self, i, t, y, *args):
-        states = self.observe_dict(y)
-        x_flat = self.plant.state
-        x = states["plant"]
-        What = states["fdi"]
-        ref = self.get_ref(t)
-        # rotors = states["act_dyn"]
+        ang = np.vstack(quat2angle(self.plant.quat.state)[::-1])
 
-        rotors_cmd, W, rotors = self._get_derivs(t, x_flat, What)
-        return dict(t=t, x=x, What=What, rotors=rotors, rotors_cmd=rotors_cmd,
-                    W=W, ref=ref)
+        return dict(t=t, x=self.plant.observe_dict(),
+                    ang=ang, What=What, rotors=rotors,
+                    rotors_cmd=rotors_cmd, W=W, ref=ref)
 
 
 def run():
