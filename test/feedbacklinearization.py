@@ -76,16 +76,19 @@ class Env(BaseEnv):
 
         return ref
 
-    def _get_derivs(self, t, x, What):
+    def set_dot(self, t):
+        ref = self.get_ref(t)
+        What = self.fdi.state
+
         # Set sensor faults
-        for sen_fault in self.sensor_faults:
-            x = sen_fault(t, x)
+        # for sen_fault in self.sensor_faults:
+        #     mult_states = sen_fault(t, mult_states)
 
         fault_index = self.fdi.get_index(What)
-        ref = self.get_ref(t)
 
-        mult_states = self.plant.observe_list()
-        virtual_ctrl = self.controller.get_virtual(t, mult_states, ref)
+        virtual_ctrl = self.controller.get_virtual(t,
+                                                   self.plant,
+                                                   ref)
         forces = self.controller.get_FM(virtual_ctrl)
 
         # Controller
@@ -110,30 +113,13 @@ class Env(BaseEnv):
         _rotors[fault_index] = 1
         W = self.fdi.get_true(rotors, _rotors)
 
-        return rotors_cmd, W, rotors
-
-    def set_dot(self, t):
-        mult_states = self.plant.observe_list()
-        ref = self.get_ref(t)
-        What = self.fdi.state
-        virtual_ctrl = self.controller.get_virtual(t, mult_states, ref)
-
-        rotors_cmd, W, rotors = self._get_derivs(t, mult_states, What)
-
         self.plant.set_dot(t, rotors)
         self.fdi.set_dot(W)
         self.controller.set_dot(virtual_ctrl)
 
-    def logger_callback(self, t):
-        states = self.observe_dict()
-        x_flat = self.plant.state
-        x = states["plant"]
-        ang = np.vstack(quat2angle(states["plant"]["quat"])[::-1])
-        What = states["fdi"]
-        ref = self.get_ref(t)
-        # rotors = states["act_dyn"]
-        rotors_cmd, W, rotors = self._get_derivs(t, x_flat, What)
-        return dict(t=t, x=x, ang=ang, What=What, rotors=rotors,
+        ang = np.vstack(quat2angle(self.plant.quat.state)[::-1])
+        return dict(t=t, x=self.plant.observe_dict(),
+                    ang=ang, What=What, rotors=rotors,
                     rotors_cmd=rotors_cmd, W=W, ref=ref)
 
 
