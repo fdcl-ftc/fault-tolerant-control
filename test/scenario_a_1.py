@@ -8,7 +8,7 @@ from fym.utils.rot import angle2quat, quat2angle
 from ftc.models.multicopter import Multicopter
 from ftc.agents.CA import Grouping
 from ftc.agents.CA import CA
-from ftc.agents.CA import CCA
+from ftc.agents.CA import ConstrainedCA
 from ftc.agents.fdi import SimpleFDI
 from ftc.faults.actuator import LoE, LiP, Float
 import ftc.agents.lqr as lqr
@@ -47,7 +47,7 @@ class Env(BaseEnv):
         # Define agents
         self.grouping = Grouping(self.plant.mixer.B)
         self.CA = CA(self.plant.mixer.B)
-        self.CCA = CCA(self.plant.mixer.B)
+        self.CCA = ConstrainedCA(self.plant.mixer.B)
         self.controller = lqr.LQRController(self.plant.Jinv,
                                             self.plant.m,
                                             self.plant.g)
@@ -124,11 +124,8 @@ class Env(BaseEnv):
         self.plant.set_dot(t, rotors)
         self.fdi.set_dot(W)
 
-        ang = np.vstack(quat2angle(self.plant.quat.state)[::-1])
-
-        return dict(t=t, x=self.plant.observe_dict(),
-                    ang=ang, What=What, rotors=rotors,
-                    rotors_cmd=rotors_cmd, W=W, ref=ref)
+        return dict(t=t, x=self.plant.observe_dict(), What=What,
+                    rotors=rotors, rotors_cmd=rotors_cmd, W=W, ref=ref)
 
 
 def run():
@@ -198,33 +195,33 @@ def exp1_plot():
     ax = plt.subplot(321)
     plt.plot(data["t"], data["rotors"][:, 0], "k-", label="Response")
     plt.plot(data["t"], data["rotors_cmd"][:, 0], "r--", label="Command")
-    plt.ylim([-5.1, 12.1])
+    plt.ylim([-2.1, 40.1])
     plt.legend()
 
     plt.subplot(322, sharex=ax)
     plt.plot(data["t"], data["rotors"][:, 1], "k-")
     plt.plot(data["t"], data["rotors_cmd"][:, 1], "r--")
-    plt.ylim([-5.1, 12.1])
+    plt.ylim([-2.1, 40.1])
 
     plt.subplot(323, sharex=ax)
     plt.plot(data["t"], data["rotors"][:, 2], "k-")
     plt.plot(data["t"], data["rotors_cmd"][:, 2], "r--")
-    plt.ylim([-5.1, 12.1])
+    plt.ylim([-2.1, 40.1])
 
     plt.subplot(324, sharex=ax)
     plt.plot(data["t"], data["rotors"][:, 3], "k-")
     plt.plot(data["t"], data["rotors_cmd"][:, 3], "r--")
-    plt.ylim([-5.1, 12.1])
+    plt.ylim([-2.1, 40.1])
 
     plt.subplot(325, sharex=ax)
     plt.plot(data["t"], data["rotors"][:, 4], "k-")
     plt.plot(data["t"], data["rotors_cmd"][:, 4], "r--")
-    plt.ylim([-5.1, 12.1])
+    plt.ylim([-2.1, 40.1])
 
     plt.subplot(326, sharex=ax)
     plt.plot(data["t"], data["rotors"][:, 5], "k-")
     plt.plot(data["t"], data["rotors_cmd"][:, 5], "r--")
-    plt.ylim([-5.1, 12.1])
+    plt.ylim([-2.1, 40.1])
 
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Rotor force")
