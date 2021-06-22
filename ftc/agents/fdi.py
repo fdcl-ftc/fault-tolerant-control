@@ -28,7 +28,7 @@ class SimpleFDI():
         index = max(ss(self.fault_times, t - self.delay, side="right") - 1, 0)
         return self.loe[index]
 
-    def get_real(self, t):
+    def get_true(self, t):
         index = ss(self.fault_times, t, side="right") - 1
         return self.loe[index]
 
