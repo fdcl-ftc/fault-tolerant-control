@@ -1,13 +1,13 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import fym.logging
+import fym
 from fym.utils.rot import angle2quat, quat2angle
 
 
-def exp_plot():
-    data = fym.logging.load("data.h5")
-    rotor_min = data["rotor_min"]
-    rotor_max = data["rotor_max"]
+def exp_plot(loggerpath):
+    data, info = fym.load(loggerpath, with_info=True)
+    rotor_min = info["rotor_min"]
+    rotor_max = info["rotor_max"]
 
     # FDI
     plt.figure()
