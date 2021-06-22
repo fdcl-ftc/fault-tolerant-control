@@ -1,26 +1,22 @@
 import numpy as np
+from numpy import searchsorted as ss
 from fym.core import BaseEnv, BaseSystem
 
 
-class SimpleFDI(BaseSystem):
-    def __init__(self, no_act, tau, threshold=0):
-        super().__init__(np.eye(no_act))
-        self.tau = tau
-        self.threshold = threshold
+class SimpleFDI():
+    def __init__(self, actuator_faults, no_act, delay=0.):
+        self.delay = delay
+        self.loe = [
+            np.eye(no_act),
+            *map(lambda x: x.level * np.eye(no_act),
+                 sorted(actuator_faults, key=lambda x: x.time))
+        ]
+        self.fault_times = np.array([0] + [x.time for x in actuator_faults])
 
-    def get_true(self, u, uc):
-        uc = np.clip(uc, 0, None)
-        w = np.hstack([
-            ui / uci if not np.isclose(uci, 0)
-            else 1 if (np.isclose(ui, 0) and np.isclose(uci, 0))
-            else 0
-            for ui, uci in zip(u, uc)])
-        return np.diag(w)
+    def get(self, t):
+        index = max(ss(self.fault_times, t - self.delay, side="right") - 1, 0)
+        return self.loe[index]
 
-    def get_index(self, W):
-        fault_index = np.where(np.diag(W) < 1 - self.threshold)[0]
-        return fault_index
-
-    def set_dot(self, W):
-        What = self.state
-        self.dot = - 1 / self.tau * (What - W)
+    def get_real(self, t):
+        index = ss(self.fault_times, t, side="right") - 1
+        return self.loe[index]
