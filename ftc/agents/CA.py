@@ -26,6 +26,9 @@ class CA():
         self.B = B
 
     def get(self, fault_index):
+        """Notes
+        `fault_index` should be 1d array, e.g., `fault_index = [1]`.
+        """
         self.B[:, fault_index] = np.zeros((4, 1))
         BB = self.B
 
