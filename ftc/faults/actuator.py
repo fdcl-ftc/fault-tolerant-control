@@ -9,15 +9,28 @@ class Fault:
 
     The base class of fault models.
     """
+    count = 0
+    num = 0
+
     def __init__(self, time=0, index=0, name=None):
         self.time = time
         self.index = index
         self.name = name
+        Fault.num += 1
 
     def __repr__(self):
         return f"Fault name: {self.name}" + "\n" + f"time = {self.time}, index = {self.index}"
 
     def __call__(self, *args, **kwargs):
+        if Fault.count == 0:
+            Fault.args = args
+            Fault.kwargs = kwargs
+        else:
+            args = Fault.args
+            kwargs = Fault.kwargs
+        Fault.count += 1
+        if Fault.count == Fault.num:
+            Fault.count = 0
         return self.get(*args, **kwargs)
 
     def get(t, u):
