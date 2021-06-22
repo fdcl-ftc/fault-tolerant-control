@@ -6,8 +6,6 @@ import fym.logging
 from fym.utils.rot import angle2quat, quat2angle
 
 from ftc.models.multicopter import Multicopter
-from ftc.agents.CA import Grouping
-from ftc.agents.CA import CA
 from ftc.agents.CA import ConstrainedCA
 from ftc.agents.fdi import SimpleFDI
 from ftc.faults.actuator import LoE, LiP, Float
@@ -45,8 +43,6 @@ class Env(BaseEnv):
         self.fdi = SimpleFDI(no_act=n, tau=0.1, threshold=0.1)
 
         # Define agents
-        self.grouping = Grouping(self.plant.mixer.B)
-        self.CA = CA(self.plant.mixer.B)
         self.CCA = ConstrainedCA(self.plant.mixer.B)
         self.controller = lqr.LQRController(self.plant.Jinv,
                                             self.plant.m,
@@ -66,8 +62,8 @@ class Env(BaseEnv):
             rotors = np.linalg.pinv(self.plant.mixer.B.dot(What)).dot(forces)
         else:
             rotors = self.CCA.solve_lp(fault_index, forces,
-                                       self.plant.rotor_max,
-                                       self.plant.rotor_min)
+                                       self.plant.rotor_min,
+                                       self.plant.rotor_max)
         return rotors
 
     def get_ref(self, t):

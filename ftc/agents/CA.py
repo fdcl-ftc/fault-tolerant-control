@@ -33,6 +33,12 @@ class CA():
 
 
 class ConstrainedCA():
+    """Reference:
+    [1] W. Durham, K. A. Bordignon, and R. Beck, “Aircraft Control Allocation,”
+    Aircraft Control Allocation, 2016, doi: 10.1002/9781118827789.
+
+    Method: Linear Programming
+    """
     def __init__(self, B):
         self.B = B
         self.n_rotor = len(B[0])
@@ -41,11 +47,11 @@ class ConstrainedCA():
         _B = np.delete(self.B, fault_index, 1)
         return _B
 
-    def solve_lp(self, fault_index, v, rotor_max, rotor_min):
+    def solve_lp(self, fault_index, v, rotor_min, rotor_max):
         n = self.n_rotor - len(fault_index)
         c = np.ones((n,))
-        A_ub = np.vstack((np.eye(n), -np.eye(n)))
-        b_ub = np.hstack((rotor_max*np.ones((n,)), -rotor_min*np.ones((n,))))
+        A_ub = np.vstack((-np.eye(n), np.eye(n)))
+        b_ub = np.hstack((-rotor_min*np.ones((n,)), rotor_max*np.ones((n,))))
         A_eq = self.get_faulted_B(fault_index)
         b_eq = v.reshape((len(v),))
 

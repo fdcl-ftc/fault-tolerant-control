@@ -91,8 +91,8 @@ class Multicopter(BaseEnv):
         c = 8.004e-4  # m
         b = 1
         g = 9.81  # m/s^2
-        rotor_max = m * g  # TODO: find an appropriate value
-        rotor_min = 0
+        rotor_min = 0  # TODO: find an appropriate value
+        rotor_max = m * g
     elif model == "falconi":
         """Reference
         - Hexacopter information
