@@ -16,8 +16,9 @@ def get_loe(actuator_faults, no_act):
 
 
 class SimpleFDI():
-    def __init__(self, actuator_faults, no_act, delay=0.):
+    def __init__(self, actuator_faults, no_act, delay=0., threshold=0.):
         self.delay = delay
+        self.threshold = threshold
 
         self.loe = list(get_loe(actuator_faults, no_act))
         self.fault_times = np.array(
@@ -30,6 +31,9 @@ class SimpleFDI():
     def get_real(self, t):
         index = ss(self.fault_times, t, side="right") - 1
         return self.loe[index]
+
+    def get_index(self, t):
+        return np.nonzero(np.diag(self.get(t)) < 1 - self.threshold)[0]
 
 
 if __name__ == "__main__":
