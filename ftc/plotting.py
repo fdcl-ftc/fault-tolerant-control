@@ -45,7 +45,7 @@ def exp_plot(loggerpath):
     plt.figure()
     plt.ylim([-5, 5])
 
-    for (i, _label, _ls) in zip(range(data["x"]["pos"].shape[1]), ["x", "y", "z"], ["-", "--", "-."]):
+    for i, (_label, _ls) in enumerate(zip(["x", "y", "z"], ["-", "--", "-."])):
         plt.plot(data["t"], data["x"]["pos"][:, i, 0], "k"+_ls, label=_label)
         plt.plot(data["t"], data["ref"][:, i, 0], "r"+_ls, label=_label+" (cmd)")
     # plt.axvspan(3, 3.042, alpha=0.2, color="b")
@@ -67,7 +67,7 @@ def exp_plot(loggerpath):
     plt.figure()
     plt.ylim([-5, 5])
 
-    for (i, _label, _ls) in zip(range(data["x"]["vel"].shape[1]), ["Vx", "Vy", "Vz"], ["-", "--", "-."]):
+    for i, (_label, _ls) in enumerate(zip(["Vx", "Vy", "Vz"], ["-", "--", "-."])):
         plt.plot(data["t"], data["x"]["vel"][:, i, 0], "k"+_ls, label=_label)
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Velocity, m/s")
@@ -79,7 +79,7 @@ def exp_plot(loggerpath):
     plt.ylim([-40, 40])
 
     angles = np.vstack([quat2angle(data["x"]["quat"][j, :, 0]) for j in range(len(data["x"]["quat"][:, 0, 0]))])
-    for (i, _label, _ls) in zip(range(angles.shape[1]), ["yaw", "pitch", "roll"], ["-.", "--", "-"]):
+    for i, (_label, _ls) in enumerate(zip(["yaw", "pitch", "roll"], ["-.", "--", "-"])):
         plt.plot(data["t"], np.rad2deg(angles[:, i]), "k"+_ls, label=_label)
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Euler angles, deg")
@@ -90,7 +90,7 @@ def exp_plot(loggerpath):
     plt.figure()
     plt.ylim([-90, 90])
 
-    for (i, _label, _ls) in zip(range(data["x"]["omega"].shape[1]), ["p", "q", "r"], ["-", "--", "-."]):
+    for i, (_label, _ls) in enumerate(zip(["p", "q", "r"], ["-.", "--", "-"])):
         plt.plot(data["t"], np.rad2deg(data["x"]["omega"][:, i, 0]), "k"+_ls, label=_label)
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Angular rates, deg/s")
