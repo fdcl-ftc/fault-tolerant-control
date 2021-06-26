@@ -9,28 +9,15 @@ class Fault:
 
     The base class of fault models.
     """
-    count = 0
-    num = 0
-
     def __init__(self, time=0, index=0, name=None):
         self.time = time
         self.index = index
         self.name = name
-        Fault.num += 1
 
     def __repr__(self):
         return f"Fault name: {self.name}" + "\n" + f"time = {self.time}, index = {self.index}"
 
     def __call__(self, *args, **kwargs):
-        if Fault.count == 0:
-            Fault.args = args
-            Fault.kwargs = kwargs
-        else:
-            args = Fault.args
-            kwargs = Fault.kwargs
-        Fault.count += 1
-        if Fault.count == Fault.num:
-            Fault.count = 0
         return self.get(*args, **kwargs)
 
     def get(t, u):
@@ -48,19 +35,34 @@ class LoE(Fault):
     index: actuator index to which LoE is applied
     level: effectiveness (e.g., level=1.0 means no fault)
     """
+    count = 0
+    num = 0
+
     def __init__(self, time=0, index=0, level=1.0, name="LoE"):
         super().__init__(time=time, index=index, name=name)
         self.level = level
+        LoE.num += 1
 
     def __repr__(self):
         _str = super().__repr__()
         return _str + f", level = {self.level}"
 
     def get(self, t, u):
-        effectiveness = np.ones_like(u)
-        if t >= self.time:
+        if LoE.count == 0:
+            LoE.u = u
+            effectiveness = np.ones_like(u)
+            last_time = np.zeros_like(u)
+        else:
+            effectiveness, last_time = u
+        LoE.count += 1
+        if t > self.time and self.time > last_time[self.index]:
+            last_time[self.index] = self.time
             effectiveness[self.index] = self.level
-        return u * effectiveness
+        if LoE.count == LoE.num:
+            LoE.count = 0
+            return LoE.u * effectiveness
+        else:
+            return effectiveness, last_time
 
 
 class Float(LoE):
@@ -130,30 +132,36 @@ class LiP(Fault):
 
 
 if __name__ == "__main__":
-    def test(fault):
-        print(fault)
-        n = 6
-        ts = [0, 1.99, 2.0, 2.01, 10]
-        for t in ts:
-            u = t*np.ones(n)
-            print(f"Actuator command: {u}, time: {t}")
-            u_fault = fault(t, u)
-            print(f"Actual input: {u_fault}")
-    # LoE
-    faults = [
-        LoE(time=2, index=1, level=0.1),
-        Float(time=2, index=1),
-        LiP(time=2, index=1, dt=0.01),
-    ]
-    for fault in faults:
-        test(fault)
+    import matplotlib.pyplot as plt
+    import fym
 
-    # small test
-    def small_test():
-        fault = LiP(2, 0, 0.1)
-        print(fault.get(1.9, [3, 0]))  # 3
-        print(fault.get(1.95, [4, 1]))  # 4
-        print(fault.get(2.05, [5, 2]))  # 4.5
-        print(fault.get(1.96, [6, 3]))  # 6
-        print(fault.get(2.06, [7, 4]))  # 4.5
-    small_test()
+    faults = [
+        LoE(time=2, index=0, level=0.8),
+        LoE(time=10, index=0, level=0.2),
+        LoE(time=6, index=0, level=0.5),
+        LoE(time=8, index=2, level=0.4),
+        LoE(time=4, index=1, level=0.7),
+    ]
+
+    logger = fym.Logger("data.h5")
+    clock = fym.core.Clock(dt=0.01, max_t=12)
+    rotors_cmd = np.ones((6, 1))
+    for t in clock.tspan:
+        rotors = rotors_cmd
+        for fault in faults:
+            rotors = fault(t, rotors)
+        logger.record(t=t, rotors_cmd=rotors_cmd, rotors=rotors)
+
+    logger.close()
+
+    data = fym.parser.parse(fym.load("data.h5"))
+    fig, axes = plt.subplots(3, 2, sharex=True, sharey=True)
+    for i, ax in enumerate(axes.flat):
+        plt.axes(ax)
+        plt.plot(data.t, data.rotors[:, i, 0], "k-")
+        plt.plot(data.t, data.rotors_cmd[:, i, 0], "r-.")
+        ax.set(ylabel=f"Rotor {i}", ylim=(-0.1, 1.1))
+        if ax.get_subplotspec().is_last_row():
+            ax.set(xlabel="Time, sec")
+    plt.tight_layout()
+    plt.show()
