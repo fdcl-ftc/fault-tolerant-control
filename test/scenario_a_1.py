@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 
 import fym
 from fym.core import BaseEnv, BaseSystem
-# import fym.logging
 from fym.utils.rot import angle2quat, quat2angle
 
 from ftc.models.multicopter import Multicopter
@@ -37,7 +36,7 @@ class Env(BaseEnv):
         self.sensor_faults = []
         self.actuator_faults = [
             LoE(time=3, index=0, level=0.),  # scenario a
-            # LoE(time=6, index=2, level=0.),  # scenario b
+            LoE(time=6, index=2, level=0.),  # scenario b
         ]
 
         # Define FDI
@@ -50,7 +49,7 @@ class Env(BaseEnv):
                                             self.plant.m,
                                             self.plant.g)
 
-        self.detection_time = [[] for _ in range(len(self.actuator_faults))]
+        self.detection_time = [[self.actuator_faults[i].time + self.fdi.delay] for i in range(len(self.actuator_faults))]
 
     def step(self):
         *_, done = self.update()
@@ -76,45 +75,27 @@ class Env(BaseEnv):
 
         return ref
 
-    def _get_derivs(self, t, x, What):
-        # Set sensor faults
-        for sen_fault in self.sensor_faults:
-            x = sen_fault(t, x)
-
-        fault_index = self.fdi.get_index(t)
+    def set_dot(self, t):
+        mult_states = self.plant.state
+        W = self.fdi.get_true(t)
+        What = self.fdi.get(t)
         ref = self.get_ref(t)
 
-        forces = self.controller.get_FM(x, ref)
+        # Set sensor faults
+        for sen_fault in self.sensor_faults:
+            mult_states = sen_fault(t, mult_states)
 
         # Controller
-        if len(fault_index) == 0:
-            rotors_cmd = self.control_allocation(t, forces, What)
+        forces = self.controller.get_FM(mult_states, ref)
 
-        # Switching logic
-        elif len(fault_index) >= 1:
-            if len(self.detection_time[len(fault_index) - 1]) == 0:
-                self.detection_time[len(fault_index) - 1] == [t]
-            rotors_cmd = self.control_allocation(t, forces, What)
+        rotors_cmd = self.control_allocation(t, forces, What)
 
         # actuator saturation
-        _rotors = np.clip(rotors_cmd, 0, self.plant.rotor_max)
-        rotors = _rotors.copy()
+        rotors = np.clip(rotors_cmd, 0, self.plant.rotor_max)
 
         # Set actuator faults
         for act_fault in self.actuator_faults:
             rotors = act_fault(t, rotors)
-
-        W = self.fdi.get_true(t)
-
-        return rotors_cmd, W, rotors
-
-    def set_dot(self, t):
-        mult_states = self.plant.state
-        What = self.fdi.get(t)
-        ref = self.get_ref(t)
-        # rotors = states["act_dyn"]
-
-        rotors_cmd, W, rotors = self._get_derivs(t, mult_states, What)
 
         self.plant.set_dot(t, rotors)
 
@@ -124,7 +105,7 @@ class Env(BaseEnv):
 
 def run():
     env = Env()
-    env.logger = fym.Logger("data.h5")
+    env.logger = fym.Logger("data/data.h5")
 
     env.reset()
 
@@ -149,5 +130,5 @@ def exp1():
 
 if __name__ == "__main__":
     exp1()
-    loggerpath = "./data.h5"
+    loggerpath = "data/data.h5"
     exp_plot(loggerpath)
