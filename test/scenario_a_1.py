@@ -49,7 +49,7 @@ class Env(BaseEnv):
                                             self.plant.m,
                                             self.plant.g)
 
-        self.detection_time = [[self.actuator_faults[i].time + self.fdi.delay] for i in range(len(self.actuator_faults))]
+        self.detection_time = [fault.time + self.fdi.delay for fault in self.actuator_faults]
 
     def step(self):
         *_, done = self.update()
@@ -115,6 +115,7 @@ def run():
 
         if done:
             env_info = {
+                "detection_time": env.detection_time,
                 "rotor_min": env.plant.rotor_min,
                 "rotor_max": env.plant.rotor_max,
             }
