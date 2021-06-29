@@ -29,7 +29,7 @@ class CA():
         """
         BB = self.B @ What
         BB[:, fault_index] = np.zeros((4, 1))
-        return np.linalg.pinv(BB.dot(What))
+        return np.linalg.pinv(BB)
 
 
 class ConstrainedCA():
