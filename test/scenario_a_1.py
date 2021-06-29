@@ -105,7 +105,7 @@ class Env(BaseEnv):
 
 def run():
     env = Env()
-    env.logger = fym.Logger("data/data.h5")
+    env.logger = fym.Logger("data.h5")
 
     env.reset()
 
@@ -131,5 +131,5 @@ def exp1():
 
 if __name__ == "__main__":
     exp1()
-    loggerpath = "data/data.h5"
+    loggerpath = "data.h5"
     exp_plot(loggerpath)
