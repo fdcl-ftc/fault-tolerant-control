@@ -57,7 +57,9 @@ class ConstrainedCA():
 
         sol = linprog(c, A_ub, b_ub, A_eq, b_eq, method="simplex")
         _u = sol.x
-        return np.vstack(np.insert(_u, fault_index, 0))
+        for i in range(len(fault_index)):
+            _u = np.insert(_u, fault_index[i], 0)
+        return np.vstack(_u)
 
 
 if __name__ == "__main__":
