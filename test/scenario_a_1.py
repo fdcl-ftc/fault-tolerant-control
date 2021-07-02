@@ -41,7 +41,7 @@ class Env(BaseEnv):
 
         # Define FDI
         self.fdi = SimpleFDI(self.actuator_faults,
-                             no_act=n, delay=0.2, threshold=0.1)
+                             no_act=n, delay=0., threshold=0.1)
 
         # Define agents
         self.CCA = ConstrainedCA(self.plant.mixer.B)
@@ -61,7 +61,7 @@ class Env(BaseEnv):
         if len(fault_index) == 0:
             rotors = np.linalg.pinv(self.plant.mixer.B.dot(What)).dot(forces)
         else:
-            rotors = self.CCA.solve_lp(fault_index, forces,
+            rotors = self.CCA.solve_opt(fault_index, forces,
                                        self.plant.rotor_min,
                                        self.plant.rotor_max)
         return rotors
