@@ -140,6 +140,9 @@ def load(key=None):
     return settings
 
 
-def set(d, reset=True):
-    fym.parser.update(settings, default_settings, prune=True)
+def set(d):
     fym.parser.update(settings, d)
+
+
+def reset():
+    fym.parser.update(settings, default_settings, prune=True)
