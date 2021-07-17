@@ -6,6 +6,10 @@ from fym.agents.LQR import clqr
 from fym.utils.linearization import jacob_analytic
 import fym.utils.rot as rot
 
+import ftc.config
+
+cfg = ftc.config.load(__name__)
+
 
 def angle2quat(angle):
     """angle: phi, theta, psi in radian"""
@@ -58,7 +62,7 @@ class LQR:
 
 
 class LQRLibrary:
-    def __init__(self, plant, Qs, Rs):
+    def __init__(self, plant):
         self.plant = plant
         m = self.plant.mixer.B.shape[1]
 
@@ -71,11 +75,11 @@ class LQRLibrary:
             deriv = wrap(plant.deriv, indices)
             xtrim, utrim = self.get_trims(deriv, indices)
 
-            A = jacob_analytic(deriv, 0)(xtrim, utrim)
-            B = jacob_analytic(deriv, 1)(xtrim, utrim)
+            A = jacob_analytic(deriv, 0)(xtrim, utrim)[0]
+            B = jacob_analytic(deriv, 1)(xtrim, utrim)[0]
 
-            Q = Qs[len(indices)]
-            R = Rs[len(indices)]
+            Q = cfg.LQRGainList[len(indices)]["Q"]
+            R = cfg.LQRGainList[len(indices)]["R"]
             self.lqr_table[indices] = LQR(A, B, Q, R, xtrim, utrim)
 
             if len(indices) > 1:

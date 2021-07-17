@@ -81,7 +81,7 @@ class Env(BaseEnv):
                                             self.plant.m,
                                             self.plant.g,
                                             Q[0], R[0])
-        self.controller2 = switching.LQRLibrary(self.plant, Q, R)
+        self.controller2 = switching.LQRLibrary(self.plant)
 
         self.detection_time = [[] for _ in range(len(self.actuator_faults))]
 
