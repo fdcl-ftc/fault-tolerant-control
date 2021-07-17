@@ -75,8 +75,8 @@ class LQRLibrary:
             deriv = wrap(plant.deriv, indices)
             xtrim, utrim = self.get_trims(deriv, indices)
 
-            A = jacob_analytic(deriv, 0)(xtrim, utrim)[0]
-            B = jacob_analytic(deriv, 1)(xtrim, utrim)[0]
+            A = jacob_analytic(deriv, 0)(xtrim, utrim)[:, :, 0]
+            B = jacob_analytic(deriv, 1)(xtrim, utrim)[:, :, 0]
 
             Q = cfg.LQRGainList[len(indices)]["Q"]
             R = cfg.LQRGainList[len(indices)]["R"]
