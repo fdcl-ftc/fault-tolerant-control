@@ -4,6 +4,10 @@ from functools import reduce
 
 from fym.core import BaseEnv, BaseSystem
 
+import ftc.config
+
+cfg = ftc.config.load(__name__)
+
 
 def get_loe(actuator_faults, no_act):
     actuator_faults = sorted(actuator_faults, key=lambda x: x.time)
@@ -16,9 +20,9 @@ def get_loe(actuator_faults, no_act):
 
 
 class SimpleFDI():
-    def __init__(self, actuator_faults, no_act, delay=0., threshold=0.):
-        self.delay = delay
-        self.threshold = threshold
+    def __init__(self, actuator_faults, no_act):
+        self.delay = cfg.delay
+        self.threshold = cfg.threshold
 
         self.loe = list(get_loe(actuator_faults, no_act))
         self.fault_times = np.array(
@@ -34,14 +38,3 @@ class SimpleFDI():
 
     def get_index(self, t):
         return np.nonzero(np.diag(self.get(t)) < 1 - self.threshold)[0]
-
-
-if __name__ == "__main__":
-    from ftc.faults.actuator import LoE, LiP, Float
-
-    actuator_faults = [
-        LoE(time=3, index=0, level=0.7),
-        LoE(time=6, index=2, level=0.8),
-        LoE(time=1, index=0, level=0.6),
-    ]
-    fdi = SimpleFDI(actuator_faults, 6)

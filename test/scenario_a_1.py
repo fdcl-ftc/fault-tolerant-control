@@ -5,6 +5,7 @@ import fym
 from fym.core import BaseEnv, BaseSystem
 from fym.utils.rot import angle2quat, quat2angle
 
+import ftc.config
 from ftc.models.multicopter import Multicopter
 from ftc.agents.CA import ConstrainedCA
 from ftc.agents.fdi import SimpleFDI
@@ -40,8 +41,7 @@ class Env(BaseEnv):
         ]
 
         # Define FDI
-        self.fdi = SimpleFDI(self.actuator_faults,
-                             no_act=n, delay=0., threshold=0.1)
+        self.fdi = SimpleFDI(self.actuator_faults, no_act=n)
 
         # Define agents
         self.CCA = ConstrainedCA(self.plant.mixer.B)
@@ -62,8 +62,8 @@ class Env(BaseEnv):
             rotors = np.linalg.pinv(self.plant.mixer.B.dot(What)).dot(forces)
         else:
             rotors = self.CCA.solve_opt(fault_index, forces,
-                                       self.plant.rotor_min,
-                                       self.plant.rotor_max)
+                                        self.plant.rotor_min,
+                                        self.plant.rotor_max)
         return rotors
 
     def get_ref(self, t):
@@ -106,6 +106,7 @@ class Env(BaseEnv):
 def run():
     env = Env()
     env.logger = fym.Logger("data.h5")
+    env.logger.set_info(cfg=ftc.config.load())
 
     env.reset()
 

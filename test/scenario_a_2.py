@@ -5,6 +5,7 @@ from fym.core import BaseEnv, BaseSystem
 import fym.logging
 from fym.utils.linearization import jacob_analytic
 
+import ftc.config
 from ftc.models.multicopter import Multicopter
 from ftc.agents.CA import Grouping
 from ftc.agents.CA import CA
@@ -41,47 +42,13 @@ class Env(BaseEnv):
         ]
 
         # Define FDI
-        self.fdi = SimpleFDI(self.actuator_faults, no_act=n, delay=0.00)
+        self.fdi = SimpleFDI(self.actuator_faults, no_act=n)
 
         # Define agents
         self.grouping = Grouping(self.plant.mixer.B)
         self.CA = CA(self.plant.mixer.B)
 
-        Q = [[] for _ in range(3)]
-        R = [[] for _ in range(3)]
-
-        # Nominal
-        Q[0] = np.diag(np.hstack((
-            [10, 10, 10],
-            [1, 1, 1],
-            [100, 100, 100],
-            [1, 1, 1],
-        )))
-        R[0] = np.diag([1, 1, 1, 1])
-
-        # One failure
-        Q[1] = np.diag(np.hstack((
-            [10, 10, 10],
-            [1, 1, 1],
-            [100, 100, 100],
-            [1, 1, 1],
-        )))
-        R[1] = np.diag([1, 1, 1, 1, 1, 1])
-
-        # Two failures
-        Q[2] = np.diag(np.hstack((
-            [1000, 1000, 1000],
-            [100, 100, 100],
-            [0, 0, 0],
-            [1, 1, 1],
-        )))
-        R[2] = np.diag([1, 1, 1, 1, 1, 1])
-
-        self.controller = lqr.LQRController(self.plant.Jinv,
-                                            self.plant.m,
-                                            self.plant.g,
-                                            Q[0], R[0])
-        self.controller2 = switching.LQRLibrary(self.plant)
+        self.controller = switching.LQRLibrary(self.plant)
 
         pos_des = np.vstack([-1, 1, 2])
         vel_des = np.vstack([0, 0, 0])
@@ -108,14 +75,7 @@ class Env(BaseEnv):
         fault_index = self.fdi.get_index(t)
         ref = self.get_ref(t)
 
-        # Controller
-        if len(fault_index) == 0:
-            forces = self.controller.get_FM(x, ref)
-            rotors_cmd = self.control_allocation(forces, What)
-
-        # Switching logic
-        elif len(fault_index) >= 1:
-            rotors_cmd = self.controller2.get_rotors(x, ref, fault_index)
+        rotors_cmd = self.controller.get_rotors(x, ref, fault_index)
 
         rotors_cmd = np.clip(rotors_cmd, 0, self.plant.rotor_max)
 
@@ -134,6 +94,7 @@ class Env(BaseEnv):
 def run():
     env = Env()
     env.logger = fym.logging.Logger("data.h5")
+    env.logger.set_info(cfg=ftc.config.load())
 
     env.reset()
 

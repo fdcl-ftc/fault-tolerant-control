@@ -1,12 +1,17 @@
 import numpy as np
 import scipy.optimize
 import itertools
+import sys
+from loguru import logger
 
 from fym.agents.LQR import clqr
 from fym.utils.linearization import jacob_analytic
 import fym.utils.rot as rot
 
 import ftc.config
+
+logger.remove()
+logger.add(sys.stdout, level="INFO")
 
 cfg = ftc.config.load(__name__)
 
@@ -67,11 +72,16 @@ class LQRLibrary:
         m = self.plant.mixer.B.shape[1]
 
         # LQR table
-        keys = [(k,) for k in range(m)]
+        keys = [()]
+        keys += [(k,) for k in range(m)]
         keys += itertools.combinations(range(m), 2)
         self.lqr_table = dict.fromkeys(keys)
 
+        logger.debug("LQR table keys: {}", keys)
+
         for indices in list(self.lqr_table.keys()):
+            logger.debug("indices: {} (len: {})", indices, len(indices))
+
             deriv = wrap(plant.deriv, indices)
             xtrim, utrim = self.get_trims(deriv, indices)
 
@@ -82,8 +92,13 @@ class LQRLibrary:
             R = cfg.LQRGainList[len(indices)]["R"]
             self.lqr_table[indices] = LQR(A, B, Q, R, xtrim, utrim)
 
+            if (K := self.lqr_table[indices].K) is None:
+                logger.info("LQR Table ({}): {}", indices, K)
+
             if len(indices) > 1:
                 self.lqr_table[tuple(reversed(indices))] = self.lqr_table[indices]
+
+        logger.info("LQR Table has been succesfully created")
 
     def get_trims(self, deriv, indices):
         def cost(u, x):
@@ -97,6 +112,8 @@ class LQRLibrary:
         nrotors = self.plant.mixer.B.shape[1]
         u0 = np.ones(nrotors) * weight / (nrotors - len(indices))
         u0[indices, ] = 0
+
+        logger.debug("u0: {}", u0)
 
         bounds = ((0, self.plant.rotor_max), ) * nrotors
 

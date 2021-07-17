@@ -15,6 +15,13 @@ default_settings = fym.parser.parse({
 
     # ====== ftc.agents ====== #
 
+    # ------ ftc.agents.fdi ------ #
+
+    "agents.fdi": {
+        "delay": 0.,
+        "threshold": 0.,
+    },
+
     # ------ ftc.agents.switcing ------ #
 
     "agents.switching": {
@@ -29,7 +36,7 @@ default_settings = fym.parser.parse({
                     [100, 100, 100],
                     [1, 1, 1],
                 ))),
-                "R": np.diag([1, 1, 1, 1]),
+                "R": np.diag([1, 1, 1, 1, 1, 1]),
             },
 
             # One failure
