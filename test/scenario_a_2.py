@@ -13,6 +13,7 @@ from ftc.agents.fdi import SimpleFDI
 from ftc.faults.actuator import LoE, LiP, Float
 import ftc.agents.lqr as lqr
 import ftc.agents.switching as switching
+from ftc.plotting import exp_plot
 
 
 class ActuatorDynamcs(BaseSystem):
@@ -86,7 +87,7 @@ class Env(BaseEnv):
 
         self.plant.set_dot(t, rotors)
 
-        return dict(t=t, **self.observe_dict(),
+        return dict(t=t, x=self.plant.observe_dict(),
                     What=What, rotors=rotors, rotors_cmd=rotors_cmd,
                     W=W, ref=ref)
 
@@ -95,6 +96,8 @@ def run():
     env = Env()
     env.logger = fym.logging.Logger("data.h5")
     env.logger.set_info(cfg=ftc.config.load())
+    env.logger.set_info(rotor_min=env.plant.rotor_min,
+                        rotor_max=env.plant.rotor_max)
 
     env.reset()
 
@@ -320,6 +323,4 @@ def exp1_plot():
 
 if __name__ == "__main__":
     exp1()
-    exp1_plot()
-
-    data = fym.load("data.h5")
+    exp_plot("data.h5")
