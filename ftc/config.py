@@ -3,6 +3,7 @@
 [2] V. S. Akkinapalli, G. P. Falconí, and F. Holzapfel, “Attitude control of a multicopter using L1 augmented quaternion based backstepping,” Proceeding - ICARES 2014 2014 IEEE Int. Conf. Aerosp. Electron. Remote Sens. Technol., no. November, pp. 170–178, 2014.
 [3] M. C. Achtelik, K. M. Doth, D. Gurdan, and J. Stumpf, “Design of a multi rotor MAV with regard to efficiency, dynamics and redundancy,” AIAA Guid. Navig. Control Conf. 2012, no. August, pp. 1–17, 2012.
 [4] https://kr.mathworks.com/help/aeroblks/6dofquaternion.html#mw_f692de78-a895-4edc-a4a7-118228165a58
+[5] M. C. Achtelik, K. M. Doth, D. Gurdan, and J. Stumpf, “Design of a multi rotor MAV with regard to efficiency, dynamics and redundancy,” AIAA Guid. Navig. Control Conf. 2014, no. August, pp. 1–17, 2012, doi: 10.2514/6.2012-4779.
 """
 import numpy as np
 from functools import reduce
@@ -111,7 +112,8 @@ default_settings = fym.parser.parse({
                 "c": 8.004e-4,  # z-dir moment coefficient caused by rotor force
                 "b": 1,
                 "rotor_min": 0,
-                "rotor_max": 40,  # abount m * g
+                # maximum thrust for each rotor [5]
+                "rotor_max": 40 * 0.6371,  # abount m * g
             },
 
             # G. P. Falconi's multicopter model [2-4]
