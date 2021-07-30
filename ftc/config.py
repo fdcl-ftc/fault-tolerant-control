@@ -113,7 +113,7 @@ default_settings = fym.parser.parse({
                 "b": 1,
                 "rotor_min": 0,
                 # maximum thrust for each rotor [5]
-                "rotor_max": 40 * 0.6371,  # abount m * g
+                "rotor_max": 4.34 * 9.81 * 0.6371,  # abount m * g * 0.6371
             },
 
             # G. P. Falconi's multicopter model [2-4]
