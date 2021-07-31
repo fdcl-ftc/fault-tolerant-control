@@ -9,6 +9,8 @@ import fym
 from fym.utils.rot import angle2quat
 
 from ftc.models.multicopter import Multicopter
+import ftc.config
+from ftc.evaluate.evaluate import calculate_recovery_rate
 
 cfg = fym.parser.parse({
     "parallel.max_workers": None,
@@ -35,7 +37,15 @@ class Env(fym.BaseEnv):
         super().__init__(**fym.parser.decode(cfg.env.kwargs))
         pos, vel, angle, omega = initial
         quat = angle2quat(*angle.ravel()[::-1])
-        self.plant = Multicopter(pos, vel, quat, omega)
+        ftc.config.set({
+            "cfg.models.multicopter": {
+                "init.pos": pos,
+                "init.vel": vel,
+                "init.quat": quat,
+                "init.omega": omega,
+            }
+        })
+        self.plant = Multicopter()
 
     def step(self):
         *_, done = self.update()
@@ -97,4 +107,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # main()
+    alt_errors = []
+    for i in range(cfg.episode.N):
+        loggerpath = Path(cfg.path.run, f"env-{i:03d}.h5")
+        data, info = fym.load(loggerpath, with_info=True)
+        alt_errors = np.append(alt_errors, info["alt_error"])
+    recovery_rate = calculate_recovery_rate(alt_errors, threshold=300.0)
+    print(recovery_rate)
