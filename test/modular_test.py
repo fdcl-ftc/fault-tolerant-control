@@ -98,8 +98,8 @@ class Env(fym.BaseEnv):
         rotors = np.clip(rotors_cmd, 0, self.plant.rotor_max)
 
         # Set actuator faults
-        # for act_fault in self.actuator_faults:
-        #     rotors = act_fault(t, rotors)
+        for act_fault in self.actuator_faults:
+            rotors = act_fault(t, rotors)
 
         self.plant.set_dot(t, rotors)
 
