@@ -125,6 +125,26 @@ default_settings = fym.parser.parse({
             },
         },
     },
+
+    # :::::: FTC EVALUATION ENV :::::: #
+
+    # ====== env ====== #
+
+    "parallel.max_workers": None,
+    "episode.N": 100,
+    "episode.range": {
+        "pos": (-1, 1),
+        "vel": (-1, 1),
+        "omega": (-5, 5),
+        "angle": (-5, 5),
+    },
+    "evaluation.cuttime": 5,
+    "evaluation.threshold": 0.5,
+    "env.kwargs": {
+        "dt": 0.01,
+        "max_t": 10,
+    },
+    "ref.pos": np.vstack((0, 0, -10)),
 })
 
 settings = fym.parser.parse(default_settings)
