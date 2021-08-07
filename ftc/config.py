@@ -112,8 +112,6 @@ default_settings = fym.parser.parse({
                 "c": 8.004e-4,  # z-dir moment coefficient caused by rotor force
                 "b": 1,
                 "rotor_min": 0,
-                # maximum thrust for each rotor [5]
-                "rotor_max": 4.34 * 9.81 * 0.6371,  # abount m * g * 0.6371
             },
 
             # G. P. Falconi's multicopter model [2-4]
@@ -124,13 +122,34 @@ default_settings = fym.parser.parse({
                 "c": 1.2864e-7,  # z-dir moment coefficient caused by rotor force
                 "b": 6.546e-6,
                 "rotor_min": 0,
-                "rotor_max": 3e5,  # about 2 * m * g / b / 6
             },
         },
     },
 })
 
 settings = fym.parser.parse(default_settings)
+
+
+def maximum_thrust(m, g):
+    return m * g * 0.6371  # maximum thrust for each rotor [5]
+
+
+def set_maximum_rotor(settings):
+    modelauthor = settings.models.multicopter.modelFrom
+    g = settings.models.multicopter.physProp.g
+    if modelauthor == "Taeyoung_Lee":
+        m = settings.models.multicopter.physPropBy.Taeyoung_Lee.m
+        rotor_max = {"models.multicopter.physPropBy.Taeyoung_Lee":
+                     {"rotor_max": maximum_thrust(m, g)}
+                     }
+    elif modelauthor == "GP_falconi":
+        rotor_max = {"models.multicopter.physPropBy.GP_falconi":
+                     {"rotor_max": 3e5}  # about 2 * m * g / b / 6
+                     }
+    fym.parser.update(settings, rotor_max)
+
+
+set_maximum_rotor(settings)
 
 
 def load(key=None):
