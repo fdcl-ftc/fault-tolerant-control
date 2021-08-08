@@ -14,6 +14,15 @@ import fym
 default_settings = fym.parser.parse({
     # :::::: FTC Modules :::::: #
 
+    # ====== ftc.faults ====== #
+
+    # ------ ftc.faults.manager ------ #
+
+    "faults.manager": {
+        "delay": 0.,
+        "threshold": 0.,
+    },
+
     # ====== ftc.agents ====== #
 
     # ------ ftc.agents.fdi ------ #

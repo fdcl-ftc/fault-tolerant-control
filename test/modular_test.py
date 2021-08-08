@@ -10,10 +10,10 @@ from fym.utils.rot import angle2quat
 
 import ftc.config
 from ftc.models.multicopter import Multicopter
-from ftc.faults.actuator import LoE, LiP, Float
+from ftc.faults.actuator import LoE
+from ftc.faults.manager import LoEManager
 from ftc.evaluate.evaluate import calculate_recovery_rate
 from ftc.agents.CA import ConstrainedCA
-from ftc.agents.fdi import SimpleFDI
 import ftc.agents.lqr as lqr
 from ftc.plotting import exp_plot
 
@@ -43,13 +43,13 @@ class Env(fym.BaseEnv):
 
         # Define faults
         self.sensor_faults = []
-        self.actuator_faults = [
+        self.fault_manager = LoEManager([
             LoE(time=3, index=0, level=0.),  # scenario a
             # LoE(time=6, index=2, level=0.),  # scenario b
-        ]
+        ], no_act=n)
 
         # Define FDI
-        self.fdi = SimpleFDI(self.actuator_faults, no_act=n)
+        self.fdi = self.fault_manager.fdi
 
         # Define agents
         self.CCA = ConstrainedCA(self.plant.mixer.B)
@@ -98,8 +98,7 @@ class Env(fym.BaseEnv):
         rotors = np.clip(rotors_cmd, 0, self.plant.rotor_max)
 
         # Set actuator faults
-        for act_fault in self.actuator_faults:
-            rotors = act_fault(t, rotors)
+        rotors = self.fault_manager.get_faulty_input(t, rotors)
 
         self.plant.set_dot(t, rotors)
 
