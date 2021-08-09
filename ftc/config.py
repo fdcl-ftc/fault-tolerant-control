@@ -140,7 +140,7 @@ def set_maximum_rotor(settings):
     if modelauthor == "Taeyoung_Lee":
         m = settings.models.multicopter.physPropBy.Taeyoung_Lee.m
         rotor_max = {"models.multicopter.physPropBy.Taeyoung_Lee":
-                     {"rotor_max": maximum_thrust(m, g)}
+                     {"rotor_max": _maximum_thrust(m, g)}
                      }
     elif modelauthor == "GP_falconi":
         rotor_max = {"models.multicopter.physPropBy.GP_falconi":
