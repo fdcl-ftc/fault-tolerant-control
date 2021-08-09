@@ -130,7 +130,7 @@ default_settings = fym.parser.parse({
 settings = fym.parser.parse(default_settings)
 
 
-def maximum_thrust(m, g):
+def _maximum_thrust(m, g):
     return m * g * 0.6371  # maximum thrust for each rotor [5]
 
 
