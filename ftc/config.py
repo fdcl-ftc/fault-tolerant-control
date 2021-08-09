@@ -149,7 +149,7 @@ def set_maximum_rotor(settings):
     fym.parser.update(settings, rotor_max)
 
 
-set_maximum_rotor(settings)
+_set_maximum_rotor(settings)
 
 
 def load(key=None):
