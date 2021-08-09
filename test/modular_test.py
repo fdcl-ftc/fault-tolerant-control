@@ -49,7 +49,7 @@ class Env(fym.BaseEnv):
                                             self.plant.m,
                                             self.plant.g)
 
-        self.detection_time = [self.fault_manager.fault_times + self.fdi.delay]
+        self.detection_time = self.fault_manager.fault_times + self.fdi.delay
 
     def step(self):
         *_, done = self.update()

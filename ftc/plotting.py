@@ -6,6 +6,7 @@ from fym.utils.rot import angle2quat, quat2angle
 
 def exp_plot(loggerpath):
     data, info = fym.load(loggerpath, with_info=True)
+    # detection_time = info["detection_time"]
     rotor_min = info["rotor_min"]
     rotor_max = info["rotor_max"]
 
@@ -48,14 +49,12 @@ def exp_plot(loggerpath):
     for i, (_label, _ls) in enumerate(zip(["x", "y", "z"], ["-", "--", "-."])):
         plt.plot(data["t"], data["x"]["pos"][:, i, 0], "k"+_ls, label=_label)
         plt.plot(data["t"], data["ref"][:, i, 0], "r"+_ls, label=_label+" (cmd)")
-    # plt.axvspan(3, 3.042, alpha=0.2, color="b")
-    # plt.axvline(3.042, alpha=0.8, color="b", linewidth=0.5)
-
-    # plt.axvspan(6, 6.011, alpha=0.2, color="b")
-    # plt.axvline(6.011, alpha=0.8, color="b", linewidth=0.5)
-
+    # plt.axvspan(3, detection_time[0], alpha=0.2, color="b")
+    # plt.axvline(detection_time[0], alpha=0.8, color="b", linewidth=0.5)
     # plt.annotate("Rotor 0 fails", xy=(3, 0), xytext=(3.5, 0.5),
     #              arrowprops=dict(arrowstyle='->', lw=1.5))
+    # plt.axvspan(6, detection_time[1], alpha=0.2, color="b")
+    # plt.axvline(detection_time[1], alpha=0.8, color="b", linewidth=0.5)
     # plt.annotate("Rotor 2 fails", xy=(6, 0), xytext=(7.5, 0.2),
     #              arrowprops=dict(arrowstyle='->', lw=1.5))
     plt.gcf().supxlabel("Time, sec")
