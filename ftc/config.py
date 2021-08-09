@@ -25,13 +25,6 @@ default_settings = fym.parser.parse({
 
     # ====== ftc.agents ====== #
 
-    # ------ ftc.agents.fdi ------ #
-
-    "agents.fdi": {
-        "delay": 0.,
-        "threshold": 0.,
-    },
-
     # ------ ftc.agents.switcing ------ #
 
     "agents.switching": {
@@ -144,8 +137,8 @@ default_settings = fym.parser.parse({
     "episode.range": {
         "pos": (-1, 1),
         "vel": (-1, 1),
-        "omega": (-5, 5),
-        "angle": (-5, 5),
+        "omega": np.deg2rad((-5, 5)),
+        "angle": np.deg2rad((-5, 5)),
     },
     "evaluation.cuttime": 5,
     "evaluation.threshold": 0.5,

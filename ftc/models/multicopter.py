@@ -89,12 +89,12 @@ class Multicopter(BaseEnv):
         quat: unit quaternion.
             Corresponding to the rotation matrix from I- to B-coord.
     """
-    def __init__(self):
+    def __init__(self, pos, vel, quat, omega):
         super().__init__()
-        self.pos = BaseSystem(cfg.init.pos)
-        self.vel = BaseSystem(cfg.init.vel)
-        self.quat = BaseSystem(cfg.init.quat)
-        self.omega = BaseSystem(cfg.init.omega)
+        self.pos = BaseSystem(pos)
+        self.vel = BaseSystem(vel)
+        self.quat = BaseSystem(quat)
+        self.omega = BaseSystem(omega)
 
         fym.parser.update(cfg.physProp,
                           fym.parser.decode(cfg.physPropBy)[cfg.modelFrom])

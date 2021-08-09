@@ -29,15 +29,7 @@ class Env(fym.BaseEnv):
         pos, vel, angle, omega = initial
         pos[2] = pos[2] - 10
         quat = angle2quat(*angle.ravel()[::-1])
-        ftc.config.set({
-            "cfg.models.multicopter": {
-                "init.pos": pos,
-                "init.vel": vel,
-                "init.quat": quat,
-                "init.omega": omega,
-            }
-        })
-        self.plant = Multicopter()
+        self.plant = Multicopter(pos, vel, quat, omega)
         self.trim_forces = np.vstack([self.plant.m * self.plant.g, 0, 0, 0])
         n = self.plant.mixer.B.shape[1]
 
@@ -57,7 +49,7 @@ class Env(fym.BaseEnv):
                                             self.plant.m,
                                             self.plant.g)
 
-        # self.detection_time = [fault.time + self.fdi.delay for fault in self.actuator_faults]
+        self.detection_time = [self.fault_manager.fault_times + self.fdi.delay]
 
     def step(self):
         *_, done = self.update()
@@ -116,6 +108,12 @@ def single_run(i, initial):
         done = env.step()
 
         if done:
+            env_info = {
+                "detection_time": env.detection_time,
+                "rotor_min": env.plant.rotor_min,
+                "rotor_max": env.plant.rotor_max,
+            }
+            env.logger.set_info(**env_info)
             break
 
     env.close()
@@ -161,5 +159,6 @@ if __name__ == "__main__":
         loggerpath = Path(cfg.path.run, f"env-{i:03d}.h5")
         data, info = fym.load(loggerpath, with_info=True)
         alt_errors = np.append(alt_errors, info["alt_error"])
-    recovery_rate = calculate_recovery_rate(alt_errors, threshold=300.0)
+    recovery_rate = calculate_recovery_rate(alt_errors, threshold=0.5)
     print(f"Recovery rate is {recovery_rate:.3f}.")
+    exp_plot(loggerpath)

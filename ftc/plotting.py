@@ -43,7 +43,7 @@ def exp_plot(loggerpath):
 
     # Position
     plt.figure()
-    plt.ylim([-5, 5])
+    # plt.ylim([-5, 5])
 
     for i, (_label, _ls) in enumerate(zip(["x", "y", "z"], ["-", "--", "-."])):
         plt.plot(data["t"], data["x"]["pos"][:, i, 0], "k"+_ls, label=_label)
