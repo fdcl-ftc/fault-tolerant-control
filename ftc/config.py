@@ -134,7 +134,7 @@ def _maximum_thrust(m, g):
     return m * g * 0.6371  # maximum thrust for each rotor [5]
 
 
-def set_maximum_rotor(settings):
+def _set_maximum_rotor(settings):
     modelauthor = settings.models.multicopter.modelFrom
     g = settings.models.multicopter.physProp.g
     if modelauthor == "Taeyoung_Lee":
