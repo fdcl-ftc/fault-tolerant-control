@@ -87,7 +87,7 @@ class Multicopter(BaseEnv):
         pos: position in I-coord
         vel: velocity in I-coord
         quat: unit quaternion.
-            Corresponding to the rotation matrix from I- to B-coord.
+            Corresponding to the rotation matrix from B- to I-coord.
     """
     def __init__(self):
         super().__init__()
@@ -114,8 +114,8 @@ class Multicopter(BaseEnv):
 
         dpos = vel
         dcm = quat2dcm(quat)
-        dvel = g*e3 - F*dcm.T.dot(e3)/m
-        # DCM integration (Note: dcm; I to B) [1]
+        dvel = g*e3 - F*dcm.dot(e3)/m
+        # DCM integration (Note: dcm; B to I) [1]
         p, q, r = np.ravel(omega)
         # unit quaternion integration [4]
         dquat = 0.5 * np.array([[0., -p, -q, -r],
