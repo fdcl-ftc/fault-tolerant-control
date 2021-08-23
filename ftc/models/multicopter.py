@@ -33,7 +33,7 @@ class Mixer:
                  [-b*d, b*d, b*d/2, -b*d/2, -b*d/2, b*d/2],
                  [0, 0, b*d*np.sqrt(3)/2, -b*d*np.sqrt(3)/2, b*d*np.sqrt(3)/2,
                   -b*d*np.sqrt(3)/2],
-                 [c, -c, c, -c, -c, c]]
+                 [-c, c, -c, c, c, -c]]
             )
 
         elif rtype == "hexa-+":
@@ -43,7 +43,7 @@ class Mixer:
                  [0, 0, b*d*np.sqrt(3)/2, -b*d*np.sqrt(3)/2, b*d*np.sqrt(3)/2,
                   -b*d*np.sqrt(3)/2],
                  [-b*d, b*d, b*d/2, -b*d/2, -b*d/2, b*d/2],
-                 [c, -c, c, -c, -c, c]]
+                 [-c, c, -c, c, c, -c]]
             )
             self.b_gyro = np.vstack((1, -1, 1, -1, 1, -1))
 
