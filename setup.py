@@ -9,7 +9,7 @@ with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="ftc",
-    version="0.1.0",
+    version="0.2.0",
     url="https://github.com:fdcl-ftc/fault-tolerant-control.git",
     author="SNU FDCL",
     description="SNU FDCL FTC",
@@ -18,7 +18,7 @@ setup(
     license="",
     include_package_data=True,
     packages=find_packages(),
-    python_requires=">=3.7",
+    python_requires=">=3.8",
     install_requires=[
         "matplotlib"
     ]
