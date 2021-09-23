@@ -137,8 +137,10 @@ default_settings = fym.parser.parse({
     "episode.range": {
         "pos": (-1, 1),
         "vel": (-1, 1),
-        "omega": np.deg2rad((-5, 5)),
-        "angle": np.deg2rad((-5, 5)),
+        "vel_x": (3, 7),
+        "omega": np.deg2rad((-2, 2)),
+        "angle": np.deg2rad((-2, 2)),
+        "angle_theta": np.deg2rad((-10, -5)),
     },
     "evaluation.cuttime": 5,
     "evaluation.threshold": 0.5,
