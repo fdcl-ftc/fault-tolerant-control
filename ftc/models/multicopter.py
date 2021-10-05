@@ -88,8 +88,20 @@ class Multicopter(BaseEnv):
         vel: velocity in I-coord
         quat: unit quaternion.
             Corresponding to the rotation matrix from I- to B-coord.
+
+    Drag model [1]:
+        self.M_gyroscopic
+        self.A_drag
+        self.B_drag
+        self.D_drag
+        - Note: orientation `R` in the paper is `dcm.T`
+
+    References:
+        [1] M. Faessler, A. Franchi, and D. Scaramuzza, “Differential Flatness of Quadrotor Dynamics Subject to Rotor Drag for Accurate Tracking of High-Speed Trajectories,” IEEE Robot. Autom. Lett., vol. 3, no. 2, pp. 620–626, Apr. 2018, doi: 10.1109/LRA.2017.2776353.
     """
-    def __init__(self, pos, vel, quat, omega):
+    def __init__(self, pos, vel, quat, omega,
+                 dx=0.0, dy=0.0, dz=0.0,
+                ):
         super().__init__()
         self.pos = BaseSystem(pos)
         self.vel = BaseSystem(vel)
@@ -102,6 +114,10 @@ class Multicopter(BaseEnv):
             self.__setattr__(k, v)
 
         self.Jinv = np.linalg.inv(self.J)
+        self.M_gyroscopic = np.diag(np.zeros(3))
+        self.A_drag = np.diag(np.zeros(3))  # currently ignored
+        self.B_drag = np.diag(np.zeros(3))  # currently ignored
+        self.D_drag = np.diag([dx, dy, dz])
         self.mixer = Mixer(d=self.d, c=self.c, b=self.b)
 
     def deriv(self, pos, vel, quat, omega, rotors):
@@ -114,7 +130,7 @@ class Multicopter(BaseEnv):
 
         dpos = vel
         dcm = quat2dcm(quat)
-        dvel = g*e3 - F*dcm.T.dot(e3)/m
+        dvel = g*e3 - F*dcm.T.dot(e3)/m - dcm.T*self.D_drag*dcm*vel
         # DCM integration (Note: dcm; I to B) [1]
         p, q, r = np.ravel(omega)
         # unit quaternion integration [4]
@@ -125,7 +141,13 @@ class Multicopter(BaseEnv):
         eps = 1 - (quat[0]**2+quat[1]**2+quat[2]**2+quat[3]**2)
         k = 1
         dquat = dquat + k*eps*quat
-        domega = self.Jinv.dot(M - np.cross(omega, J.dot(omega), axis=0))
+        domega = self.Jinv.dot(
+            M
+            - np.cross(omega, J.dot(omega), axis=0)
+            - self.M_gyroscopic
+            - self.A_drag*dcm*vel
+            - self.B_drag*omega
+        )
 
         return dpos, dvel, dquat, domega
 
@@ -139,47 +161,47 @@ class Multicopter(BaseEnv):
         Omega = self.mixer.b_gyro.T.dot(np.sqrt(f / self.mixer.b))
         return Omega
 
-    def get_FM_wind(self, f, vel, omega, windvel):
-        relvel = windvel - vel
+    # def get_FM_wind(self, f, vel, omega, windvel):
+    #     relvel = windvel - vel
 
-        f = np.clip(f, 0, self.rotor_max)
+    #     f = np.clip(f, 0, self.rotor_max)
 
-        # Frame drag
-        F_drag = 1/2 * self.rho * self.CdA * np.linalg.norm(relvel) * relvel
+    #     # Frame drag
+    #     F_drag = 1/2 * self.rho * self.CdA * np.linalg.norm(relvel) * relvel
 
-        # Blade Flapping
-        F_blade = np.zeros((3, 1))
-        M_blade = np.zeros((3, 1))
-        for fi, di in zip(f, self.mixer.d_rotor):
-            di = di[:, None]
-            if fi != 0:
-                Omegai = np.sqrt(fi / self.mixer.b)
-                vr = relvel + np.cross(omega, di, axis=0)
-                mur = np.linalg.norm(vr[:2]) / (Omegai * self.R)
-                psir = np.arctan2(vr[1, 0], vr[0, 0])
-                lambdah = np.sqrt(self.CT / 2)
-                gamma = self.rho * self.a0 * self.ch * self.R**4 / self.Jr
-                v1s = 1 / (1 + mur**2 / 2) * 4 / 3 * (
-                    self.CT / self.sigma * 2 / 3 * mur * gamma / self.a0 + mur)
-                u1s = 1 / (1 - mur**2 / 2) * mur * (
-                    4 * self.thetat - 2 * lambdah**2)
-                alpha1s, beta1s = np.array([
-                    [np.cos(psir), -np.sin(psir)],
-                    [np.sin(psir), np.cos(psir)]
-                ]).dot(np.vstack((u1s, v1s)))
+    #     # Blade Flapping
+    #     F_blade = np.zeros((3, 1))
+    #     M_blade = np.zeros((3, 1))
+    #     for fi, di in zip(f, self.mixer.d_rotor):
+    #         di = di[:, None]
+    #         if fi != 0:
+    #             Omegai = np.sqrt(fi / self.mixer.b)
+    #             vr = relvel + np.cross(omega, di, axis=0)
+    #             mur = np.linalg.norm(vr[:2]) / (Omegai * self.R)
+    #             psir = np.arctan2(vr[1, 0], vr[0, 0])
+    #             lambdah = np.sqrt(self.CT / 2)
+    #             gamma = self.rho * self.a0 * self.ch * self.R**4 / self.Jr
+    #             v1s = 1 / (1 + mur**2 / 2) * 4 / 3 * (
+    #                 self.CT / self.sigma * 2 / 3 * mur * gamma / self.a0 + mur)
+    #             u1s = 1 / (1 - mur**2 / 2) * mur * (
+    #                 4 * self.thetat - 2 * lambdah**2)
+    #             alpha1s, beta1s = np.array([
+    #                 [np.cos(psir), -np.sin(psir)],
+    #                 [np.sin(psir), np.cos(psir)]
+    #             ]).dot(np.vstack((u1s, v1s)))
 
-                ab = np.vstack((
-                    -np.sin(alpha1s),
-                    -np.cos(alpha1s) * np.sin(beta1s),
-                    np.cos(alpha1s) * np.cos(beta1s) - 1))
+    #             ab = np.vstack((
+    #                 -np.sin(alpha1s),
+    #                 -np.cos(alpha1s) * np.sin(beta1s),
+    #                 np.cos(alpha1s) * np.cos(beta1s) - 1))
 
-                F_blade += self.mixer.b * Omegai**2 * ab
-                M_blade += np.cross(di, self.mixer.b * Omegai**2 * ab, axis=0)
+    #             F_blade += self.mixer.b * Omegai**2 * ab
+    #             M_blade += np.cross(di, self.mixer.b * Omegai**2 * ab, axis=0)
 
-        F_wind = F_blade + F_drag
-        M_wind = M_blade
+    #     F_wind = F_blade + F_drag
+    #     M_wind = M_blade
 
-        return F_wind, M_wind
+    #     return F_wind, M_wind
 
 
 if __name__ == "__main__":
