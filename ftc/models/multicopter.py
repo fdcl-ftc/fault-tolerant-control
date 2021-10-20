@@ -100,8 +100,7 @@ class Multicopter(BaseEnv):
         [1] M. Faessler, A. Franchi, and D. Scaramuzza, “Differential Flatness of Quadrotor Dynamics Subject to Rotor Drag for Accurate Tracking of High-Speed Trajectories,” IEEE Robot. Autom. Lett., vol. 3, no. 2, pp. 620–626, Apr. 2018, doi: 10.1109/LRA.2017.2776353.
     """
     def __init__(self, pos, vel, quat, omega,
-                 dx=0.0, dy=0.0, dz=0.0,
-                ):
+                 dx=0.0, dy=0.0, dz=0.0,):
         super().__init__()
         self.pos = BaseSystem(pos)
         self.vel = BaseSystem(vel)
@@ -114,7 +113,7 @@ class Multicopter(BaseEnv):
             self.__setattr__(k, v)
 
         self.Jinv = np.linalg.inv(self.J)
-        self.M_gyroscopic = np.diag(np.zeros(3))
+        self.M_gyroscopic = np.zeros((3, 1))
         self.A_drag = np.diag(np.zeros(3))  # currently ignored
         self.B_drag = np.diag(np.zeros(3))  # currently ignored
         self.D_drag = np.diag([dx, dy, dz])
@@ -130,7 +129,8 @@ class Multicopter(BaseEnv):
 
         dpos = vel
         dcm = quat2dcm(quat)
-        dvel = g*e3 - F*dcm.T.dot(e3)/m - dcm.T*self.D_drag*dcm*vel
+        dvel = (g*e3 - F*dcm.T.dot(e3)/m
+                - dcm.T.dot(self.D_drag).dot(dcm).dot(vel))
         # DCM integration (Note: dcm; I to B) [1]
         p, q, r = np.ravel(omega)
         # unit quaternion integration [4]
@@ -145,8 +145,8 @@ class Multicopter(BaseEnv):
             M
             - np.cross(omega, J.dot(omega), axis=0)
             - self.M_gyroscopic
-            - self.A_drag*dcm*vel
-            - self.B_drag*omega
+            - self.A_drag.dot(dcm).dot(vel)
+            - self.B_drag.dot(omega)
         )
 
         return dpos, dvel, dquat, domega
