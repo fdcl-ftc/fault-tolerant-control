@@ -25,9 +25,9 @@ default_settings = fym.parser.parse({
 
     # ====== ftc.agents ====== #
 
-    # ------ ftc.agents.switcing ------ #
+    # ------ ftc.agents.switcing_lqr ------ #
 
-    "agents.switching": {
+    "agents.switching_lqr": {
 
         "LQRGainList": [
 
