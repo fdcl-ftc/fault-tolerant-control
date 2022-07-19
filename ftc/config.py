@@ -25,6 +25,15 @@ default_settings = fym.parser.parse({
 
     # ====== ftc.agents ====== #
 
+    # ------ ftc.agents.lqr ------ #
+
+    "agents.lqr": {
+        "LQRGain": {
+            "Q": np.diag([1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0]),
+            "R": np.diag([1, 1, 1, 1]),
+        },
+    },
+
     # ------ ftc.agents.switcing_lqr ------ #
 
     "agents.switching_lqr": {

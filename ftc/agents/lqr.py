@@ -8,12 +8,15 @@ from ftc.models.multicopter import Multicopter
 import fym.logging
 from fym.core import BaseEnv, BaseSystem
 
+import ftc.config
+
+cfg = ftc.config.load(__name__)
+
 
 class LQRController:
-    def __init__(self, Jinv, m, g,
-                 Q=np.diag([1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0]),
-                 R=np.diag([1, 1, 1, 1]),
-                 ):
+    def __init__(self, Jinv, m, g):
+        Q = cfg.LQRGain.Q
+        R = cfg.LQRGain.R
         self.Jinv = Jinv
         self.m, self.g = m, g
         self.trim_forces = np.vstack([self.m * self.g, 0, 0, 0])
