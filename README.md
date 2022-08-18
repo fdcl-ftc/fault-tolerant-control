@@ -21,7 +21,7 @@ The controller must be defined as a class in somewhere in a directory in `ftc.co
 
 For example, to define a sliding mode controller, one must create a directory `ftc.controllers.mysmc`, and a module file `smc.py` in that directory.
 The directory may contain several `.py` files for readability.
-In any cases, the main controller class, let's say `MYSMC` must be registered in `ftc.controllers.__init__.py` with an identifyable name and a full entry point to that class as follows.
+In any cases, the main controller class, let's say `MYSMC`, must be registered in `ftc.controllers.__init__.py` with an identifyable name (`id`) and a full entry point (`entry_point`) to that class as follows.
 
 ```python
 register(
