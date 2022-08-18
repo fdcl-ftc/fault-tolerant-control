@@ -13,7 +13,9 @@ In Python 3.8>, use the module as follows.
 import ftc
 ```
 
-## Register a Controller
+## Usage
+
+### Register a Controller Class
 
 The controller must be defined as a class in somewhere in a directory in `ftc.controllers`.
 
@@ -29,6 +31,14 @@ register(
 ```
 
 As you may notice, this registration process is borrowed from the OpenAI Gym module.
+
+### Make a Controller Instance
+
+After the controller is registered, one can make an instance of the controller class by `ftc.make` method.
+
+```python
+controller = ftc.make("My-SMC-v1")
+```
 
 ## Controller Class API
 
