@@ -115,6 +115,8 @@ class LC62(fym.BaseEnv):
     def deriv(self, pos, vel, quat, omega, ctrls, vel_wind=np.zeros((3, 1)),
               omega_wind=np.zeros((3, 1))):
 
+        dcm = quat2dcm(quat)
+
         pwms_rotor = ctrls[:6]
         pwms_pusher = ctrls[6:8]
         dels = ctrls[8:]  # control surfaces
@@ -127,8 +129,9 @@ class LC62(fym.BaseEnv):
         omega = omega + omega_wind
         FM_Pusher = self.B_Pusher(pwms_pusher)
         FM_Fuselage = self.B_Fuselage(dels, vel, omega)
+        FM_Gravity = np.vstack((dcm @ (self.m * self.g * self.e3), 0, 0, 0))
         # total force and moments
-        FM = FM_VTOL + FM_Fuselage + FM_Pusher
+        FM = FM_VTOL + FM_Fuselage + FM_Pusher + FM_Gravity
         F, M = FM[0:3], FM[3:]
 
         """ disturbances """
@@ -136,7 +139,6 @@ class LC62(fym.BaseEnv):
         domega = self.Jinv @ np.zeros((3, 1))
 
         """ dynamics """
-        dcm = quat2dcm(quat)
         dpos = dcm.T @ vel
         dvel = F / self.m - np.cross(omega, vel, axis=0) + dv
         p, q, r = np.ravel(omega)
