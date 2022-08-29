@@ -136,9 +136,9 @@ class LC62(fym.BaseEnv):
         domega = self.Jinv @ np.zeros((3, 1))
 
         """ dynamics """
-        dpos = vel
         dcm = quat2dcm(quat)
-        dvel = self.g * self.e3 - F * dcm.T.dot(self.e3) / self.m + dv
+        dpos = dcm.T @ vel
+        dvel = F / self.m - np.cross(omega, vel, axis=0) + dv
         p, q, r = np.ravel(omega)
         dquat = 0.5 * np.array(
             [[0.0, -p, -q, -r], [p, 0.0, r, -q], [q, -r, 0.0, p], [r, q, -p, 0.0]]
