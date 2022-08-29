@@ -103,6 +103,7 @@ class BLFController(BaseEnv):
             "obs_ang": obs_ang,
             "dist": dist,
             "forces": forces,
+            "q": q,
             "eulerd": eulerd,
             "bound_err": bound_err,
             "bound_ang": bound_ang,

@@ -122,9 +122,7 @@ class Quad(BaseEnv):
             + ext_omega + int_omega
 
         quad_info = {
-            "rotors": rotors,
-            "rotors_sat": rotors_sat,
-            "lrotors": lrotors,
+            "rotors_cmd": rotors,
             "lrotors_sat": lrotors_sat,
             "fT": fT,
             "M": M,
@@ -322,6 +320,7 @@ class ExtendedQuadEnv(fym.BaseEnv):
             **self.observe_dict(),
             **quad_info,
             **controller_info,
+            "posd": self.get_ref(t, "posd")
         }
 
         return env_info
@@ -370,7 +369,7 @@ def plot():
         if i != 0:
             plt.subplot(221+i, sharex=ax)
         plt.ylim([rotor_min-5, np.sqrt(rotor_max)+5])
-        plt.plot(data["t"], np.sqrt(data["rotors"][:, i]), "k-", label="Response")
+        plt.plot(data["t"], np.sqrt(data["lrotors_sat"][:, i]), "k-", label="Response")
         plt.plot(data["t"], np.sqrt(data["rotors_cmd"][:, i]), "r--", label="Command")
         if i == 0:
             plt.legend(loc='upper right')
@@ -388,7 +387,7 @@ def plot():
             plt.subplot(311+i, sharex=ax)
         plt.plot(data["t"], data["obs_pos"][:, i, 0]+data["ref"][:, i, 0], "b-", label="Estimated")
         plt.plot(data["t"], data["plant"]["pos"][:, i, 0], "k-.", label="Real")
-        plt.plot(data["t"], data["ref"][:, i, 0], "r--", label="Desired")
+        plt.plot(data["t"], data["posd"][:, i, 0], "r--", label="Desired")
         plt.ylabel(_label)
         if i == 0:
             plt.legend(loc='upper right')
@@ -432,7 +431,7 @@ def plot():
     plt.figure()
 
     ax = plt.subplot(311)
-    angles = np.vstack([quat2angle(data["x"]["quat"][j, :, 0]) for j in range(len(data["x"]["quat"][:, 0, 0]))])
+    angles = np.vstack([quat2angle(data["plant"]["quat"][j, :, 0]) for j in range(len(data["x"]["quat"][:, 0, 0]))])
     ax = plt.subplot(311)
     for i, _label in enumerate([r"$\phi$", r"$\theta$", r"$\psi$"]):
         if i != 0:
@@ -454,7 +453,7 @@ def plot():
     plt.figure()
 
     for i, (_label, _ls) in enumerate(zip(["p", "q", "r"], ["-.", "--", "-"])):
-        plt.plot(data["t"], np.rad2deg(data["x"]["omega"][:, i, 0]), "k"+_ls, label=_label)
+        plt.plot(data["t"], np.rad2deg(data["plant"]["omega"][:, i, 0]), "k"+_ls, label=_label)
     plt.plot(data["t"], data["bound_ang"][:, 1], 'c', label="bound")
     plt.plot(data["t"], -data["bound_ang"][:, 1], 'c')
     plt.gcf().supxlabel("Time, sec")
@@ -469,7 +468,7 @@ def plot():
     for i, _label in enumerate([r"$F$", r"$M_{\phi}$", r"$M_{\theta}$", r"$M_{\psi}$"]):
         if i != 0:
             plt.subplot(411+i, sharex=ax)
-        plt.plot(data["t"], data["virtual_u"][:, i], "k-", label=_label)
+        plt.plot(data["t"], data["forces"][:, i], "k-", label=_label)
         plt.ylabel(_label)
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Generalized forces")
