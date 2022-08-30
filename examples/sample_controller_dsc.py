@@ -186,7 +186,7 @@ class ExtendedQuadEnv(fym.BaseEnv):
         # quad
         self.plant = Quad(env_config["quad"])
         # controller
-        self.controller = ftc.make("PPC-DSC")
+        self.controller = ftc.make("PPC-DSC", self)
 
     def step(self, action):
         obs = self.observation()
