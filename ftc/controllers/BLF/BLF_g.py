@@ -14,13 +14,15 @@ def func_g(x, theta):
 
 class BLFController(BaseEnv):
     def __init__(self):
+        super().__init__()
         # controllers
         self.Cx = outerLoop()
         self.Cy = outerLoop()
         self.Cz = outerLoop()
-        self.Cphi = innerLoop()
-        self.Ctheta = innerLoop()
-        self.Cpsi = innerLoop()
+        b = np.array([1/0.0075, 1/0.0075, 1/0.013])
+        self.Cphi = innerLoop(b[0])
+        self.Ctheta = innerLoop(b[1])
+        self.Cpsi = innerLoop(b[2])
 
     def get_control(self, t, env):
         ''' quad state '''
@@ -28,9 +30,9 @@ class BLFController(BaseEnv):
         euler = quat2angle(quat)[::-1]
 
         ''' plant parameters '''
-        # m = env.plant.m
-        # g = env.plant.g
-        J = env.plant.J
+        m = env.plant.m
+        g = env.plant.g
+        J = np.diag(env.plant.J)
         b = np.array([1/J[0], 1/J[1], 1/J[2]])
 
         ''' external signals '''
@@ -42,15 +44,14 @@ class BLFController(BaseEnv):
         q[1] = self.Cy.get_virtual(t)
         q[2] = self.Cz.get_virtual(t)
         # Inverse solution
-        u1 = self.plant.m * (q[0]**2 + q[1]**2 + (q[2]-self.plant.g)**2)**(1/2)
-        phid = np.clip(np.arcsin(q[1] * self.plant.m / u1),
+        u1 = m * (q[0]**2 + q[1]**2 + (q[2]-g)**2)**(1/2)
+        phid = np.clip(np.arcsin(q[1] * m / u1),
                        - np.deg2rad(40), np.deg2rad(40))
-        thetad = np.clip(np.arctan(q[0] / (q[2] - self.plant.g)),
+        thetad = np.clip(np.arctan(q[0] / (q[2] - g)),
                          - np.deg2rad(40), np.deg2rad(40))
         psid = 0
         eulerd = np.vstack([phid, thetad, psid])
         # caculate f
-        J = np.diag(J)
         obs_p = self.Cphi.get_obsdot()
         obs_q = self.Ctheta.get_obsdot()
         obs_r = self.Cpsi.get_obsdot()
@@ -59,18 +60,18 @@ class BLFController(BaseEnv):
                       (J[0]-J[1]) / J[2] * obs_p * obs_q])
 
         ''' inner loop control '''
-        u2 = self.Cphi.get_u(t, phid, f[0])
-        u3 = self.Ctheta.get_u(t, thetad, f[1])
-        u4 = self.Cpsi.get_u(t, psid, f[2])
+        u2 = self.Cphi.get_u(t, phid, b[0], f[0])
+        u3 = self.Ctheta.get_u(t, thetad, b[1], f[1])
+        u4 = self.Cpsi.get_u(t, psid, b[2], f[2])
         # rotors
         forces = np.vstack([u1, u2, u3, u4])
-        rotors = np.linalg.pinv(env.B.dot(env.get_Lambda(t-env.fault_delay))).dot(forces)
+        rotors = np.linalg.pinv(env.plant.B.dot(env.plant.get_Lambda(t-env.plant.fault_delay))).dot(forces)
 
         ''' set derivatives '''
-        x, y, z = self.plant.pos.state.ravel()
-        self.Cx.set_dot(t, x, posd[0])
-        self.Cy.set_dot(t, y, posd[1])
-        self.Cz.set_dot(t, z, posd[2])
+        x, y, z = env.plant.pos.state.ravel()
+        self.Cx.set_dot(t, x, posd[0][0])
+        self.Cy.set_dot(t, y, posd[0][1])
+        self.Cz.set_dot(t, z, posd[0][2])
         self.Cphi.set_dot(t, euler[0], phid, b[0], f[0])
         self.Ctheta.set_dot(t, euler[1], thetad, b[1], f[1])
         self.Cpsi.set_dot(t, euler[2], psid, b[2], f[2])
@@ -112,26 +113,21 @@ class BLFController(BaseEnv):
 
 
 class outerLoop(BaseEnv):
-    PARAM = {
-        "alp": np.array([3, 3, 1]),
-        "eps": np.array([5, 5, 5]),
-        "rho": np.array([1, 0.5]),
-        "rho_k": 0.5,
-        "K": np.array([4, 15, 0]),
-        "theta": 0.7,
-    }
-
     def __init__(self):
         super().__init__()
+        self.e = BaseSystem(np.zeros((3, 1)))
         self.integ_e = BaseSystem(np.zeros((1,)))
 
-        self.k = self.PARAM.k
-        self.rho_0, self.rho_inf = self.PARAM.rho.ravel()
-        theta = self.PARAM.theta
+        self.alp = np.array([3, 3, 1])
+        self.eps = 5
+        self.rho_0, self.rho_inf = np.array([1, 0.5]).ravel()
+        self.k = 0.5
+        theta = 0.7
         self.theta = np.array([theta, 2*theta-1, 3*theta-2])
+        self.K = np.array([4, 15, 0])
 
     def deriv(self, e, integ_e, y, ref, t):
-        alp, eps, theta = self.PARAM.alp, self.PARAM.eps, self.theta
+        alp, eps, theta = self.alp, self.eps, self.theta
         e_real = y - ref
 
         if t == 0:
@@ -146,7 +142,7 @@ class outerLoop(BaseEnv):
         return edot, integ_edot
 
     def get_virtual(self, t):
-        rho_0, rho_inf, k, K = self.rho_0, self.rho_inf, self.k, self.PARAM.K
+        rho_0, rho_inf, k, K = self.rho_0, self.rho_inf, self.k, self.K
         e = self.e.state
         integ_e = self.integ_e.state
         rho = (rho_0-rho_inf) * np.exp(-k*t) + rho_inf
@@ -185,29 +181,25 @@ class innerLoop(BaseEnv):
     rho: bound of state x, dx
     virtual input nu = f + b*u
     '''
-    PARAM = {
-        "alp": np.array([3, 3, 1]),
-        "eps": np.array([10, 10, 10]),
-        "xi": np.array([-1, 1]) * 0.15,
-        "rho": np.array([30, 90]),
-        "c": np.array([20, 20]),
-        "K": np.array([20, 25, 0]),
-        "theta": 0.7,
-    }
-
     def __init__(self, b):
         super().__init__()
         self.x = BaseSystem(np.zeros((3, 1)))
         self.lamb = BaseSystem(np.zeros((2, 1)))
         self.integ_e = BaseSystem(np.zeros((1,)))
 
-        theta = self.PARAM.theta
+        self.alp = np.array([3, 3, 1])
+        self.eps = 10
+        self.xi = np.array([-0.15, 0.15])
+        self.rho = np.deg2rad([30, 90])
+        self.c = np.array([20, 20])
+        theta = 0.7
+        self.K = np.array([20, 25, 0])
         self.theta = np.array([theta, 2*theta-1, 3*theta-2])
 
     def deriv(self, x, lamb, integ_e, t, y, ref, b, f):
-        alp, eps, theta = self.PARAM.alp, self.PARAM.eps, self.theta
+        alp, eps, theta = self.alp, self.eps, self.theta
         nu = self.get_virtual(t, ref)
-        bound = f + b*self.PARAM.xi
+        bound = f + b*self.xi
         nu_sat = np.clip(nu, bound[0], bound[1])
 
         xdot = np.zeros((3, 1))
@@ -215,13 +207,13 @@ class innerLoop(BaseEnv):
         xdot[1, :] = x[2] + nu_sat + alp[1] * func_g(eps**2 * (y - x[0]), theta[1])
         xdot[2, :] = alp[2] * eps * func_g(eps**2 * (y - x[0]), theta[2])
         lambdot = np.zeros((2, 1))
-        lambdot[0] = - self.PARAM.c[0]*lamb[0] + lamb[1]
-        lambdot[1] = - self.PARAM.c[1]*lamb[1] + (nu_sat - nu)
+        lambdot[0] = - self.c[0]*lamb[0] + lamb[1]
+        lambdot[1] = - self.c[1]*lamb[1] + (nu_sat - nu)
         integ_edot = y - ref
         return xdot, lambdot, integ_edot
 
     def get_virtual(self, t, ref):
-        K, c, rho = self.PARAM.K, self.PARAM.c, self.PARAM.rho
+        K, c, rho = self.K, self.c, self.rho
         x = self.x.state
         lamb = self.lamb.state
         integ_e = self.integ_e.state
@@ -240,7 +232,7 @@ class innerLoop(BaseEnv):
 
     def get_u(self, t, ref, b, f):
         nu = self.get_virtual(t, ref)
-        bound = f + b*self.PARAM.xi
+        bound = f + b*self.xi
         nu_sat = np.clip(nu, bound[0], bound[1])
         u = (nu_sat - f) / b
         return u

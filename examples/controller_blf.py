@@ -272,7 +272,7 @@ class ExtendedQuadEnv(fym.BaseEnv):
         },
         "quad": {
             "init": {
-                "pos": np.vstack((0., 0., 0.0)),
+                "pos": np.vstack([0., 0., 0.]),
                 "vel": np.zeros((3, 1)),
                 "R": np.vstack([1, 0, 0, 0]),
                 "omega": np.zeros((3, 1)),
@@ -288,14 +288,9 @@ class ExtendedQuadEnv(fym.BaseEnv):
         # controller
         self.controller = ftc.make("BLF")
 
-    def step(self, action):
-        obs = self.observation()
-
+    def step(self):
         env_info, done = self.update()
-
-        next_obs = self.observation()
-        reward = self.get_reward(obs, action, next_obs)
-        return next_obs, reward, done, env_info
+        return done, env_info
 
     def observation(self):
         return self.observe_flat()
@@ -326,34 +321,24 @@ class ExtendedQuadEnv(fym.BaseEnv):
         return env_info
 
 
-class Agent:
-    def get_action(self, obs):
-        return obs, {}
-
-
 def run():
     env = ExtendedQuadEnv()
-    agent = Agent()
     flogger = fym.Logger("data.h5")
 
-    obs = env.reset()
+    env.reset()
     try:
         while True:
             env.render()
 
-            action, agent_info = agent.get_action(obs)
-
-            next_obs, reward, done, env_info = env.step(action=action)
-            flogger.record(reward=reward, env=env_info, agent=agent_info)
+            done, env_info = env.step()
+            flogger.record(env=env_info)
 
             if done:
                 break
 
-            obs = next_obs
-
     finally:
         flogger.close()
-        plot()
+        # plot()
 
 
 def plot():
