@@ -16,3 +16,7 @@ register(
     id="BLF-LC62",
     entry_point="ftc.controllers.BLF.BLF_g_LC62:BLFController",
 )
+register(
+    id="NDI",
+    entry_point="ftc.controllers.NDI.ndi:NDIController",
+)
