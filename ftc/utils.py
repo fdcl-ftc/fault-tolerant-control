@@ -1,8 +1,8 @@
 from ftc.registration import registry
 
 
-def make(id):
-    return registry[id]()
+def make(id, env):
+    return registry[id](env)
 
 
 def get_controllers(*args):
