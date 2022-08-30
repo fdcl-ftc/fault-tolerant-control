@@ -1,31 +1,8 @@
-from copy import deepcopy
-from functools import reduce
-
 import fym
 import numpy as np
 from fym.utils.rot import angle2quat, dcm2quat, quat2angle, quat2dcm
 
-
-def safeupdate(*configs):
-    assert len(configs) > 1
-
-    def _merge(base, new):
-        assert isinstance(base, dict), f"{base} is not a dict"
-        assert isinstance(new, dict), f"{new} is not a dict"
-        out = deepcopy(base)
-        for k, v in new.items():
-            # assert k in out, f"{k} not in {base}"
-            if isinstance(v, dict):
-                if "grid_search" in v:
-                    out[k] = v
-                else:
-                    out[k] = _merge(out[k], v)
-            else:
-                out[k] = v
-
-        return out
-
-    return reduce(_merge, configs)
+from ftc.utils import safeupdate
 
 
 class LC62(fym.BaseEnv):
