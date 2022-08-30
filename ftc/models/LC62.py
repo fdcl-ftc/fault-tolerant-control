@@ -112,27 +112,9 @@ class LC62(fym.BaseEnv):
 
         self.e3 = np.vstack((0, 0, 1))
 
-    def deriv(self, pos, vel, quat, omega, ctrls, vel_wind=np.zeros((3, 1)),
-              omega_wind=np.zeros((3, 1))):
-
-        dcm = quat2dcm(quat)
-
-        pwms_rotor = ctrls[:6]
-        pwms_pusher = ctrls[6:8]
-        dels = ctrls[8:]  # control surfaces
-
-        """ multicopter """
-        FM_VTOL = self.B_VTOL(pwms_rotor, omega)
-
-        """ fixed-wing """
-        vel = vel - vel_wind
-        omega = omega + omega_wind
-        FM_Pusher = self.B_Pusher(pwms_pusher)
-        FM_Fuselage = self.B_Fuselage(dels, vel, omega)
-        FM_Gravity = np.vstack((dcm @ (self.m * self.g * self.e3), 0, 0, 0))
-        # total force and moments
-        FM = FM_VTOL + FM_Fuselage + FM_Pusher + FM_Gravity
+    def deriv(self, pos, vel, quat, omega, FM):
         F, M = FM[0:3], FM[3:]
+        dcm = quat2dcm(quat)
 
         """ disturbances """
         dv = np.zeros((3, 1))
@@ -153,14 +135,32 @@ class LC62(fym.BaseEnv):
         )
         return dpos, dvel, dquat, domega
 
-    def set_dot(self, t, ctrls):
+    def set_dot(self, t, FM):
         """
         Parameters:
             controls: PWMs (rotor, pusher) and control surfaces
         """
         states = self.observe_list()
-        dots = self.deriv(*states, ctrls)
+        dots = self.deriv(*states, FM)
         self.pos.dot, self.vel.dot, self.quat.dot, self.omega.dot = dots
+
+    def get_FM(self, pos, vel, quat, omega, ctrls, vel_wind=np.zeros((3, 1)),
+               omega_wind=np.zeros((3, 1))):
+        dcm = quat2dcm(quat)
+        pwms_rotor = ctrls[:6]
+        pwms_pusher = ctrls[6:8]
+        dels = ctrls[8:]  # control surfaces
+
+        """ multicopter """
+        FM_VTOL = self.B_VTOL(pwms_rotor, omega)
+
+        """ fixed-wing """
+        FM_Pusher = self.B_Pusher(pwms_pusher)
+        FM_Fuselage = self.B_Fuselage(dels, vel-vel_wind, omega+omega_wind)
+        FM_Gravity = np.vstack((dcm @ (self.m * self.g * self.e3), 0, 0, 0))
+        # total force and moments
+        FM = FM_VTOL + FM_Fuselage + FM_Pusher + FM_Gravity
+        return FM
 
     def B_VTOL(self, pwms_rotor, omega):
         """
@@ -257,5 +257,10 @@ class LC62(fym.BaseEnv):
 
 if __name__ == "__main__":
     system = LC62()
-    system.set_dot(t=0, ctrls=np.zeros((11, 1)))
+    pos = np.zeros((3, 1))
+    vel = np.zeros((3, 1))
+    quat = np.vstack((1, 0, 0, 0))
+    omega = np.zeros((3, 1))
+    FM = system.get_FM(pos, vel, quat, omega, np.zeros((11, 1)))
+    system.set_dot(t=0, FM=FM)
     print(repr(system))
