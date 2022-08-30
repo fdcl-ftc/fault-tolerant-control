@@ -13,7 +13,7 @@ def get_angles(R):
 
 
 class DSCController(fym.BaseEnv):
-    def __init__(self):
+    def __init__(self, env):
         super().__init__()
         # filters
         self.filter_vd = fym.BaseSystem(0.000 * np.ones((3, 1)))
