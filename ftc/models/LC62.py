@@ -1,5 +1,8 @@
-import fym
 import numpy as np
+from numpy import cos, sin
+import scipy
+
+import fym
 from fym.utils.rot import angle2quat, dcm2quat, quat2angle, quat2dcm
 
 from ftc.utils import safeupdate
@@ -22,10 +25,10 @@ class LC62(fym.BaseEnv):
     dy1 = 0.717 + temp_y
     dy2 = 0.717 + temp_y
 
-    Ixx = 1.3 * 8.094
-    Iyy = 1.3 * 9.125
-    Izz = 1.3 * 16.8615
-    Ixz = -1.3 * 0.308
+    Ixx = 1.3 * 8.094  # [kg * m^2]
+    Iyy = 1.3 * 9.125  # [kg * m^2]
+    Izz = 1.3 * 16.8615  # [kg * m^2]
+    Ixz = -1.3 * 0.308  # [kg * m^2]
 
     J = np.array([
         [Ixx, 0, Ixz],
@@ -34,41 +37,70 @@ class LC62(fym.BaseEnv):
     ])
     Jinv = np.linalg.inv(J)
 
-    g = 9.81
-    m = 41.97
+    g = 9.81  # [m / sec^2]
+    m = 41.97  # [kg]
 
-    S1 = 0.2624
-    S2 = 0.5898
+    S1 = 0.2624  # [m^2]
+    S2 = 0.5898  # [m^2]
     S = S1 + S2
-    c = 0.551  # Main wing chord length
-    b = 1.1  # Main wing half span
-    d = 0.849  # Moment arm length
+    St = 0.06894022  # [m^2]
+    c = 0.551  # Main wing chord length [m]
+    b = 1.1  # Main wing half span [m]
+    d = 0.849  # Moment arm length [m]
 
     inc = 0  # Wing incidence angle
 
-    # Ele Pitch Moment Coefficient [1/rad]
-    Cm_del_E = -0.676
+    # Ele Pitch Moment Coefficient [1 / rad]
     Cm_del_A = 0.001156
+    Cm_del_E = - 0.676
 
-    # Rolling Moment Coefficient [1/rad]
-    Cll_beta = -0.0518
-    Cll_p = -0.4624
+    # Rolling Moment Coefficient [1 / rad]
+    Cll_beta = - 0.0518
+    Cll_p = - 0.4624
     Cll_r = 0.0218
-    Cll_del_A = -0.0369 * 5
+    Cll_del_A = - 0.0369 * 5
     Cll_del_R = 0.0026
 
-    # Yawing Moment Coefficient [1/rad]
+    # Yawing Moment Coefficient [1 / rad]
     Cn_beta = 0.0866
-    Cn_p = -0.0048
-    Cn_r = -0.0723
-    Cn_del_A = -0.000385
-    Cn_del_R = -0.0190
+    Cn_p = - 0.0048
+    Cn_r = - 0.0723
+    Cn_del_A = - 0.000385
+    Cn_del_R = - 0.0190
 
-    # Y-axis Force Coefficient [1/rad]
-    Cy_beta = -1.1269
+    # Y-axis Force Coefficient [1 / rad]
+    Cy_beta = - 1.1269
     Cy_p = 0.0
     Cy_r = 0.2374
     Cy_del_R = 0.0534
+
+    """
+    pwm: 1000 ~ 2000
+    th_p: pusher thrust [N]
+    tq_p: pusher torque [N * m]
+    """
+    tables = {
+        "alp": np.deg2rad(np.array([0, 2, 4, 6, 8, 10, 12, 14, 16])),  # [rad]
+        "CL": np.array([0.1931, 0.4075, 0.6112, 0.7939, 0.9270, 1.0775, 0.9577,
+                        1.0497, 1.0635]),
+        "CD": np.array([0.0617, 0.0668, 0.0788, 0.0948, 0.1199, 0.1504, 0.2105,
+                        0.2594, 0.3128]),
+        "Cm": np.array([0.0406, 0.0141, -0.0208, -0.0480, -0.2717, -0.4096,
+                        -0.1448, -0.2067, -0.2548]),
+        "pwm": np.array([1000, 1200, 1255, 1310, 1365, 1420, 1475, 1530, 1585,
+                         1640, 1695, 1750]),
+        "th_p": np.array([0, 1.39, 4.22, 7.89, 12.36, 17.60, 23.19, 29.99,
+                          39.09, 46.14, 52.67, 59.69]),
+        "tq_p": np.array([0, 0.12, 0.35, 0.66, 1.04, 1.47, 1.93, 2.50, 3.25,
+                          3.83, 4.35, 4.95]),
+    }
+
+    control_limits = {
+        "pwm": (1000, 2000),
+        "dela": np.deg2rad((-10, 10)),
+        "dele": np.deg2rad((-10, 10)),
+        "delr": np.deg2rad((-10, 10)),
+    }
 
     ENV_CONFIG = {
         "init": {
@@ -88,6 +120,7 @@ class LC62(fym.BaseEnv):
         self.omega = fym.BaseSystem(env_config["init"]["omega"])
 
         self.e3 = np.vstack((0, 0, 1))
+        self.x_trims, self.u_trims_fixed = self.get_trim()
 
     def deriv(self, pos, vel, quat, omega, FM):
         F, M = FM[0:3], FM[3:]
@@ -113,17 +146,15 @@ class LC62(fym.BaseEnv):
         return dpos, dvel, dquat, domega
 
     def set_dot(self, t, FM):
-        """
-        Parameters:
-            controls: PWMs (rotor, pusher) and control surfaces
-        """
         states = self.observe_list()
         dots = self.deriv(*states, FM)
         self.pos.dot, self.vel.dot, self.quat.dot, self.omega.dot = dots
 
     def get_FM(self, pos, vel, quat, omega, ctrls, vel_wind=np.zeros((3, 1)),
                omega_wind=np.zeros((3, 1))):
-        dcm = quat2dcm(quat)
+        """
+        ctrls: PWMs (rotor, pusher) and control surfaces
+        """
         pwms_rotor = ctrls[:6]
         pwms_pusher = ctrls[6:8]
         dels = ctrls[8:]  # control surfaces
@@ -134,7 +165,8 @@ class LC62(fym.BaseEnv):
         """ fixed-wing """
         FM_Pusher = self.B_Pusher(pwms_pusher)
         FM_Fuselage = self.B_Fuselage(dels, vel-vel_wind, omega+omega_wind)
-        FM_Gravity = np.vstack((dcm @ (self.m * self.g * self.e3), 0, 0, 0))
+        FM_Gravity = self.B_Gravity(quat)
+
         # total force and moments
         FM = FM_VTOL + FM_Fuselage + FM_Pusher + FM_Gravity
         return FM
@@ -148,9 +180,10 @@ class LC62(fym.BaseEnv):
         R5: front right, [CCW]
         R6: rear left,   [CW]
         """
-        rotors = (pwms_rotor - 1000) / 1000  # rotor thrust
-        th = (- 19281*rotors**3 + 36503*rotors**2 - 992.75*rotors) * self.g / 1000
-        tq = - 6.3961*rotors**3 + 12.092*rotors**2 - 0.3156*rotors
+        # rcmds = (pwms_rotor - 1000) / 1000
+        rcmds = pwms_rotor  # This equation is different with simulink
+        th = (- 19281*rcmds**3 + 36503*rcmds**2 - 992.75*rcmds) * self.g / 1000
+        tq = - 6.3961*rcmds**3 + 12.092*rcmds**2 - 0.3156*rcmds
         Fx = Fy = 0
         Fz = - th[0] - th[1] - th[2] - th[3] - th[4] - th[5]
         l = self.dy1*(th[1] + th[2] + th[5]) - self.dy2*(th[0] + th[3] + th[4])
@@ -168,14 +201,13 @@ class LC62(fym.BaseEnv):
         Fx = th[0] + th[1]
         Fy = Fz = 0
         l = tq[0] - tq[1]
-        m = 0
-        n = 0
+        m = n = 0
         return np.vstack((Fx, Fy, Fz, l, m, n))
 
-    def B_Fuselage(self, css, vel, omega):
+    def B_Fuselage(self, dels, vel, omega):
         rho = self.get_rho(100)
-        p, q, r = omega.ravel()
-        u, v, w = vel.ravel()
+        u, v, w = np.ravel(vel)
+        p, q, r = np.ravel(omega)
         VT = np.linalg.norm(vel)
         alp = np.arctan2(w, u)
         beta = np.arcsin(v / (VT + 1e-10))
@@ -187,18 +219,22 @@ class LC62(fym.BaseEnv):
         Cll_del_R, Cll_del_A = self.Cll_del_R, self.Cll_del_A
         Cm_del_E, Cm_del_A = self.Cm_del_E, self.Cm_del_A
         Cn_del_R, Cn_del_A = self.Cn_del_R, self.Cn_del_A
-        S, S2, b, c, d = self.S, self.S2, self.b, self.c, self.d
-        dela, dele, delr = css
+        S, S2, St, b, c, d = self.S, self.S2, self.St, self.b, self.c, self.d
+        dela, dele, delr = dels
         CL, CD, CM = self.aero_coeff(alp)
         Fx = - qbar * S * CD
         Fy = qbar * S * (p*Cy_p + r*Cy_r + beta*Cy_beta + delr*Cy_del_R)
         Fz = - qbar * S * CL
-        l = qbar * b * (S * (p*Cll_p + r*Cll_r + beta*Cll_beta + delr*Cll_del_R)
-                        + S2 * dela * Cll_del_A)
+        l = qbar * b * (S * (p*Cll_p + r*Cll_r + beta*Cll_beta
+                             + delr*Cll_del_R) + S2 * dela * Cll_del_A)
         m = qbar * c * S * (CM + dele*Cm_del_E + dela*Cm_del_A)
-        n = qbar * 0.06894022 * d * (p*Cn_p + r*Cn_r + beta*Cn_beta
-                                     + delr*Cn_del_R + dela*Cn_del_A)
+        n = qbar * d * St * (p*Cn_p + r*Cn_r + beta*Cn_beta
+                             + delr*Cn_del_R + dela*Cn_del_A)
         return np.vstack((Fx, Fy, Fz, l, m, n))
+
+    def B_Gravity(self, quat):
+        l = m = n = 0
+        return np.vstack((quat2dcm(quat) @ (self.m*self.g*self.e3), l, m, n))
 
     def get_rho(self, altitude):
         pressure = 101325 * (1 - 2.25569e-5 * altitude) ** 5.25616
@@ -206,38 +242,90 @@ class LC62(fym.BaseEnv):
         return pressure / (287 * temperature)
 
     def thrust_pusher(self, x):
-        xt = np.array([1000, 1200, 1255, 1310, 1365, 1420, 1475, 1530, 1585, 1640, 1695, 1750])
-        yt = np.array([0, 1.39, 4.22, 7.89, 12.36, 17.60, 23.19, 29.99, 39.09, 46.14, 52.67, 59.69])
-        p = np.polyfit(xt, yt, deg=1)
+        p = np.polyfit(self.tables["pwm"], self.tables["th_p"], deg=1)
         return p[0]*x + p[1]
 
     def torque_pusher(self, x):
-        xt = np.array([1000, 1200, 1255, 1310, 1365, 1420, 1475, 1530, 1585, 1640, 1695, 1750])
-        yt = np.array([0, 0.12, 0.35, 0.66, 1.04, 1.47, 1.93, 2.50, 3.25, 3.83, 4.35, 4.95])
-        p = np.polyfit(xt, yt, deg=1)
+        p = np.polyfit(self.tables["pwm"], self.tables["tq_p"], deg=1)
         return p[0]*x + p[1]
 
     def aero_coeff(self, alp):
-        at = np.array([0, 2, 4, 6, 8, 10, 12, 14, 16])
-        CLt = np.array([0.1931, 0.4075, 0.6112, 0.7939, 0.9270, 1.0775, 0.9577, 1.0497, 1.0635])
-        CDt = np.array([0.0617, 0.0668, 0.0788, 0.0948, 0.1199, 0.1504, 0.2105, 0.2594, 0.3128])
-        Cmt = np.array([0.0406, 0.0141, -0.0208, -0.0480, -0.2717, -0.4096,
-                        -0.1448, -0.2067, -0.2548])
-        p_CL = np.polyfit(at, CLt, deg=1)
-        p_CD = np.polyfit(at, CDt, deg=1)
-        p_Cm = np.polyfit(at, Cmt, deg=1)
+        p_CL = np.polyfit(self.tables["alp"], self.tables["CL"], deg=1)
+        p_CD = np.polyfit(self.tables["alp"], self.tables["CD"], deg=1)
+        p_Cm = np.polyfit(self.tables["alp"], self.tables["Cm"], deg=1)
         CL = p_CL[0]*alp + p_CL[1]
         CD = p_CD[0]*alp + p_CD[1]
         Cm = p_Cm[0]*alp + p_Cm[1]
         return np.vstack((CL, CD, Cm))
 
+    def get_trim(
+        self,
+        z0={"alpha": 0.0, "beta": 0, "pusher1": 1000, "pusher2": 1000,
+            "dela": 0, "dele": 0, "delr": 0},
+        fixed={"h": 100, "VT": 10},
+        method="SLSQP",
+        options={"disp": True, "ftol": 1e-10},
+    ):
+        z0 = list(z0.values())
+        fixed = list(fixed.values())
+        bounds = (
+            np.deg2rad((-10, 20)),
+            np.deg2rad((-10, 10)),
+            self.control_limits["pwm"],
+            self.control_limits["pwm"],
+            self.control_limits["dela"],
+            self.control_limits["dele"],
+            self.control_limits["delr"],
+        )
+        result = scipy.optimize.minimize(
+            self._trim_cost,
+            z0,
+            args=(fixed,),
+            bounds=bounds,
+            method=method,
+            options=options,
+        )
+
+        h, VT = fixed
+        alp, beta, pusher1, pusher2, dela, dele, delr = result.x
+        pos_trim = np.vstack((0, 0, -h))
+        vel_trim = np.vstack((VT*cos(alp)*cos(beta), VT*sin(beta), VT*sin(alp)*cos(beta)))
+        quat_trim = np.vstack(angle2quat(0, alp, 0))
+        omega_trim = np.vstack((0, 0, 0))
+        pwms_pusher = np.vstack((pusher1, pusher2))
+        dels = np.vstack((dela, dele, delr))
+
+        x_trims = (pos_trim, vel_trim, quat_trim, omega_trim)
+        u_trims_fixed = (pwms_pusher, dels)
+        return x_trims, u_trims_fixed
+
+    def _trim_cost(self, z, fixed):
+        h, VT = fixed
+        alp, beta, pusher1, pusher2, dela, dele, delr = z
+        pos_trim = np.vstack((0, 0, -h))
+        vel_trim = np.vstack((VT*cos(alp)*cos(beta), VT*sin(beta), VT*sin(alp)*cos(beta)))
+        quat_trim = np.vstack(angle2quat(0, alp, 0))
+        omega_trim = np.vstack((0, 0, 0))
+        pwms_pusher = np.vstack((pusher1, pusher2))
+        dels = np.vstack((dela, dele, delr))
+
+        FM_Pusher = self.B_Pusher(pwms_pusher)
+        FM_Fuselage = self.B_Fuselage(dels, vel_trim, omega_trim)
+        FM_Gravity = self.B_Gravity(quat_trim)
+        FM_Fixed = FM_Fuselage + FM_Pusher + FM_Gravity
+
+        dots = self.deriv(pos_trim, vel_trim, quat_trim, omega_trim, FM_Fixed)
+        dxs = np.append(dots[1], dots[3])
+        weight = np.diag([1, 1, 1, 1000, 1000, 1000])
+        return dxs.dot(weight).dot(dxs)
+
 
 if __name__ == "__main__":
     system = LC62()
-    pos = np.zeros((3, 1))
-    vel = np.zeros((3, 1))
-    quat = np.vstack((1, 0, 0, 0))
-    omega = np.zeros((3, 1))
-    FM = system.get_FM(pos, vel, quat, omega, np.zeros((11, 1)))
+    x_trims, u_trims_fixed = system.get_trim()
+    pos, vel, quat, omega = x_trims
+    pwms_pusher, dels = u_trims_fixed
+    ctrls = np.vstack((np.zeros((6, 1)), pwms_pusher, dels))
+    FM = system.get_FM(pos, vel, quat, omega, ctrls)
     system.set_dot(t=0, FM=FM)
     print(repr(system))
