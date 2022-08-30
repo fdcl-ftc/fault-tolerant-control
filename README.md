@@ -35,12 +35,25 @@ As you may notice, this registration process is borrowed from the OpenAI Gym mod
 ### Make a Controller Instance
 
 After the controller is registered, one can make an instance of the controller class by `ftc.make` method.
+The `env` keyword in the `ftc.make` method would be used to initialize each controller.
 
 ```python
-controller = ftc.make("My-SMC-v1")
+controller = ftc.make("My-SMC-v1", env=env)
 ```
 
 ## Controller Class API
+
+### Initialize
+
+Controllers often require some information of the plant and/or the environement *a priori*.
+For example, linearized state-space system matrices is necessary to design an LQR.
+For ease of integrated simulation, each controller class must be initialized with the argument ``env`` as follows.
+
+```python
+class MyController:
+    def __init__(self, env):
+        ...
+```
 
 ### `get_control` Method
 
