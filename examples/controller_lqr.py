@@ -34,39 +34,9 @@ class MyEnv(fym.BaseEnv):
                                  env_config["init"]["quat"],
                                  env_config["init"]["omega"],
                                  )
-        self.controller = ftc.make("LQR")
-        Jinv = self.plant.Jinv
-        m, g = self.plant.m, self.plant.g
-        self.trim_forces = np.vstack([m * g, 0, 0, 0])
-
-        A = np.array([[0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-                      [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
-                      [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
-                      [0, 0, 0, 0, 0, 0, 0, -g, 0, 0, 0, 0],
-                      [0, 0, 0, 0, 0, 0, g, 0, 0, 0, 0, 0],
-                      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                      [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
-                      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
-                      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-                      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                      [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]])
-        B = np.array([[0, 0, 0, 0],
-                      [0, 0, 0, 0],
-                      [0, 0, 0, 0],
-                      [0, 0, 0, 0],
-                      [0, 0, 0, 0],
-                      [-1/m, 0, 0, 0],
-                      [0, 0, 0, 0],
-                      [0, 0, 0, 0],
-                      [0, 0, 0, 0],
-                      [0, Jinv[0, 0], 0, 0],
-                      [0, 0, Jinv[1, 1], 0],
-                      [0, 0, 0, Jinv[2, 2]]])
-        Q = np.diag([1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0])
-        R = np.diag([1, 1, 1, 1])
-
-        self.K, *_ = fym.agents.LQR.clqr(A, B, Q, R)
+        self.Q = np.diag([1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0])
+        self.R = np.diag([1, 1, 1, 1])
+        self.controller = ftc.make("LQR", self)
 
     def step(self):
         env_info, done = self.update()
