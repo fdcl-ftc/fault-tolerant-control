@@ -183,8 +183,8 @@ class Quad(BaseEnv):
     def get_sumOfDist(self, t):
         pi = np.pi
         ref_dist = np.zeros((6, 1))
-        ref_dist[0] = - (- pi/10*np.cos(t/2)*np.sin(pi*t/10)
-                         - (1/4 + pi**2/100)*np.sin(t/2)*np.cos(pi*t/10))
+        ref_dist[0] = - (- pi/5*np.cos(t/2)*np.sin(pi*t/5)
+                         - (1/4 + pi**2/25)*np.sin(t/2)*np.cos(pi*t/5))
         ref_dist[1] = - (pi/5*np.cos(t/2)*np.cos(pi*t/5)
                          - (1/4 + pi**2/25)*np.sin(t/2)*np.sin(pi*t/5))
 
@@ -268,13 +268,13 @@ class ExtendedQuadEnv(fym.BaseEnv):
     ENV_CONFIG = {
         "fkw": {
             "dt": 0.01,
-            "max_t": 40,
+            "max_t": 10,
         },
         "quad": {
             "init": {
                 "pos": np.vstack([0., 0., 0.]),
                 "vel": np.zeros((3, 1)),
-                "R": np.vstack([1, 0, 0, 0]),
+                "quat": np.vstack([1, 0, 0, 0]),
                 "omega": np.zeros((3, 1)),
             },
         },
@@ -299,7 +299,7 @@ class ExtendedQuadEnv(fym.BaseEnv):
         return 0
 
     def get_ref(self, t, *args):
-        posd = np.vstack([np.sin(t/2)*np.cos(np.pi*t/10),
+        posd = np.vstack([np.sin(t/2)*np.cos(np.pi*t/5),
                           np.sin(t/2)*np.sin(np.pi*t/5),
                           -t])
         refs = {"posd": posd}
@@ -338,19 +338,19 @@ def run():
 
     finally:
         flogger.close()
-        # plot()
+        plot()
 
 
 def plot():
     data = fym.load("data.h5")["env"]
-    rotor_min = data["plant"]["rotor_min"]
-    rotor_max = data["plant"]["rotor_max"]
+    rotor_min = 0
+    rotor_max = 1e6
 
     # Rotor
     plt.figure()
 
     ax = plt.subplot(221)
-    for i in range(data["rotors"].shape[1]):
+    for i in range(data["rotors_cmd"].shape[1]):
         if i != 0:
             plt.subplot(221+i, sharex=ax)
         plt.ylim([rotor_min-5, np.sqrt(rotor_max)+5])
@@ -370,9 +370,9 @@ def plot():
     for i, (_label, _ls) in enumerate(zip(["x", "y", "z"], ["-", "--", "-."])):
         if i != 0:
             plt.subplot(311+i, sharex=ax)
-        plt.plot(data["t"], data["obs_pos"][:, i, 0]+data["ref"][:, i, 0], "b-", label="Estimated")
+        plt.plot(data["t"], data["obs_pos"][:, i, 0]+data["posd"].squeeze()[:, i], "b-", label="Estimated")
         plt.plot(data["t"], data["plant"]["pos"][:, i, 0], "k-.", label="Real")
-        plt.plot(data["t"], data["posd"][:, i, 0], "r--", label="Desired")
+        plt.plot(data["t"], data["posd"].squeeze()[:, i], "r--", label="Desired")
         plt.ylabel(_label)
         if i == 0:
             plt.legend(loc='upper right')
@@ -381,18 +381,18 @@ def plot():
     plt.tight_layout()
 
     # velocity
-    plt.figure()
-    plt.ylim([-5, 5])
+    # plt.figure()
+    # plt.ylim([-5, 5])
 
-    ax = plt.subplot(311)
-    for i, (_label, _ls) in enumerate(zip(["Vx", "Vy", "Vz"], ["-", "--", "-."])):
-        if i != 0:
-            plt.subplot(311+i, sharex=ax)
-        plt.plot(data["t"], data["plant"]["vel"][:, i, 0], "k"+_ls, label=_label)
-        plt.ylabel(_label)
-    plt.gcf().supxlabel("Time, sec")
-    plt.gcf().supylabel("Velocity, m/s")
-    plt.tight_layout()
+    # ax = plt.subplot(311)
+    # for i, (_label, _ls) in enumerate(zip(["Vx", "Vy", "Vz"], ["-", "--", "-."])):
+    #     if i != 0:
+    #         plt.subplot(311+i, sharex=ax)
+    #     plt.plot(data["t"], data["plant"]["vel"][:, i, 0], "k"+_ls, label=_label)
+    #     plt.ylabel(_label)
+    # plt.gcf().supxlabel("Time, sec")
+    # plt.gcf().supylabel("Velocity, m/s")
+    # plt.tight_layout()
 
     # observation: position error
     plt.figure()
@@ -402,7 +402,7 @@ def plot():
         if i != 0:
             plt.subplot(311+i, sharex=ax)
         plt.plot(data["t"], data["obs_pos"][:, i, 0], "b-", label="Estimated")
-        plt.plot(data["t"], data["plant"]["pos"][:, i, 0]-data["ref"][:, i, 0], "k-.", label="Real")
+        plt.plot(data["t"], data["plant"]["pos"][:, i, 0]-data["posd"].squeeze(-1)[:, :, i].squeeze(-1), "k-.", label="Real")
         plt.plot(data["t"], data["bound_err"], "c")
         plt.plot(data["t"], -data["bound_err"], "c")
         plt.ylabel(_label)
@@ -416,7 +416,7 @@ def plot():
     plt.figure()
 
     ax = plt.subplot(311)
-    angles = np.vstack([quat2angle(data["plant"]["quat"][j, :, 0]) for j in range(len(data["x"]["quat"][:, 0, 0]))])
+    angles = np.vstack([quat2angle(data["plant"]["quat"][j, :, 0]) for j in range(len(data["plant"]["quat"][:, 0, 0]))])
     ax = plt.subplot(311)
     for i, _label in enumerate([r"$\phi$", r"$\theta$", r"$\psi$"]):
         if i != 0:
@@ -439,8 +439,8 @@ def plot():
 
     for i, (_label, _ls) in enumerate(zip(["p", "q", "r"], ["-.", "--", "-"])):
         plt.plot(data["t"], np.rad2deg(data["plant"]["omega"][:, i, 0]), "k"+_ls, label=_label)
-    plt.plot(data["t"], data["bound_ang"][:, 1], 'c', label="bound")
-    plt.plot(data["t"], -data["bound_ang"][:, 1], 'c')
+    plt.plot(data["t"], np.rad2deg(data["bound_ang"][:, 1]), 'c', label="bound")
+    plt.plot(data["t"], -np.rad2deg(data["bound_ang"][:, 1]), 'c')
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Angular rates, deg/s")
     plt.tight_layout()
@@ -478,17 +478,17 @@ def plot():
     plt.tight_layout()
 
     # q
-    plt.figure()
+    # plt.figure()
 
-    ax = plt.subplot(311)
-    for i, _label in enumerate([r"$q_x$", r"$q_y$", r"$q_z$"]):
-        if i != 0:
-            plt.subplot(311+i, sharex=ax)
-        plt.plot(data["t"], data["q"][:, i, 0], "k-")
-        plt.ylabel(_label)
-    plt.gcf().supylabel("observer control input")
-    plt.gcf().supxlabel("Time, sec")
-    plt.tight_layout()
+    # ax = plt.subplot(311)
+    # for i, _label in enumerate([r"$q_x$", r"$q_y$", r"$q_z$"]):
+    #     if i != 0:
+    #         plt.subplot(311+i, sharex=ax)
+    #     plt.plot(data["t"], data["q"][:, i, 0], "k-")
+    #     plt.ylabel(_label)
+    # plt.gcf().supylabel("observer control input")
+    # plt.gcf().supxlabel("Time, sec")
+    # plt.tight_layout()
 
     plt.show()
 

@@ -19,10 +19,9 @@ class BLFController(BaseEnv):
         self.Cx = outerLoop()
         self.Cy = outerLoop()
         self.Cz = outerLoop()
-        b = np.array([1/0.0075, 1/0.0075, 1/0.013])
-        self.Cphi = innerLoop(b[0])
-        self.Ctheta = innerLoop(b[1])
-        self.Cpsi = innerLoop(b[2])
+        self.Cphi = innerLoop()
+        self.Ctheta = innerLoop()
+        self.Cpsi = innerLoop()
 
     def get_control(self, t, env):
         ''' quad state '''
@@ -115,7 +114,6 @@ class BLFController(BaseEnv):
 class outerLoop(BaseEnv):
     def __init__(self):
         super().__init__()
-        self.e = BaseSystem(np.zeros((3, 1)))
         self.integ_e = BaseSystem(np.zeros((1,)))
 
         self.alp = np.array([3, 3, 1])
@@ -181,7 +179,7 @@ class innerLoop(BaseEnv):
     rho: bound of state x, dx
     virtual input nu = f + b*u
     '''
-    def __init__(self, b):
+    def __init__(self):
         super().__init__()
         self.x = BaseSystem(np.zeros((3, 1)))
         self.lamb = BaseSystem(np.zeros((2, 1)))
