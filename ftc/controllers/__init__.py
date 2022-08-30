@@ -20,3 +20,7 @@ register(
     id="Adaptive",
     entry_point="ftc.controllers.Adaptive.adaptive:Adaptive",
 )
+register(
+    id="NDI",
+    entry_point="ftc.controllers.NDI.ndi:NDIController",
+)
