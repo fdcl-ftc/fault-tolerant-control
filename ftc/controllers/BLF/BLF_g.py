@@ -13,7 +13,7 @@ def func_g(x, theta):
 
 
 class BLFController(BaseEnv):
-    def __init__(self):
+    def __init__(self, env):
         super().__init__()
         # controllers
         self.Cx = outerLoop()
@@ -64,7 +64,6 @@ class BLFController(BaseEnv):
         u4 = self.Cpsi.get_u(t, psid, b[2], f[2])
         # rotors
         forces = np.vstack([u1, u2, u3, u4])
-        rotors = np.linalg.pinv(env.plant.B.dot(env.plant.get_Lambda(t-env.plant.fault_delay))).dot(forces)
 
         ''' set derivatives '''
         x, y, z = env.plant.pos.state.ravel()
@@ -108,35 +107,36 @@ class BLFController(BaseEnv):
             "bound_err": bound_err,
             "bound_ang": bound_ang,
         }
-        return rotors, controller_info
+        return forces, controller_info
 
 
 class outerLoop(BaseEnv):
     def __init__(self):
         super().__init__()
+        self.e = BaseSystem(np.zeros((3, 1)))
         self.integ_e = BaseSystem(np.zeros((1,)))
 
         self.alp = np.array([3, 3, 1])
         self.eps = 5
-        self.rho_0, self.rho_inf = np.array([1, 0.5]).ravel()
-        self.k = 0.5
+        self.rho_0, self.rho_inf = np.array([0.5, 0.2]).ravel()
+        self.k = 0.6
         theta = 0.7
         self.theta = np.array([theta, 2*theta-1, 3*theta-2])
-        self.K = np.array([4, 15, 0])
+        self.K = np.array([2, 30, 0])
 
     def deriv(self, e, integ_e, y, ref, t):
         alp, eps, theta = self.alp, self.eps, self.theta
         e_real = y - ref
 
         if t == 0:
-            self.e = BaseSystem(np.vstack([e_real, 0, 0]))
+            e = self.e.state = np.vstack([e_real, 0, 0])
 
         q = self.get_virtual(t)
         edot = np.zeros((3, 1))
         edot[0, :] = e[1] + (alp[0]/eps) * func_g(eps**2 * (e_real - e[0]), theta[0])
         edot[1, :] = e[2] + q + alp[1] * func_g(eps**2 * (e_real - e[0]), theta[1])
         edot[2, :] = alp[2] * eps * func_g(eps**2 * (e_real - e[0]), theta[2])
-        integ_edot = y - ref
+        integ_edot = 0
         return edot, integ_edot
 
     def get_virtual(self, t):
@@ -186,12 +186,12 @@ class innerLoop(BaseEnv):
         self.integ_e = BaseSystem(np.zeros((1,)))
 
         self.alp = np.array([3, 3, 1])
-        self.eps = 10
+        self.eps = 8
         self.xi = np.array([-0.15, 0.15])
-        self.rho = np.deg2rad([30, 90])
-        self.c = np.array([20, 20])
+        self.rho = np.deg2rad([40, 100])
+        self.c = np.array([0, 0])
         theta = 0.7
-        self.K = np.array([20, 25, 0])
+        self.K = np.array([20, 35, 0])
         self.theta = np.array([theta, 2*theta-1, 3*theta-2])
 
     def deriv(self, x, lamb, integ_e, t, y, ref, b, f):
@@ -207,7 +207,7 @@ class innerLoop(BaseEnv):
         lambdot = np.zeros((2, 1))
         lambdot[0] = - self.c[0]*lamb[0] + lamb[1]
         lambdot[1] = - self.c[1]*lamb[1] + (nu_sat - nu)
-        integ_edot = y - ref
+        integ_edot = 0
         return xdot, lambdot, integ_edot
 
     def get_virtual(self, t, ref):

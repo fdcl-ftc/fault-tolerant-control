@@ -64,7 +64,7 @@ class Quad(BaseEnv):
     }
     COND = {
         "ext_unc": True,
-        "int_unc": True,
+        "int_unc": False,
         "gyro": False,
     }
 
@@ -84,12 +84,9 @@ class Quad(BaseEnv):
 
         pos, vel, quat, omega = self.observe_list()
 
-        rotors_sat = self.saturate(rotors)
-        lrotors = self.set_Lambda(t-self.fault_delay, rotors_sat)
-        lrotors_sat = self.saturate(lrotors)
-        fT, M1, M2, M3 = self.B.dot(lrotors_sat)
+        fT, M1, M2, M3 = self.B.dot(rotors)
         M = np.vstack((M1, M2, M3))
-        self.prev_rotors = lrotors_sat
+        self.prev_rotors = rotors
 
         # uncertainty
         ext_pos, ext_vel, ext_euler, ext_omega = self.get_ext_uncertainties(t)
@@ -122,18 +119,14 @@ class Quad(BaseEnv):
             + ext_omega + int_omega
 
         quad_info = {
-            "rotors_cmd": rotors,
-            "lrotors_sat": lrotors_sat,
+            # "rotors_cmd": rotors,
+            "rotors": rotors,
             "fT": fT,
             "M": M,
             "Lambda": self.get_Lambda(t),
             "ref_dist": self.get_sumOfDist(t),
         }
         return quad_info
-
-    def saturate(self, rfs):
-        """Saturation function"""
-        return np.clip(rfs, 0, self.rotor_max)
 
     def get_int_uncertainties(self, t, vel):
         if self.COND["int_unc"] is True:
@@ -159,7 +152,7 @@ class Quad(BaseEnv):
         ueuler = np.zeros((3, 1))
         if self.COND["ext_unc"] is True:
             upos = np.vstack([
-                0.1*np.cos(2*np.pi*t),
+                0.1*np.cos(0.2*np.pi*t),
                 0.2*np.sin(0.5*np.pi*t),
                 0.3*np.cos(t),
             ])
@@ -192,7 +185,7 @@ class Quad(BaseEnv):
         m1, m2, m3, m4 = self.get_ext_uncertainties(t)
         ext_dist[0:3] = m2
         ext_dist[3:6] = m4
-        int_dist = np.vstack([- 0.1*2*pi*np.sin(2*pi*t),
+        int_dist = np.vstack([- 0.1*0.2*pi*np.sin(0.2*pi*t),
                               0.2*0.5*pi*np.cos(0.5*pi*t),
                               - 0.3*np.sin(t),
                               0.3*np.cos(t),
@@ -248,12 +241,12 @@ class Quad(BaseEnv):
             W2 = 1
 
         if t > 10:
-            W3 = 0.9
+            W3 = 0.6
         else:
             W3 = 1
 
         if t > 25:
-            W4 = 0.5
+            W4 = 1.0
         else:
             W4 = 1
         W = np.diag([W1, W2, W3, W4])
@@ -268,7 +261,7 @@ class ExtendedQuadEnv(fym.BaseEnv):
     ENV_CONFIG = {
         "fkw": {
             "dt": 0.01,
-            "max_t": 10,
+            "max_t": 30,
         },
         "quad": {
             "init": {
@@ -286,7 +279,7 @@ class ExtendedQuadEnv(fym.BaseEnv):
         # quad
         self.plant = Quad(env_config["quad"])
         # controller
-        self.controller = ftc.make("BLF")
+        self.controller = ftc.make("BLF", self)
 
     def step(self):
         env_info, done = self.update()
@@ -306,15 +299,18 @@ class ExtendedQuadEnv(fym.BaseEnv):
         return [refs[key] for key in args]
 
     def set_dot(self, t):
-        rfs0, controller_info = self.controller.get_control(t, self)
-        # quad
-        quad_info = self.plant.set_dot(t, rfs0)
+        forces, controller_info = self.controller.get_control(t, self)
+        rotors_cmd = np.linalg.pinv(self.plant.B.dot(self.plant.get_Lambda(t-self.plant.fault_delay))).dot(forces)
+        rotors = np.clip(rotors_cmd, 0, self.plant.rotor_max)
+        rotors = self.plant.get_Lambda(t).dot(rotors)
+        quad_info = self.plant.set_dot(t, rotors)
 
         env_info = {
             "t": t,
             **self.observe_dict(),
             **quad_info,
             **controller_info,
+            "rotors_cmd": rotors_cmd,
             "posd": self.get_ref(t, "posd")
         }
 
@@ -354,7 +350,7 @@ def plot():
         if i != 0:
             plt.subplot(221+i, sharex=ax)
         plt.ylim([rotor_min-5, np.sqrt(rotor_max)+5])
-        plt.plot(data["t"], np.sqrt(data["lrotors_sat"][:, i]), "k-", label="Response")
+        plt.plot(data["t"], np.sqrt(data["rotors"][:, i]), "k-", label="Response")
         plt.plot(data["t"], np.sqrt(data["rotors_cmd"][:, i]), "r--", label="Command")
         if i == 0:
             plt.legend(loc='upper right')
@@ -424,8 +420,8 @@ def plot():
         plt.plot(data["t"], np.rad2deg(data["obs_ang"][:, i, 0]), "b-", label="Estimated")
         plt.plot(data["t"], np.rad2deg(angles[:, 2-i]), "k-.", label="Real")
         plt.plot(data["t"], np.rad2deg(data["eulerd"][:, i, 0]), "r--", label="Desired")
-        plt.plot(data["t"], data["bound_ang"][:, 0], "c", label="bound")
-        plt.plot(data["t"], -data["bound_ang"][:, 0], "c")
+        plt.plot(data["t"], np.rad2deg(data["bound_ang"][:, 0]), "c", label="bound")
+        plt.plot(data["t"], -np.rad2deg(data["bound_ang"][:, 0]), "c")
         plt.ylabel(_label)
         if i == 0:
             plt.legend(loc='upper right')
