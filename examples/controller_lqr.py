@@ -7,30 +7,9 @@ import numpy as np
 
 import ftc
 from ftc.models.multicopter import Multicopter
+from ftc.utils import safeupdate
 
 np.seterr(all="raise")
-
-
-def safeupdate(*configs):
-    assert len(configs) > 1
-
-    def _merge(base, new):
-        assert isinstance(base, dict), f"{base} is not a dict"
-        assert isinstance(new, dict), f"{new} is not a dict"
-        out = deepcopy(base)
-        for k, v in new.items():
-            # assert k in out, f"{k} not in {base}"
-            if isinstance(v, dict):
-                if "grid_search" in v:
-                    out[k] = v
-                else:
-                    out[k] = _merge(out[k], v)
-            else:
-                out[k] = v
-
-        return out
-
-    return reduce(_merge, configs)
 
 
 class MyEnv(fym.BaseEnv):
