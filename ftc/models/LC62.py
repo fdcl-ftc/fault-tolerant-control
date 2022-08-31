@@ -8,15 +8,6 @@ from fym.utils.rot import angle2quat, dcm2quat, quat2angle, quat2dcm
 from ftc.utils import safeupdate
 
 
-class ActuatorDynamics(fym.BaseSystem):
-    def __init__(self, tau, **kwargs):
-        super().__init__(**kwargs)
-        self.tau = tau
-
-    def set_dot(self, ctrls, ctrls_cmd):
-        self.dot = -1 / self.tau * (ctrls - ctrls_cmd)
-
-
 class LC62(fym.BaseEnv):
     """LC62 Model
     Variables:
@@ -129,8 +120,6 @@ class LC62(fym.BaseEnv):
         self.vel = fym.BaseSystem(env_config["init"]["vel"])
         self.quat = fym.BaseSystem(env_config["init"]["quat"])
         self.omega = fym.BaseSystem(env_config["init"]["omega"])
-
-        self.rotor_dyn = ActuatorDynamics(tau=0.01, shape=(6, 1))
 
         self.e3 = np.vstack((0, 0, 1))
         self.x_trims, self.u_trims_fixed = self.get_trim_fixed(
