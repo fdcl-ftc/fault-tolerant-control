@@ -19,9 +19,9 @@ class LC62(fym.BaseEnv):
 
     temp_y = 0.0
     # Aircraft paramters
-    dx1 = 0.9325 + 0.049
-    dx2 = 0.0725 - 0.049
-    dx3 = 1.1725 - 0.049
+    dx1 = 0.9325 + 0.049  # dx1 = 0.9815
+    dx2 = 0.0725 - 0.049  # dx2 = 0.0235
+    dx3 = 1.1725 - 0.049  # dx3 = 1.1235
     dy1 = 0.717 + temp_y
     dy2 = 0.717 + temp_y
 
@@ -120,7 +120,12 @@ class LC62(fym.BaseEnv):
         self.omega = fym.BaseSystem(env_config["init"]["omega"])
 
         self.e3 = np.vstack((0, 0, 1))
-        self.x_trims, self.u_trims_fixed = self.get_trim()
+        self.x_trims, self.u_trims_fixed = self.get_trim_fixed(
+            fixed={"h": 100, "VT": 0}
+        )
+        self.u_trims_vtol = self.get_trim_vtol(
+            fixed={"x_trims": self.x_trims, "u_trims_fixed": self.u_trims_fixed}
+        )
 
     def deriv(self, pos, vel, quat, omega, FM):
         F, M = FM[0:3], FM[3:]
@@ -180,8 +185,7 @@ class LC62(fym.BaseEnv):
         R5: front right, [CCW]
         R6: rear left,   [CW]
         """
-        # rcmds = (pwms_rotor - 1000) / 1000
-        rcmds = pwms_rotor  # This equation is different with simulink
+        rcmds = (pwms_rotor - 1000) / 1000
         th = (- 19281*rcmds**3 + 36503*rcmds**2 - 992.75*rcmds) * self.g / 1000
         tq = - 6.3961*rcmds**3 + 12.092*rcmds**2 - 0.3156*rcmds
         Fx = Fy = 0
@@ -258,18 +262,19 @@ class LC62(fym.BaseEnv):
         Cm = p_Cm[0]*alp + p_Cm[1]
         return np.vstack((CL, CD, Cm))
 
-    def get_trim(
+    def get_trim_fixed(
         self,
         z0={"alpha": 0.0, "beta": 0, "pusher1": 1000, "pusher2": 1000,
             "dela": 0, "dele": 0, "delr": 0},
         fixed={"h": 100, "VT": 10},
         method="SLSQP",
-        options={"disp": True, "ftol": 1e-10},
+        options={"disp": False, "ftol": 1e-10},
+        verbose=False,
     ):
         z0 = list(z0.values())
         fixed = list(fixed.values())
         bounds = (
-            np.deg2rad((-10, 20)),
+            np.deg2rad((0, 20)),
             np.deg2rad((-10, 10)),
             self.control_limits["pwm"],
             self.control_limits["pwm"],
@@ -278,7 +283,7 @@ class LC62(fym.BaseEnv):
             self.control_limits["delr"],
         )
         result = scipy.optimize.minimize(
-            self._trim_cost,
+            self._trim_cost_fixed,
             z0,
             args=(fixed,),
             bounds=bounds,
@@ -299,7 +304,7 @@ class LC62(fym.BaseEnv):
         u_trims_fixed = (pwms_pusher, dels)
         return x_trims, u_trims_fixed
 
-    def _trim_cost(self, z, fixed):
+    def _trim_cost_fixed(self, z, fixed):
         h, VT = fixed
         alp, beta, pusher1, pusher2, dela, dele, delr = z
         pos_trim = np.vstack((0, 0, -h))
@@ -319,13 +324,69 @@ class LC62(fym.BaseEnv):
         weight = np.diag([1, 1, 1, 1000, 1000, 1000])
         return dxs.dot(weight).dot(dxs)
 
+    def get_trim_vtol(
+        self,
+        z0={"rotor1": 1100, "rotor2": 1100, "rotor3": 1100,
+            "rotor4": 1100, "rotor5": 1100, "rotor6": 1100},
+        fixed={"x_trim": (
+            np.zeros((3, 1)), np.zeros((3, 1)),
+            np.vstack((1, 0, 0, 0)), np.zeros((3, 1))
+        ),
+            "u_trims_fixed": (1000*np.ones((2, 1)), np.zeros((3, 1)))},
+        method="SLSQP",
+        options={"disp": False, "ftol": 1e-10},
+        verbose=False,
+    ):
+        z0 = list(z0.values())
+        fixed = list(fixed.values())
+        bounds = (
+            self.control_limits["pwm"],
+            self.control_limits["pwm"],
+            self.control_limits["pwm"],
+            self.control_limits["pwm"],
+            self.control_limits["pwm"],
+            self.control_limits["pwm"],
+        )
+        result = scipy.optimize.minimize(
+            self._trim_cost_vtol,
+            z0,
+            args=(fixed,),
+            bounds=bounds,
+            method=method,
+            options=options,
+        )
+
+        rotor1, rotor2, rotor3, rotor4, rotor5, rotor6 = result.x
+        pwms_rotor = np.vstack((rotor1, rotor2, rotor3, rotor4, rotor5, rotor6))
+
+        u_trims_vtol = (pwms_rotor)
+        return u_trims_vtol
+
+    def _trim_cost_vtol(self, z, fixed):
+        x_trims, u_trims_fixed = fixed
+        rotor1, rotor2, rotor3, rotor4, rotor5, rotor6 = z
+        pos_trim, vel_trim, quat_trim, omega_trim = x_trims
+        pwms_pusher, dels = u_trims_fixed
+        pwms_rotor = np.vstack((rotor1, rotor2, rotor3, rotor4, rotor5, rotor6))
+
+        FM_VTOL = self.B_VTOL(pwms_rotor, omega_trim)
+        FM_Pusher = self.B_Pusher(pwms_pusher)
+        FM_Fuselage = self.B_Fuselage(dels, vel_trim, omega_trim)
+        FM_Gravity = self.B_Gravity(quat_trim)
+        FM = FM_VTOL + FM_Fuselage + FM_Pusher + FM_Gravity
+
+        dots = self.deriv(pos_trim, vel_trim, quat_trim, omega_trim, FM)
+        dxs = np.append(dots[1], dots[3])
+        weight = np.diag([1, 1, 1, 1000, 1000, 1000])
+        return dxs.dot(weight).dot(dxs)
+
 
 if __name__ == "__main__":
     system = LC62()
-    x_trims, u_trims_fixed = system.get_trim()
-    pos, vel, quat, omega = x_trims
-    pwms_pusher, dels = u_trims_fixed
-    ctrls = np.vstack((np.zeros((6, 1)), pwms_pusher, dels))
+    pos, vel, quat, omega = system.x_trims
+    pwms_pusher, dels = system.u_trims_fixed
+    pwms_rotor = system.u_trims_vtol
+    ctrls = np.vstack((pwms_rotor, pwms_pusher, dels))
     FM = system.get_FM(pos, vel, quat, omega, ctrls)
     system.set_dot(t=0, FM=FM)
     print(repr(system))
