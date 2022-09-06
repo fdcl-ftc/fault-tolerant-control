@@ -1,36 +1,23 @@
-from copy import deepcopy
-from functools import reduce
+import numpy as np
+import matplotlib.pyplot as plt
+import argparse
 
 import fym
-import matplotlib.pyplot as plt
-import numpy as np
 
 import ftc
+from ftc.utils import safeupdate
 from ftc.models.LC62 import LC62
 
 np.seterr(all="raise")
 
 
-def safeupdate(*configs):
-    assert len(configs) > 1
+# class ActuatorDynamics(fym.BaseSystem):
+#     def __init__(self, tau, **kwargs):
+#         super().__init__(**kwargs)
+#         self.tau = tau
 
-    def _merge(base, new):
-        assert isinstance(base, dict), f"{base} is not a dict"
-        assert isinstance(new, dict), f"{new} is not a dict"
-        out = deepcopy(base)
-        for k, v in new.items():
-            # assert k in out, f"{k} not in {base}"
-            if isinstance(v, dict):
-                if "grid_search" in v:
-                    out[k] = v
-                else:
-                    out[k] = _merge(out[k], v)
-            else:
-                out[k] = v
-
-        return out
-
-    return reduce(_merge, configs)
+#     def set_dot(self, ctrls, ctrls_cmd):
+#         self.dot = -1 / self.tau * (ctrls - ctrls_cmd)
 
 
 class MyEnv(fym.BaseEnv):
@@ -53,9 +40,9 @@ class MyEnv(fym.BaseEnv):
         env_config = safeupdate(self.ENV_CONFIG, env_config)
         super().__init__(**env_config["fkw"])
         self.plant = LC62(env_config["plant"])
-        self.controller = ftc.make("NDI")
-        m, g = self.plant.m, self.plant.g
-        self.trim_FM = np.vstack([0, 0, m * g, 0, 0, 0])
+        self.controller = ftc.make("NDI", self)
+        # self.rotor_dyn = ActuatorDynamics(tau=0.01, shape=(6, 1))
+        # m, g = self.plant.m, self.plant.g
 
     def step(self):
         env_info, done = self.update()
@@ -65,7 +52,7 @@ class MyEnv(fym.BaseEnv):
         return self.observe_flat()
 
     def get_ref(self, t, *args):
-        posd = np.vstack((0, 0, 0))
+        posd = np.vstack((2, 0, 0))
         posd_dot = np.vstack((0, 0, 0))
         refs = {"posd": posd, "posd_dot": posd_dot}
         return [refs[key] for key in args]
@@ -73,9 +60,8 @@ class MyEnv(fym.BaseEnv):
     def set_dot(self, t):
         ctrls0, controller_info = self.controller.get_control(t, self)
         ctrls = ctrls0
-        FM = self.plant.get_FM(self.plant.observe_list, ctrls)
+        FM = self.plant.get_FM(*self.plant.observe_list(), ctrls)
         self.plant.set_dot(t, FM)
-        F, M = FM[0:3], FM[3:]
 
         env_info = {
             "t": t,
@@ -83,8 +69,7 @@ class MyEnv(fym.BaseEnv):
             **controller_info,
             "ctrls0": ctrls0,
             "ctrls": ctrls,
-            "F": F,
-            "M": M,
+            "FM": FM,
             "Lambda": self.get_Lambda(t),
         }
 
@@ -124,144 +109,174 @@ def run():
 def plot():
     data = fym.load("data.h5")["env"]
 
-    fig, axes = plt.subplots(4, 4, figsize=(18, 5.8), squeeze=False, sharex=True)
+    """ Figure 1 - States """
+    fig, axes = plt.subplots(3, 4, figsize=(18, 5), squeeze=False, sharex=True)
 
-    """ Column 1 - States """
-
+    """ Column 1 - States: Position """
     ax = axes[0, 0]
-    ax.plot(data["t"], data["plant"]["pos"].squeeze(-1))
-    ax.plot(data["t"], data["posd"].squeeze(-1), "r--")
-    ax.set_ylabel("Position, m")
-    ax.legend([r"$x$", r"$y$", r"$z$", "Bounds"], loc="upper right")
+    ax.plot(data["t"], data["plant"]["pos"][:, 0].squeeze(-1), "k-")
+    ax.plot(data["t"], data["posd"][:, 0].squeeze(-1), "r--")
+    ax.set_ylabel(r"$x$, m")
+    # ax.legend(["Response", "Ref"], loc="upper right")
     ax.set_xlim(data["t"][0], data["t"][-1])
 
     ax = axes[1, 0]
-    ax.plot(data["t"], data["plant"]["vel"].squeeze(-1))
-    ax.set_ylabel("Velocity, m/s")
-    ax.legend([r"$v_x$", r"$v_y$", r"$v_z$"])
+    ax.plot(data["t"], data["plant"]["pos"][:, 1].squeeze(-1), "k-")
+    ax.plot(data["t"], data["posd"][:, 1].squeeze(-1), "r--")
+    ax.set_ylabel(r"$y$, m")
 
     ax = axes[2, 0]
-    ax.plot(data["t"], np.rad2deg(data["plant"]["ang"].squeeze(-1)))
-    ax.set_ylabel("Angles, deg")
-    ax.legend([r"$\phi$", r"$\theta$", r"$\psi$"])
-
-    ax = axes[3, 0]
-    ax.plot(data["t"], data["plant"]["omega"].squeeze(-1))
-    ax.set_ylabel("Angular velocity, rad/s")
-    ax.legend([r"$p$", r"$q$", r"$r$"])
+    ax.plot(data["t"], data["plant"]["pos"][:, 2].squeeze(-1), "k-")
+    ax.plot(data["t"], data["posd"][:, 2].squeeze(-1), "r--")
+    ax.set_ylabel(r"$z$, m")
 
     ax.set_xlabel("Time, sec")
 
-    """ Column 2 - Rotor forces """
-
+    """ Column 2 - States: Velocity """
     ax = axes[0, 1]
-    ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, 0], "r--")
-    ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, 0], "k-")
-    ax.set_ylabel("Rotor 1 thrust, N")
+    ax.plot(data["t"], data["plant"]["vel"][:, 0].squeeze(-1), "k-")
+    ax.set_ylabel(r"$v_x$, m/s")
+    # ax.legend(["Response", "Ref"], loc="upper right")
 
     ax = axes[1, 1]
-    ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, 1], "r--")
-    ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, 1], "k-")
-    ax.set_ylabel("Rotor 2 thrust, N")
+    ax.plot(data["t"], data["plant"]["vel"][:, 1].squeeze(-1), "k-")
+    ax.set_ylabel(r"$v_y$, m/s")
 
     ax = axes[2, 1]
-    ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, 2], "r--")
-    ax.plot(data["t"], data["ctrl"].squeeze(-1)[:, 2], "k-")
-    ax.set_ylabel("Rotor 3 thrust, N")
-
-    ax = axes[3, 1]
-    ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, 3], "r--")
-    ax.plot(data["t"], data["ctrl"].squeeze(-1)[:, 3], "k-")
-    ax.set_ylabel("Rotor 4 thrust, N")
-
-    ax = axes[4, 1]
-    ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, 4], "r--")
-    ax.plot(data["t"], data["ctrl"].squeeze(-1)[:, 4], "k-")
-    ax.set_ylabel("Rotor 5 thrust, N")
-
-    ax = axes[5, 1]
-    ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, 5], "r--")
-    ax.plot(data["t"], data["ctrl"].squeeze(-1)[:, 5], "k-")
-    ax.set_ylabel("Rotor 6 thrust, N")
-    ax.legend(["Command"])
+    ax.plot(data["t"], data["plant"]["vel"][:, 2].squeeze(-1), "k-")
+    ax.set_ylabel(r"$v_z$, m/s")
 
     ax.set_xlabel("Time, sec")
-    for ax in axes[:, 1]:
-        ax.set_ylim(-1, 15)
 
-    """ Column 3 - Control surfaces """
-
+    """ Column 3 - States: Euler angles """
     ax = axes[0, 2]
-    ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, 6], "r--")
-    ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, 6], "k-")
-    ax.set_ylabel("Pusher 1")
+    ax.plot(data["t"], np.rad2deg(data["ang"][:, 0].squeeze(-1)), "k-")
+    ax.plot(data["t"], np.rad2deg(data["angd"][:, 0].squeeze(-1)), "r--")
+    ax.set_ylabel(r"$\phi$, deg")
+    # ax.legend(["Response", "Ref"], loc="upper right")
 
     ax = axes[1, 2]
-    ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, 7], "r--")
-    ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, 7], "k-")
-    ax.set_ylabel("Pusher 2")
+    ax.plot(data["t"], np.rad2deg(data["ang"][:, 1].squeeze(-1)), "k-")
+    ax.plot(data["t"], np.rad2deg(data["angd"][:, 1].squeeze(-1)), "r--")
+    ax.set_ylabel(r"$\theta$, deg")
 
     ax = axes[2, 2]
-    ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, 8], "r--")
-    ax.plot(data["t"], data["ctrl"].squeeze(-1)[:, 8], "k-")
-    ax.set_ylabel("Aileron deflection, deg")
-
-    ax = axes[3, 2]
-    ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, 9], "r--")
-    ax.plot(data["t"], data["ctrl"].squeeze(-1)[:, 9], "k-")
-    ax.set_ylabel("Elevator deflection, deg")
-
-    ax = axes[4, 2]
-    ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, 10], "r--")
-    ax.plot(data["t"], data["ctrl"].squeeze(-1)[:, 10], "k-")
-    ax.set_ylabel("Rudder deflection, deg")
-    ax.legend(["Command"])
+    ax.plot(data["t"], np.rad2deg(data["ang"][:, 2].squeeze(-1)), "k-")
+    ax.plot(data["t"], np.rad2deg(data["angd"][:, 2].squeeze(-1)), "r--")
+    ax.set_ylabel(r"$\psi$, deg")
 
     ax.set_xlabel("Time, sec")
-    for ax in axes[:, 1]:
-        ax.set_ylim(-1, 15)
 
-#     """ Column 3 - Faults """
+    """ Column 4 - States: Angular rates """
+    ax = axes[0, 3]
+    ax.plot(data["t"], np.rad2deg(data["plant"]["omega"][:, 0].squeeze(-1)), "k-")
+    ax.set_ylabel(r"$p$, deg/s")
+    ax.legend(["Response", "Ref"], loc="upper right")
 
-#     ax = axes[0, 2]
-#     ax.plot(data["t"], data["Lambda"].squeeze(-1)[:, 0], "k")
-#     ax.set_ylabel("Lambda 1")
+    ax = axes[1, 3]
+    ax.plot(data["t"], np.rad2deg(data["plant"]["omega"][:, 1].squeeze(-1)), "k-")
+    ax.set_ylabel(r"$q$, deg/s")
 
-#     ax = axes[1, 2]
-#     ax.plot(data["t"], data["Lambda"].squeeze(-1)[:, 1], "k")
-#     ax.set_ylabel("Lambda 2")
+    ax = axes[2, 3]
+    ax.plot(data["t"], np.rad2deg(data["plant"]["omega"][:, 2].squeeze(-1)), "k-")
+    ax.set_ylabel(r"$r$, deg/s")
 
-#     ax = axes[2, 2]
-#     ax.plot(data["t"], data["Lambda"].squeeze(-1)[:, 2], "k")
-#     ax.set_ylabel("Lambda 3")
-
-#     ax = axes[3, 2]
-#     ax.plot(data["t"], data["Lambda"].squeeze(-1)[:, 3], "k")
-#     ax.set_ylabel("Lambda 4")
+    ax.set_xlabel("Time, sec")
 
     fig.tight_layout()
     fig.subplots_adjust(wspace=0.3)
     fig.align_ylabels(axes)
 
-    """ FIGURE 2 """
-    fig = plt.figure()
-    ax = fig.add_subplot(projection="3d")
+    """ Figure 2 - Generalized forces """
+    fig, axes = plt.subplots(3, 2, squeeze=False, sharex=True)
 
-    x = data["plant"]["pos"][:, 0, 0]
-    y = data["plant"]["pos"][:, 1, 0]
-    h = -data["plant"]["pos"][:, 2, 0]
+    """ Column 1 - Generalized forces: Forces """
+    ax = axes[0, 0]
+    ax.plot(data["t"], data["FM"][:, 0].squeeze(-1), "k-")
+    ax.plot(data["t"], data["FM"][:, 0].squeeze(-1), "r--")
+    ax.set_ylabel(r"$F_x$")
+    # ax.legend(["Response", "Ref"], loc="upper right")
+    ax.set_xlim(data["t"][0], data["t"][-1])
 
-    xd = data["posd"][:, 0, 0]
-    yd = data["posd"][:, 1, 0]
-    hd = -data["posd"][:, 2, 0]
+    ax = axes[1, 0]
+    ax.plot(data["t"], data["FM"][:, 1].squeeze(-1), "k-")
+    ax.plot(data["t"], data["FM"][:, 1].squeeze(-1), "r--")
+    ax.set_ylabel(r"$F_y$")
 
-    ax.plot(xd, yd, hd, "b-")
-    ax.plot(x, y, h, "r--")
+    ax = axes[2, 0]
+    ax.plot(data["t"], data["FM"][:, 2].squeeze(-1), "k-")
+    ax.plot(data["t"], data["FM"][:, 2].squeeze(-1), "r--")
+    ax.set_ylabel(r"$F_z$")
+
+    ax.set_xlabel("Time, sec")
 
     fig.tight_layout()
+    fig.subplots_adjust(wspace=0.5)
+    fig.align_ylabels(axes)
+
+    """ Column 2 - Generalized forces: Moments """
+    ax = axes[0, 1]
+    ax.plot(data["t"], data["FM"][:, 3].squeeze(-1), "k-")
+    ax.plot(data["t"], data["FM"][:, 3].squeeze(-1), "r--")
+    ax.set_ylabel(r"$M_x$")
+    ax.legend(["Response", "Ref"], loc="upper right")
+
+    ax = axes[1, 1]
+    ax.plot(data["t"], data["FM"][:, 4].squeeze(-1), "k-")
+    ax.plot(data["t"], data["FM"][:, 4].squeeze(-1), "r--")
+    ax.set_ylabel(r"$M_y$")
+
+    ax = axes[2, 1]
+    ax.plot(data["t"], data["FM"][:, 5].squeeze(-1), "k-")
+    ax.plot(data["t"], data["FM"][:, 5].squeeze(-1), "r--")
+    ax.set_ylabel(r"$M_z$")
+
+    ax.set_xlabel("Time, sec")
+
+    """ Figure 3 - Rotor forces """
+    plt.figure()
+    ax = plt.subplot(321)
+    for i in range(6):
+        if i != 0:
+            plt.subplot(321+i, sharex=ax)
+        plt.ylim([1000-5, 2000+5])
+        plt.plot(data["t"], data["ctrls"].squeeze(-1)[:, i], "k-", label="Response")
+        plt.plot(data["t"], data["ctrls0"].squeeze(-1)[:, i], "r--", label="Command")
+        if i == 0:
+            plt.legend()
+    plt.gcf().supxlabel("Time, sec")
+    plt.gcf().supylabel("Rotor Thrusts")
+
+    """ Figure 4 - Control surfaces """
+    plt.figure()
+    ax = plt.subplot(511)
+    for i in range(5):
+        if i != 0:
+            plt.subplot(511+i, sharex=ax)
+        plt.plot(data["t"], data["ctrls"].squeeze(-1)[:, i], "k-", label="Response")
+        plt.plot(data["t"], data["ctrls0"].squeeze(-1)[:, i], "r--", label="Command")
+        if i == 0:
+            plt.legend()
+    plt.gcf().supxlabel("Time, sec")
+    plt.gcf().supylabel("Control Surfaces")
 
     plt.show()
 
 
+def main(args):
+    if args.only_plot:
+        plot()
+        return
+    else:
+        run()
+
+        if args.plot:
+            plot()
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-p", "--plot", action="store_true")
+    parser.add_argument("-P", "--only-plot", action="store_true")
+    args = parser.parse_args()
     run()
