@@ -25,14 +25,11 @@ class NDIController(fym.BaseEnv):
         posd, posd_dot = env.get_ref(t, "posd", "posd_dot")
 
         """ outer-loop control """
-        xo = pos[0:2]
-        xod = posd[0:2]
-        xo_dot = vel[0:2]
-        xod_dot = posd_dot[0:2]
-        eo = xo - xod
-        eo_dot = xo_dot - xod_dot
-        Ko1 = 2*np.diag((1, 1))
-        Ko2 = 5*np.diag((1, 1))
+        xo, xod = pos[0:2], posd[0:2]
+        xo_dot, xod_dot = vel[0:2], posd_dot[0:2]
+        eo, eo_dot = xo - xod, xo_dot - xod_dot
+        Ko1 = 0.5*np.diag((3, 1))
+        Ko2 = 0.5*np.diag((3, 2))
         nuo = (- Ko1 @ eo - Ko2 @ eo_dot) / env.plant.g
         angd = np.vstack((nuo[1], - nuo[0], 0))
         # angd = np.deg2rad(np.vstack((0, 0, 0)))
@@ -44,10 +41,8 @@ class NDIController(fym.BaseEnv):
         xid_dot = np.vstack((posd_dot[2], 0, 0, 0))
         ei = xi - xid
         ei_dot = xi_dot - xid_dot
-        Ki1 = 10*np.diag((1, 10, 10, 10))
-        Ki2 = 10*np.diag((1, 10, 10, 10))
-        phi, theta, psi = ang.ravel()
-        phi_dot, theta_dot, psi_dot = omega.ravel()
+        Ki1 = 5*np.diag((1, 10, 50, 10))
+        Ki2 = 1*np.diag((1, 10, 50, 10))
         f = np.vstack((env.plant.g, - np.cross(omega, env.plant.J @ omega, axis=0)))
         g = np.zeros((4, 4))
         g[0, 0] = quat2dcm(quat).T[2, 2]/env.plant.m
@@ -58,7 +53,6 @@ class NDIController(fym.BaseEnv):
         pwms_rotor = (th / self.c_th) * 1000 + 1000
         ctrls = np.vstack((
             pwms_rotor,
-            # env.plant.u_trims_vtol,
             np.vstack(env.plant.u_trims_fixed)
             # np.vstack((1000, 1000, 0, 0, 0))
         ))

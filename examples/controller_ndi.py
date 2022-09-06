@@ -11,13 +11,13 @@ from ftc.models.LC62 import LC62
 np.seterr(all="raise")
 
 
-# class ActuatorDynamics(fym.BaseSystem):
-#     def __init__(self, tau, **kwargs):
-#         super().__init__(**kwargs)
-#         self.tau = tau
+class ActuatorDynamics(fym.BaseSystem):
+    def __init__(self, tau, **kwargs):
+        super().__init__(**kwargs)
+        self.tau = tau
 
-#     def set_dot(self, ctrls, ctrls_cmd):
-#         self.dot = -1 / self.tau * (ctrls - ctrls_cmd)
+    def set_dot(self, ctrls, ctrls_cmd):
+        self.dot = -1 / self.tau * (ctrls - ctrls_cmd)
 
 
 class MyEnv(fym.BaseEnv):
@@ -41,8 +41,7 @@ class MyEnv(fym.BaseEnv):
         super().__init__(**env_config["fkw"])
         self.plant = LC62(env_config["plant"])
         self.controller = ftc.make("NDI", self)
-        # self.rotor_dyn = ActuatorDynamics(tau=0.01, shape=(6, 1))
-        # m, g = self.plant.m, self.plant.g
+        self.rotor_dyn = ActuatorDynamics(tau=0.01, shape=(11, 1))
 
     def step(self):
         env_info, done = self.update()
@@ -52,7 +51,7 @@ class MyEnv(fym.BaseEnv):
         return self.observe_flat()
 
     def get_ref(self, t, *args):
-        posd = np.vstack((2, 0, 0))
+        posd = np.vstack((1, 1, 0))
         posd_dot = np.vstack((0, 0, 0))
         refs = {"posd": posd, "posd_dot": posd_dot}
         return [refs[key] for key in args]
