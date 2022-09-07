@@ -93,6 +93,8 @@ class LC62(fym.BaseEnv):
                           39.09, 46.14, 52.67, 59.69]),
         "tq_p": np.array([0, 0.12, 0.35, 0.66, 1.04, 1.47, 1.93, 2.50, 3.25,
                           3.83, 4.35, 4.95]),
+        "th_r": [-19281, 36503, -992.75, 0],
+        "tq_r": [-6.3961, 12.092, -0.3156, 0],
     }
 
     control_limits = {
@@ -121,7 +123,7 @@ class LC62(fym.BaseEnv):
 
         self.e3 = np.vstack((0, 0, 1))
         self.x_trims, self.u_trims_fixed = self.get_trim_fixed(
-            fixed={"h": 100, "VT": 0}
+            fixed={"h": 10, "VT": 0}
         )
         self.u_trims_vtol = self.get_trim_vtol(
             fixed={"x_trims": self.x_trims, "u_trims_fixed": self.u_trims_fixed}
@@ -188,6 +190,8 @@ class LC62(fym.BaseEnv):
         rcmds = (pwms_rotor - 1000) / 1000
         th = (- 19281*rcmds**3 + 36503*rcmds**2 - 992.75*rcmds) * self.g / 1000
         tq = - 6.3961*rcmds**3 + 12.092*rcmds**2 - 0.3156*rcmds
+        # th = np.polyval(self.tables["th_r"], rcmds) * self.g / 1000
+        # tq = np.polyval(self.tables["tq_r"], rcmds)
         Fx = Fy = 0
         Fz = - th[0] - th[1] - th[2] - th[3] - th[4] - th[5]
         l = self.dy1*(th[1] + th[2] + th[5]) - self.dy2*(th[0] + th[3] + th[4])
@@ -200,8 +204,8 @@ class LC62(fym.BaseEnv):
         return np.vstack((Fx, Fy, Fz, l, m, n))
 
     def B_Pusher(self, pwms_pusher):
-        th = self.thrust_pusher(pwms_pusher)
-        tq = self.torque_pusher(pwms_pusher)
+        th = np.interp(pwms_pusher, self.tables["pwm"], self.tables["th_p"])
+        tq = np.interp(pwms_pusher, self.tables["pwm"], self.tables["tq_p"])
         Fx = th[0] + th[1]
         Fy = Fz = 0
         l = tq[0] - tq[1]
@@ -245,28 +249,17 @@ class LC62(fym.BaseEnv):
         temperature = 288.14 - 0.00649 * altitude
         return pressure / (287 * temperature)
 
-    def thrust_pusher(self, x):
-        p = np.polyfit(self.tables["pwm"], self.tables["th_p"], deg=1)
-        return p[0]*x + p[1]
-
-    def torque_pusher(self, x):
-        p = np.polyfit(self.tables["pwm"], self.tables["tq_p"], deg=1)
-        return p[0]*x + p[1]
-
     def aero_coeff(self, alp):
-        p_CL = np.polyfit(self.tables["alp"], self.tables["CL"], deg=1)
-        p_CD = np.polyfit(self.tables["alp"], self.tables["CD"], deg=1)
-        p_Cm = np.polyfit(self.tables["alp"], self.tables["Cm"], deg=1)
-        CL = p_CL[0]*alp + p_CL[1]
-        CD = p_CD[0]*alp + p_CD[1]
-        Cm = p_Cm[0]*alp + p_Cm[1]
+        CL = np.interp(alp, self.tables["alp"], self.tables["CL"])
+        CD = np.interp(alp, self.tables["alp"], self.tables["CD"])
+        Cm = np.interp(alp, self.tables["alp"], self.tables["Cm"])
         return np.vstack((CL, CD, Cm))
 
     def get_trim_fixed(
         self,
         z0={"alpha": 0.0, "beta": 0, "pusher1": 1000, "pusher2": 1000,
             "dela": 0, "dele": 0, "delr": 0},
-        fixed={"h": 100, "VT": 10},
+        fixed={"h": 10, "VT": 10},
         method="SLSQP",
         options={"disp": False, "ftol": 1e-10},
         verbose=False,
