@@ -54,7 +54,6 @@ class NDIController(fym.BaseEnv):
         ctrls = np.vstack((
             pwms_rotor,
             np.vstack(env.plant.u_trims_fixed)
-            # np.vstack((1000, 1000, 0, 0, 0))
         ))
 
         controller_info = {
