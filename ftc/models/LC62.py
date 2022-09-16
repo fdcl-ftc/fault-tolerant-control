@@ -171,7 +171,7 @@ class LC62(fym.BaseEnv):
 
         """ fixed-wing """
         FM_Pusher = self.B_Pusher(pwms_pusher)
-        FM_Fuselage = self.B_Fuselage(dels, vel-vel_wind, omega+omega_wind)
+        FM_Fuselage = self.B_Fuselage(dels, pos, vel-vel_wind, omega+omega_wind)
         FM_Gravity = self.B_Gravity(quat)
 
         # total force and moments
@@ -198,9 +198,9 @@ class LC62(fym.BaseEnv):
         m = self.dx1*(th[2] + th[4]) - self.dx2*(th[0] + th[1]) - self.dx3*(th[3] + th[5])
         n = - tq[0] + tq[1] - tq[2] + tq[3] + tq[4] - tq[5]
         # compensation
-        l = l - 0.5 * omega[0]
-        m = m - 2 * omega[1]
-        n = n - 1 * omega[2]
+        l = l - 0.5 * np.rad2deg(omega[0])
+        m = m - 2 * np.rad2deg(omega[1])
+        n = n - 1 * np.rad2deg(omega[2])
         return np.vstack((Fx, Fy, Fz, l, m, n))
 
     def B_Pusher(self, pwms_pusher):
@@ -212,13 +212,16 @@ class LC62(fym.BaseEnv):
         m = n = 0
         return np.vstack((Fx, Fy, Fz, l, m, n))
 
-    def B_Fuselage(self, dels, vel, omega):
-        rho = self.get_rho(100)
+    def B_Fuselage(self, dels, pos, vel, omega):
+        rho = self.get_rho(- pos[2])
         u, v, w = np.ravel(vel)
         p, q, r = np.ravel(omega)
         VT = np.linalg.norm(vel)
         alp = np.arctan2(w, u)
-        beta = np.arcsin(v / (VT + 1e-10))
+        if np.isclose(VT, 0):
+            beta = 0
+        else:
+            beta = np.arcsin(v / VT)
         qbar = 0.5 * rho * VT**2
         Cy_p, Cy_r, Cy_beta = self.Cy_p, self.Cy_r, self.Cy_beta
         Cll_p, Cll_r, Cll_beta = self.Cll_p, self.Cll_r, self.Cll_beta,
@@ -308,7 +311,7 @@ class LC62(fym.BaseEnv):
         dels = np.vstack((dela, dele, delr))
 
         FM_Pusher = self.B_Pusher(pwms_pusher)
-        FM_Fuselage = self.B_Fuselage(dels, vel_trim, omega_trim)
+        FM_Fuselage = self.B_Fuselage(dels, pos_trim, vel_trim, omega_trim)
         FM_Gravity = self.B_Gravity(quat_trim)
         FM_Fixed = FM_Fuselage + FM_Pusher + FM_Gravity
 
@@ -364,7 +367,7 @@ class LC62(fym.BaseEnv):
 
         FM_VTOL = self.B_VTOL(pwms_rotor, omega_trim)
         FM_Pusher = self.B_Pusher(pwms_pusher)
-        FM_Fuselage = self.B_Fuselage(dels, vel_trim, omega_trim)
+        FM_Fuselage = self.B_Fuselage(dels, pos_trim, vel_trim, omega_trim)
         FM_Gravity = self.B_Gravity(quat_trim)
         FM = FM_VTOL + FM_Fuselage + FM_Pusher + FM_Gravity
 
