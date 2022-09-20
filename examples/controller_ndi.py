@@ -41,7 +41,7 @@ class MyEnv(fym.BaseEnv):
         super().__init__(**env_config["fkw"])
         self.plant = LC62(env_config["plant"])
         self.controller = ftc.make("NDI", self)
-        self.rotor_dyn = ActuatorDynamics(tau=0.01, shape=(11, 1))
+        # self.rotor_dyn = ActuatorDynamics(tau=0.01, shape=(11, 1))
 
     def step(self):
         env_info, done = self.update()
@@ -233,31 +233,39 @@ def plot():
     ax.set_xlabel("Time, sec")
 
     """ Figure 3 - Rotor forces """
-    plt.figure()
-    ax = plt.subplot(321)
-    for i in range(6):
-        if i != 0:
-            plt.subplot(321+i, sharex=ax)
-        plt.ylim([1000-5, 2000+5])
-        plt.plot(data["t"], data["ctrls"].squeeze(-1)[:, i], "k-", label="Response")
-        plt.plot(data["t"], data["ctrls0"].squeeze(-1)[:, i], "r--", label="Command")
-        if i == 0:
-            plt.legend()
+    fig, axs = plt.subplots(3, 2, sharex=True)
+    ylabels = np.array((["R1", "R2"], ["R3", "R4"], ["R5", "R6"]))
+    for i, _ylabel in np.ndenumerate(ylabels):
+        ax = axs[i]
+        ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, sum(i)], "k-", label="Response")
+        ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, sum(i)], "r--", label="Command")
+        ax.set_ylim([1000-5, 2000+5])
+        if i == (0, 1):
+            ax.legend(loc="upper right")
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Rotor Thrusts")
 
+    fig.tight_layout()
+    fig.subplots_adjust(wspace=0.5)
+    fig.align_ylabels(axs)
+
     """ Figure 4 - Control surfaces """
-    plt.figure()
-    ax = plt.subplot(511)
-    for i in range(5):
-        if i != 0:
-            plt.subplot(511+i, sharex=ax)
-        plt.plot(data["t"], data["ctrls"].squeeze(-1)[:, i], "k-", label="Response")
-        plt.plot(data["t"], data["ctrls0"].squeeze(-1)[:, i], "r--", label="Command")
+    fig, axs = plt.subplots(5, 1, sharex=True)
+    ylabels = np.array(("P1", "P2", r"\delta_a", r"\delta_e", r"\delta_r"))
+    for i, _ylabel in enumerate(ylabels):
+        ax = axs[i]
+        ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, i+6], "k-", label="Response")
+        ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, i+6], "r--", label="Command")
+        if i < 2:
+            ax.set_ylim([1000-5, 2000+5])
         if i == 0:
-            plt.legend()
+            ax.legend(loc="upper right")
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Control Surfaces")
+
+    fig.tight_layout()
+    fig.subplots_adjust(wspace=0.5)
+    fig.align_ylabels(axs)
 
     plt.show()
 
@@ -278,4 +286,4 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--plot", action="store_true")
     parser.add_argument("-P", "--only-plot", action="store_true")
     args = parser.parse_args()
-    run()
+    main(args)
