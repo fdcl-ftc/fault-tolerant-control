@@ -42,11 +42,14 @@ class LQRController(fym.BaseEnv):
 
         posd, posd_dot = env.get_ref(t, "posd", "posd_dot")
 
-        controller_info = {
-            "posd": posd,
-        }
         x = np.vstack((pos, vel, ang, omega))
         x_ref = np.vstack((posd, posd_dot, np.zeros((6, 1))))
         forces = - self.K.dot(x - x_ref) + self.trim_forces
+
+        controller_info = {
+            "posd": posd,
+            "ang": ang,
+            "angd": np.zeros((3, 1)),
+        }
 
         return forces, controller_info
