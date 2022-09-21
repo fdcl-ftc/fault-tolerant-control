@@ -59,6 +59,12 @@ class MyEnv(fym.BaseEnv):
     def set_dot(self, t):
         ctrls0, controller_info = self.controller.get_control(t, self)
         ctrls = ctrls0
+        bctrls = self.plant.saturate(ctrls0)
+
+        """ set faults """
+        lctrls = self.set_Lambda(t, bctrls)  # lambda * bctrls
+        ctrls = self.plant.saturate(lctrls)
+
         FM = self.plant.get_FM(*self.plant.observe_list(), ctrls)
         self.plant.set_dot(t, FM)
 
@@ -77,12 +83,12 @@ class MyEnv(fym.BaseEnv):
     def get_Lambda(self, t):
         """Lambda function"""
 
-        Lambda = np.eye(6)
+        Lambda = np.ones((11, 1))
         return Lambda
 
-    def set_Lambda(self, t):
+    def set_Lambda(self, t, ctrls):
         Lambda = self.get_Lambda(t)
-        return Lambda
+        return Lambda * ctrls
 
 
 def run():
@@ -116,7 +122,7 @@ def plot():
     ax.plot(data["t"], data["plant"]["pos"][:, 0].squeeze(-1), "k-")
     ax.plot(data["t"], data["posd"][:, 0].squeeze(-1), "r--")
     ax.set_ylabel(r"$x$, m")
-    # ax.legend(["Response", "Ref"], loc="upper right")
+    ax.legend(["Response", "Command"], loc="upper right")
     ax.set_xlim(data["t"][0], data["t"][-1])
 
     ax = axes[1, 0]
@@ -135,7 +141,6 @@ def plot():
     ax = axes[0, 1]
     ax.plot(data["t"], data["plant"]["vel"][:, 0].squeeze(-1), "k-")
     ax.set_ylabel(r"$v_x$, m/s")
-    # ax.legend(["Response", "Ref"], loc="upper right")
 
     ax = axes[1, 1]
     ax.plot(data["t"], data["plant"]["vel"][:, 1].squeeze(-1), "k-")
@@ -152,7 +157,6 @@ def plot():
     ax.plot(data["t"], np.rad2deg(data["ang"][:, 0].squeeze(-1)), "k-")
     ax.plot(data["t"], np.rad2deg(data["angd"][:, 0].squeeze(-1)), "r--")
     ax.set_ylabel(r"$\phi$, deg")
-    # ax.legend(["Response", "Ref"], loc="upper right")
 
     ax = axes[1, 2]
     ax.plot(data["t"], np.rad2deg(data["ang"][:, 1].squeeze(-1)), "k-")
@@ -194,7 +198,7 @@ def plot():
     ax.plot(data["t"], data["FM"][:, 0].squeeze(-1), "k-")
     ax.plot(data["t"], data["FM"][:, 0].squeeze(-1), "r--")
     ax.set_ylabel(r"$F_x$")
-    # ax.legend(["Response", "Ref"], loc="upper right")
+    ax.legend(["Response", "Command"], loc="upper right")
     ax.set_xlim(data["t"][0], data["t"][-1])
 
     ax = axes[1, 0]
@@ -208,10 +212,6 @@ def plot():
     ax.set_ylabel(r"$F_z$")
 
     ax.set_xlabel("Time, sec")
-
-    fig.tight_layout()
-    fig.subplots_adjust(wspace=0.5)
-    fig.align_ylabels(axes)
 
     """ Column 2 - Generalized forces: Moments """
     ax = axes[0, 1]
@@ -232,16 +232,24 @@ def plot():
 
     ax.set_xlabel("Time, sec")
 
-    """ Figure 3 - Rotor forces """
+    fig.tight_layout()
+    fig.subplots_adjust(wspace=0.5)
+    fig.align_ylabels(axes)
+
+    """ Figure 3 - Rotor thrusts """
     fig, axs = plt.subplots(3, 2, sharex=True)
-    ylabels = np.array((["R1", "R2"], ["R3", "R4"], ["R5", "R6"]))
+    ylabels = np.array((["Rotor 1", "Rotor 2"],
+                        ["Rotor 3", "Rotor 4"],
+                        ["Rotor 5", "Rotor 6"]))
     for i, _ylabel in np.ndenumerate(ylabels):
         ax = axs[i]
         ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, sum(i)], "k-", label="Response")
         ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, sum(i)], "r--", label="Command")
-        ax.set_ylim([1000-5, 2000+5])
+        ax.grid()
         if i == (0, 1):
             ax.legend(loc="upper right")
+        plt.setp(ax, ylabel=_ylabel)
+        ax.set_ylim([1000-5, 2000+5])
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Rotor Thrusts")
 
@@ -249,19 +257,22 @@ def plot():
     fig.subplots_adjust(wspace=0.5)
     fig.align_ylabels(axs)
 
-    """ Figure 4 - Control surfaces """
+    """ Figure 4 - Pusher and Control surfaces """
     fig, axs = plt.subplots(5, 1, sharex=True)
-    ylabels = np.array(("P1", "P2", r"\delta_a", r"\delta_e", r"\delta_r"))
+    ylabels = np.array(("Pusher 1", "Pusher 2",
+                        r"$\delta_a$", r"$\delta_e$", r"$\delta_r$"))
     for i, _ylabel in enumerate(ylabels):
         ax = axs[i]
         ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, i+6], "k-", label="Response")
         ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, i+6], "r--", label="Command")
-        if i < 2:
-            ax.set_ylim([1000-5, 2000+5])
+        ax.grid()
+        plt.setp(ax, ylabel=_ylabel)
+        # if i < 2:
+        #     ax.set_ylim([1000-5, 2000+5])
         if i == 0:
             ax.legend(loc="upper right")
     plt.gcf().supxlabel("Time, sec")
-    plt.gcf().supylabel("Control Surfaces")
+    plt.gcf().supylabel("Pusher and Control Surfaces")
 
     fig.tight_layout()
     fig.subplots_adjust(wspace=0.5)
