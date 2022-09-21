@@ -10,7 +10,7 @@ class GESOController(fym.BaseEnv):
         super().__init__()
         self.dx1, self.dx2, self.dx3 = env.plant.dx1, env.plant.dx2, env.plant.dx3
         self.dy1, self.dy2 = env.plant.dy1, env.plant.dy2
-        c, self.c_th = 0.0338, 128  # tq[0, 0]/th[0, 0], th[0, 0]/rcmds[0, 0]
+        c, self.c_th = 0.0338, 128  # tq / th, th / rcmds
         self.B_r2f = np.array((
             [-1, -1, -1, -1, -1, -1],
             [-self.dy2, self.dy1, self.dy1, -self.dy2, -self.dy2, self.dy1],
@@ -67,9 +67,10 @@ class GESOController(fym.BaseEnv):
         ei_dot = xi_dot - xid_dot
         Ki1 = 5*np.diag((5, 10, 50, 10))
         Ki2 = 1*np.diag((5, 10, 50, 10))
-        f = np.vstack((env.plant.g, - np.cross(omega, env.plant.J @ omega, axis=0)))
+        f = np.vstack((env.plant.g,
+                       - env.plant.Jinv @ np.cross(omega, env.plant.J @ omega, axis=0)))
         g = np.zeros((4, 4))
-        g[0, 0] = quat2dcm(quat).T[2, 2]/env.plant.m
+        g[0, 0] = quat2dcm(quat).T[2, 2] / env.plant.m
         g[1:4, 1:4] = env.plant.Jinv
 
         nui_N = np.linalg.inv(g) @ (- f - Ki1 @ ei - Ki2 @ ei_dot)
