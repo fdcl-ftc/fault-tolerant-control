@@ -10,7 +10,7 @@ class NDIController(fym.BaseEnv):
         super().__init__()
         self.dx1, self.dx2, self.dx3 = env.plant.dx1, env.plant.dx2, env.plant.dx3
         self.dy1, self.dy2 = env.plant.dy1, env.plant.dy2
-        c, self.c_th = 0.0338, 128
+        c, self.c_th = 0.0338, 128  # tq[0, 0]/th[0, 0], th[0, 0]/rcmds[0, 0]
         self.B_r2f = np.array((
             [-1, -1, -1, -1, -1, -1],
             [-self.dy2, self.dy1, self.dy1, -self.dy2, -self.dy2, self.dy1],
@@ -41,8 +41,8 @@ class NDIController(fym.BaseEnv):
         xid_dot = np.vstack((posd_dot[2], 0, 0, 0))
         ei = xi - xid
         ei_dot = xi_dot - xid_dot
-        Ki1 = 5*np.diag((1, 10, 50, 10))
-        Ki2 = 1*np.diag((1, 10, 50, 10))
+        Ki1 = 5*np.diag((5, 10, 50, 10))
+        Ki2 = 1*np.diag((5, 10, 50, 10))
         f = np.vstack((env.plant.g, - np.cross(omega, env.plant.J @ omega, axis=0)))
         g = np.zeros((4, 4))
         g[0, 0] = quat2dcm(quat).T[2, 2]/env.plant.m
@@ -51,8 +51,6 @@ class NDIController(fym.BaseEnv):
 
         th = np.linalg.pinv(self.B_r2f) @ nui
         pwms_rotor = (th / self.c_th) * 1000 + 1000
-        # th = np.linalg.pinv(env.plant.B_r2f) @ nui
-        # pwms_rotor = (th / env.plant.c_th) * 1000 + 1000
         ctrls = np.vstack((
             pwms_rotor,
             np.vstack(env.plant.u_trims_fixed)
