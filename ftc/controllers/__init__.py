@@ -20,3 +20,7 @@ register(
     id="NDI",
     entry_point="ftc.controllers.NDI.ndi:NDIController",
 )
+register(
+    id="GESO",
+    entry_point="ftc.controllers.GESO.geso:GESOController",
+)
