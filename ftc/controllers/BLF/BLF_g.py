@@ -12,6 +12,13 @@ def func_g(x, theta):
         return np.sign(x) * abs(x)**theta
 
 
+def q(x):
+    if x > 0:
+        return 1
+    else:
+        return 0
+
+
 class BLFController(BaseEnv):
     def __init__(self, env):
         super().__init__()
@@ -214,18 +221,48 @@ class innerLoop(BaseEnv):
         K, c, rho = self.K, self.c, self.rho
         x = self.x.state
         lamb = self.lamb.state
+        dlamb = self.lamb.dot
         integ_e = self.integ_e.state
-        dref, ddref = 0, 0
+        dref = 0
+        rho1a = ref + lamb[0] + rho[0]
+        rho1b = rho[0] - ref - lamb[0]
+        drho1a = dlamb[0]
+        drho1b = - dlamb[0]
+        ddrho1a = - c[0]*dlamb[0] + dlamb[1]
+        ddrho1b = c[0]*dlamb[0] - dlamb[1]
 
         z1 = x[0] - ref - lamb[0]
-        dz1 = x[1] - dref + c[0]*lamb[0] - lamb[1]
-        alpha = - K[0]*z1 - c[0]*lamb[0] - K[2]*integ_e*(rho[0]**2-z1**2)
-        z2 = x[1] - dref - alpha - lamb[1]
-        dalpha = - K[0]*(x[1] - dref + c[0]*lamb[0] - lamb[1]) \
-            - c[0]*(-c[0]*lamb[0] + lamb[1]) - K[2]*(x[0]-ref)*(rho[0]**2-z1**2) \
-            + K[2]*2*z1*dz1*integ_e
-        nu = - c[1]*lamb[1] + dalpha + ddref - K[1]*z2 \
-            - (rho[1]**2 - z2**2)/(rho[0]**2 - z1**2)*z1 - x[2]
+        dz1 = x[1] - dref - dlamb[0]
+
+        xi_1a = z1 / rho1a
+        dxi_1a = (dz1*rho1a-z1*drho1a) / (rho1a**2)
+        xi_1b = z1 / rho1b
+        dxi_1b = (dz1*rho1b-z1*drho1b) / (rho1b**2)
+        xi1 = q(z1)*xi_1b + (1-q(z1))*xi_1a
+        dxi1 = q(z1)*dxi_1b + (1-q(z1))*dxi_1a
+
+        bar_k1 = ((drho1a/rho1a)**2 + (drho1b/rho1b)**2 + 0.1) ** (1/2)
+        alpha = - (K[0] + bar_k1)*z1 - c[0]*lamb[0] - K[2]*integ_e*(1-xi1**2)
+
+        dbar_k1 = 1 / 2 / bar_k1 * (
+            2*drho1a*(ddrho1a*rho1a-drho1a**2)/(rho1a**3)
+            + 2*drho1b*(ddrho1b*rho1b-drho1b**2)/(rho1b**3)
+        )
+        dalpha = (- dbar_k1*z1 - bar_k1*dz1 - c[0]*dlamb[0]
+                  - K[2]*(x[0]-ref)*(1-xi1**2)
+                  - K[2]*integ_e*(-2*xi1*dxi1))
+
+        rho2a = alpha + lamb[1] + rho[1]
+        rho2b = rho[1] - alpha - lamb[1]
+        drho2a = dalpha + dlamb[1]
+        drho2b = - dalpha - dlamb[1]
+
+        z2 = x[1] - alpha - lamb[1]
+
+        mu1 = q(z1)/(rho1b**2-z1**2) + (1-q(z1))/(rho1a**2-z1**2)
+        bar_k2 = ((drho2a/rho2a)**2 + (drho2b/rho2b)**2 + 0.1) ** (1/2)
+        nu = - (K[1] + bar_k2)*z2 + dalpha - x[2] - c[1]*lamb[1] - mu1*z1
+
         return nu
 
     def get_u(self, t, ref, b, f):
