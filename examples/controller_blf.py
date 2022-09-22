@@ -131,7 +131,7 @@ class Quad(BaseEnv):
         ueuler = np.zeros((3, 1))
         if self.COND["ext_unc"] is True:
             upos = np.vstack([
-                0.1*np.cos(0.2*np.pi*t),
+                0.1*np.cos(0.2*t),
                 0.2*np.sin(0.5*np.pi*t),
                 0.3*np.cos(t),
             ])
@@ -141,7 +141,7 @@ class Quad(BaseEnv):
                 0.2*np.sin(3*t) - 0.1*np.sin(0.5*np.pi*t)
             ])
             ueuler = np.vstack([
-                0.3*np.sin(t),
+                0.2*np.sin(t),
                 0.1*np.cos(np.pi*t+np.pi/4),
                 0.2*np.sin(0.5*np.pi*t),
             ])
@@ -160,17 +160,18 @@ class Quad(BaseEnv):
         ref_dist[1] = - (pi/5*np.cos(t/2)*np.cos(pi*t/5)
                          - (1/4 + pi**2/25)*np.sin(t/2)*np.sin(pi*t/5))
 
-        ext_dist = np.zeros((6, 1))
-        m1, m2, m3, m4 = self.get_ext_uncertainties(t)
-        ext_dist[0:3] = m2
-        ext_dist[3:6] = m4
-        int_dist = np.vstack([- 0.1*0.2*pi*np.sin(0.2*pi*t),
-                              0.2*0.5*pi*np.cos(0.5*pi*t),
-                              - 0.3*np.sin(t),
-                              0.3*np.cos(t),
-                              - 0.1*pi*np.sin(pi*t+pi/4),
-                              0.2*0.5*pi*np.cos(0.5*pi*t)])
-        ref_dist = ref_dist + ext_dist + int_dist
+        if self.COND["ext_unc"] is True:
+            ext_dist = np.zeros((6, 1))
+            m1, m2, m3, m4 = self.get_ext_uncertainties(t)
+            ext_dist[0:3] = m2
+            ext_dist[3:6] = m4
+            int_dist = np.vstack([- 0.1*0.2*np.sin(0.2*t),
+                                  0.2*0.5*pi*np.cos(0.5*pi*t),
+                                  - 0.3*np.sin(t),
+                                  0.2*np.cos(t),
+                                  - 0.1*pi*np.sin(pi*t+pi/4),
+                                  0.2*0.5*pi*np.cos(0.5*pi*t)])
+            ref_dist = ref_dist + ext_dist + int_dist
         return ref_dist
 
     def get_gyro(self, omega, rotors, prev_rotors):
@@ -205,30 +206,23 @@ class Quad(BaseEnv):
 
     def get_Lambda(self, t):
         """Lambda function"""
-        if t > 20:
-            W1 = 0.4
-        elif t > 3:
-            W1 = (- 40/17**2 * (t+14) * (t-20) + 40) * 0.01
+        if t > 5:
+            W1 = 0.5
         else:
             W1 = 1
 
-        if t > 11:
-            W2 = 0.7
-        elif t > 6:
-            W2 = (6/5 * (t-11)**2 + 70) * 0.01
+        if t > 7:
+            W2 = 0.8
         else:
             W2 = 1
 
-        if t > 10:
-            W3 = 0.6
+        if t > 11:
+            W3 = 0.3
+        elif t > 6:
+            W3 = 0.7/25*(t-11)**2 + 0.3
         else:
             W3 = 1
-
-        if t > 25:
-            W4 = 1.0
-        else:
-            W4 = 1
-        W = np.diag([W1, W2, W3, W4])
+        W = np.diag([W1, W2, W3, 1])
         return W
 
     def set_Lambda(self, t, brfs):
@@ -240,7 +234,7 @@ class ExtendedQuadEnv(fym.BaseEnv):
     ENV_CONFIG = {
         "fkw": {
             "dt": 0.01,
-            "max_t": 30,
+            "max_t": 20,
         },
         "quad": {
             "init": {
@@ -284,13 +278,21 @@ class ExtendedQuadEnv(fym.BaseEnv):
         rotors = self.plant.get_Lambda(t).dot(rotors)
         quad_info = self.plant.set_dot(t, rotors)
 
+        # caculate f
+        J = np.diag(self.plant.J)
+        p_, q_, r_ = self.plant.omega.state
+        f = np.array([(J[1]-J[2]) / J[0] * q_ * r_,
+                      (J[2]-J[0]) / J[1] * p_ * r_,
+                      (J[0]-J[1]) / J[2] * p_ * q_])
+
         env_info = {
             "t": t,
             **self.observe_dict(),
             **quad_info,
             **controller_info,
             "rotors_cmd": rotors_cmd,
-            "posd": self.get_ref(t, "posd")
+            "posd": self.get_ref(t, "posd"),
+            "f": f,
         }
 
         return env_info
