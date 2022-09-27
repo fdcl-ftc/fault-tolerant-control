@@ -239,6 +239,7 @@ class ExtendedQuadEnv(fym.BaseEnv):
                 "omega": np.zeros((3, 1)),
             },
         },
+        "rtype": "Quad",
     }
 
     def __init__(self, env_config={}):

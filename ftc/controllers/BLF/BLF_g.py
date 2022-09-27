@@ -49,6 +49,18 @@ class BLFController(BaseEnv):
                               np.array([env_config["k21"], env_config["k22"],
                                         env_config["k23"]]))
 
+        self.rtype = env.ENV_CONFIG["rtype"]
+        if self.rtype == "LC62":
+            self.dx1, self.dx2, self.dx3 = env.plant.dx1, env.plant.dx2, env.plant.dx3
+            self.dy1, self.dy2 = env.plant.dy1, env.plant.dy2
+            c, self.c_th = 0.0338, 128  # tq / th, th / rcmds
+            self.B_r2f = np.array((
+                [-1, -1, -1, -1, -1, -1],
+                [-self.dy2, self.dy1, self.dy1, -self.dy2, -self.dy2, self.dy1],
+                [-self.dx2, -self.dx2, self.dx1, -self.dx3, self.dx1, -self.dx3],
+                [-c, c, -c, c, c, -c]
+            ))
+
     def get_control(self, t, env):
         ''' quad state '''
         pos, vel, quat, omega = env.plant.observe_list()
@@ -82,16 +94,26 @@ class BLFController(BaseEnv):
         u3 = self.Ctheta.get_u(t, thetad, b[1])
         u4 = self.Cpsi.get_u(t, psid, b[2])
         # rotors
-        forces = np.vstack([u1, u2, u3, u4])
+        ctrls1 = np.vstack([u1, u2, u3, u4])
+        if self.rtype == "Quad":
+            forces = ctrls1
+        elif self.rtype == "LC62":
+            th = np.linalg.pinv(self.B_r2f) @ ctrls1
+            pwms_rotor = (th / self.c_th) * 1000 + 1000
+            ctrls2 = np.vstack((
+                pwms_rotor,
+                np.vstack(env.plant.u_trims_fixed)
+            ))
+            forces = ctrls2
 
         ''' set derivatives '''
         x, y, z = env.plant.pos.state.ravel()
         self.Cx.set_dot(t, x, posd[0][0])
         self.Cy.set_dot(t, y, posd[0][1])
         self.Cz.set_dot(t, z, posd[0][2])
-        self.Cphi.set_dot(t, euler[0], phid, b[0])
-        self.Ctheta.set_dot(t, euler[1], thetad, b[1])
-        self.Cpsi.set_dot(t, euler[2], psid, b[2])
+        self.Cphi.set_dot(t, euler[0][0], phid, b[0])
+        self.Ctheta.set_dot(t, euler[1][0], thetad, b[1])
+        self.Cpsi.set_dot(t, euler[2][0], psid, b[2])
 
         # Disturbance
         dist = np.zeros((6, 1))
