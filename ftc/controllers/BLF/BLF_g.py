@@ -94,11 +94,12 @@ class BLFController(BaseEnv):
         u3 = self.Ctheta.get_u(t, thetad, b[1])
         u4 = self.Cpsi.get_u(t, psid, b[2])
         # rotors
-        ctrls1 = np.vstack([u1, u2, u3, u4])
         if self.rtype == "Quad":
+            ctrls1 = np.vstack([u1, u2, u3, u4])
             forces = ctrls1
         elif self.rtype == "LC62":
-            th = np.linalg.pinv(self.B_r2f) @ ctrls1
+            ctrls1 = np.vstack([u1, u2, u3, u4])
+            th = - np.linalg.pinv(self.B_r2f) @ ctrls1
             pwms_rotor = (th / self.c_th) * 1000 + 1000
             ctrls2 = np.vstack((
                 pwms_rotor,
