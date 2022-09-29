@@ -49,18 +49,6 @@ class BLFController(BaseEnv):
                               np.array([env_config["k21"], env_config["k22"],
                                         env_config["k23"]]))
 
-        self.rtype = env.ENV_CONFIG["rtype"]
-        if self.rtype == "LC62":
-            self.dx1, self.dx2, self.dx3 = env.plant.dx1, env.plant.dx2, env.plant.dx3
-            self.dy1, self.dy2 = env.plant.dy1, env.plant.dy2
-            c, self.c_th = 0.0338, 128  # tq / th, th / rcmds
-            self.B_r2f = np.array((
-                [-1, -1, -1, -1, -1, -1],
-                [-self.dy2, self.dy1, self.dy1, -self.dy2, -self.dy2, self.dy1],
-                [-self.dx2, -self.dx2, self.dx1, -self.dx3, self.dx1, -self.dx3],
-                [-c, c, -c, c, c, -c]
-            ))
-
     def get_control(self, t, env):
         ''' quad state '''
         pos, vel, quat, omega = env.plant.observe_list()
@@ -81,12 +69,22 @@ class BLFController(BaseEnv):
         q[1] = self.Cy.get_virtual(t)
         q[2] = self.Cz.get_virtual(t)
         # Inverse solution
-        u1 = m * (q[0]**2 + q[1]**2 + (q[2]-g)**2)**(1/2)
-        phid = np.clip(np.arcsin(q[1] * m / u1),
-                       - np.deg2rad(45), np.deg2rad(45))
-        thetad = np.clip(np.arctan(q[0] / (q[2] - g)),
-                         - np.deg2rad(45), np.deg2rad(45))
+        u1 = m * (q[0]**2 + q[1]**2 + (q[2])**2)**(1/2) + m*g
+        # phid = np.clip(np.arcsin(q[1] * m / u1),
+        #                - np.deg2rad(45), np.deg2rad(45))
+        # thetad = np.clip(np.arctan(q[0] / (q[2] - g)),
+        #                  - np.deg2rad(45), np.deg2rad(45))
+        # psid = 0
+        # eulerd = np.vstack([phid, thetad, psid])
         psid = 0
+        phid = 0
+        thetad = 0
+        # phid = np.clip(np.arcsin((np.sin(psid)*q[0]-np.cos(psid)*q[1]) * m / u1),
+        #                - np.deg2rad(45), np.deg2rad(45))
+        # thetad = np.clip(np.arctan((np.cos(psid)*q[0]+np.sin(psid)*q[1]) / (q[2] - g)),
+        #                  - np.deg2rad(45), np.deg2rad(45))
+        # thetad = np.clip(m / u1 / np.cos(phid) * (
+        #     np.cos(psid)*q[0] + np.sin(psid)*q[1]), -np.deg2rad(45), np.deg2rad(45))
         eulerd = np.vstack([phid, thetad, psid])
 
         ''' inner loop control '''
@@ -94,18 +92,7 @@ class BLFController(BaseEnv):
         u3 = self.Ctheta.get_u(t, thetad, b[1])
         u4 = self.Cpsi.get_u(t, psid, b[2])
         # rotors
-        if self.rtype == "Quad":
-            ctrls1 = np.vstack([u1, u2, u3, u4])
-            forces = ctrls1
-        elif self.rtype == "LC62":
-            ctrls1 = np.vstack([u1, u2, u3, u4])
-            th = - np.linalg.pinv(self.B_r2f) @ ctrls1
-            pwms_rotor = (th / self.c_th) * 1000 + 1000
-            ctrls2 = np.vstack((
-                pwms_rotor,
-                np.vstack(env.plant.u_trims_fixed)
-            ))
-            forces = ctrls2
+        forces = np.vstack([u1, u2, u3, u4])
 
         ''' set derivatives '''
         x, y, z = env.plant.pos.state.ravel()

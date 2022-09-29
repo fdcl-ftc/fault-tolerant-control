@@ -124,7 +124,7 @@ def plot():
     """ Column 1 - States: Position """
     ax = axes[0, 0]
     ax.plot(data["t"], data["plant"]["pos"][:, 0].squeeze(-1), "k-")
-    ax.plot(data["t"], data["posd"][:, 0].squeeze(-1), "r--")
+    # ax.plot(data["t"], data["posd"][:, 0].squeeze(-1), "r--")
     ax.plot(data["t"], data["obs_pos"][:, 0].squeeze(-1), "b--")
     ax.set_ylabel(r"$x$, m")
     ax.legend(["Response", "Command", "Estimation"], loc="upper right")
@@ -132,13 +132,13 @@ def plot():
 
     ax = axes[1, 0]
     ax.plot(data["t"], data["plant"]["pos"][:, 1].squeeze(-1), "k-")
-    ax.plot(data["t"], data["posd"][:, 1].squeeze(-1), "r--")
+    # ax.plot(data["t"], data["posd"][:, 1].squeeze(-1), "r--")
     ax.plot(data["t"], data["obs_pos"][:, 1].squeeze(-1), "b--")
     ax.set_ylabel(r"$y$, m")
 
     ax = axes[2, 0]
     ax.plot(data["t"], data["plant"]["pos"][:, 2].squeeze(-1), "k-")
-    ax.plot(data["t"], data["posd"][:, 2].squeeze(-1), "r--")
+    # ax.plot(data["t"], data["posd"][:, 2].squeeze(-1), "r--")
     ax.plot(data["t"], data["obs_pos"][:, 2].squeeze(-1), "b--")
     ax.set_ylabel(r"$z$, m")
 
