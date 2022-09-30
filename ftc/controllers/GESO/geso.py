@@ -65,8 +65,8 @@ class GESOController(fym.BaseEnv):
         xid_dot = np.vstack((posd_dot[2], 0, 0, 0))
         ei = xi - xid
         ei_dot = xi_dot - xid_dot
-        Ki1 = 5*np.diag((5, 10, 50, 10))
-        Ki2 = 1*np.diag((5, 10, 50, 10))
+        Ki1 = 5*np.diag((5, 10, 10, 10))
+        Ki2 = 1*np.diag((5, 10, 10, 10))
         f = np.vstack((env.plant.g,
                        - env.plant.Jinv @ np.cross(omega, env.plant.J @ omega, axis=0)))
         g = np.zeros((4, 4))
