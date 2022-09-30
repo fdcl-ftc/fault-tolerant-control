@@ -9,7 +9,7 @@ with open(os.path.join(here, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="ftc",
-    version="0.1.1",
+    version="0.2.0",
     url="https://github.com:fdcl-ftc/fault-tolerant-control.git",
     author="SNU FDCL",
     description="SNU FDCL FTC",
