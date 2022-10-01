@@ -20,34 +20,35 @@ def q(x):
 
 
 class BLFController(BaseEnv):
-    def __init__(self, env, env_config):
+    def __init__(self, env):
         super().__init__()
-        # controllers
+        # controller gain
         alp = np.array([3, 3, 1])
-        rho = np.array([1, 0.5])
+        rho_pos = np.array([1, 0.5])
         rho_k = 0.5
         theta = 0.7
-        self.Cx = outerLoop(alp, env_config["eps1"], rho, rho_k, theta,
-                            np.array([env_config["k11"], env_config["k12"],
-                                      env_config["k13"]]))
-        self.Cy = outerLoop(alp, env_config["eps1"], rho, rho_k, theta,
-                            np.array([env_config["k11"], env_config["k12"],
-                                      env_config["k13"]]))
-        self.Cz = outerLoop(alp, env_config["eps1"], rho, rho_k, theta,
-                            np.array([env_config["k11"], env_config["k12"],
-                                      env_config["k13"]]))
-        rho = np.deg2rad([45, 130])
-        c = np.array([20, 20])
-        xi = np.array([-1, 1]) * 0.23 * 0.000313 * 1e6
-        self.Cphi = innerLoop(alp, env_config["eps2"], xi, rho, c, theta,
-                              np.array([env_config["k21"], env_config["k22"],
-                                        env_config["k23"]]))
-        self.Ctheta = innerLoop(alp, env_config["eps2"], xi, rho, c, theta,
-                                np.array([env_config["k21"], env_config["k22"],
-                                          env_config["k23"]]))
-        self.Cpsi = innerLoop(alp, env_config["eps2"], xi, rho, c, theta,
-                              np.array([env_config["k21"], env_config["k22"],
-                                        env_config["k23"]]))
+        K_pos = np.array([2, 30, 0]) / 300
+        rho_euler = np.deg2rad([45, 130])
+        xi = np.array([-1, 1]) * 10
+        c = np.zeros((2,))
+        K_euler = np.array([500/20, 20, 0]) / 100
+        # controllers
+        self.Cx = outerLoop(alp, 300, rho_pos, rho_k, theta, K_pos)
+        self.Cy = outerLoop(alp, 100, rho_pos, rho_k, theta, K_pos)
+        self.Cz = outerLoop(np.array([9, 27, 27]), 5, rho_pos, rho_k, theta, K_pos)
+        self.Cphi = innerLoop(alp, 150, xi, rho_euler, c, theta, K_euler)
+        self.Ctheta = innerLoop(alp, 100, xi, rho_euler, c, theta, K_euler)
+        self.Cpsi = innerLoop(alp, 100, xi, rho_euler, c, theta, K_euler)
+
+        self.dx1, self.dx2, self.dx3 = env.plant.dx1, env.plant.dx2, env.plant.dx3
+        self.dy1, self.dy2 = env.plant.dy1, env.plant.dy2
+        c, self.c_th = 0.0338, 128  # tq / th, th / rcmds
+        self.B_r2f = np.array((
+            [-1, -1, -1, -1, -1, -1],
+            [-self.dy2, self.dy1, self.dy1, -self.dy2, -self.dy2, self.dy1],
+            [self.dx2, self.dx2, -self.dx1, self.dx3, -self.dx1, self.dx3],
+            [-c, c, -c, c, c, -c]
+        ))
 
     def get_control(self, t, env):
         ''' quad state '''
@@ -61,16 +62,17 @@ class BLFController(BaseEnv):
         b = np.array([1/J[0], 1/J[1], 1/J[2]])
 
         ''' external signals '''
-        posd = env.get_ref(t, "posd")
+        posd, posd_dot = env.get_ref(t, "posd", "posd_dot")
 
         ''' outer loop control '''
         q = np.zeros((3, 1))
         q[0] = self.Cx.get_virtual(t)
         q[1] = self.Cy.get_virtual(t)
         q[2] = self.Cz.get_virtual(t)
+
         # Inverse solution
         u1 = m * (q[0]**2 + q[1]**2 + (q[2]-g)**2)**(1/2)
-        phid = np.clip(np.arcsin(q[1] * m / u1),
+        phid = np.clip(np.arcsin(- q[1] * m / u1),
                        - np.deg2rad(45), np.deg2rad(45))
         thetad = np.clip(np.arctan(q[0] / (q[2] - g)),
                          - np.deg2rad(45), np.deg2rad(45))
@@ -78,17 +80,28 @@ class BLFController(BaseEnv):
         eulerd = np.vstack([phid, thetad, psid])
 
         ''' inner loop control '''
-        u2 = self.Cphi.get_u(t, phid, b[0])
-        u3 = self.Ctheta.get_u(t, thetad, b[1])
-        u4 = self.Cpsi.get_u(t, psid, b[2])
+        y_phi = np.vstack([euler[0], omega[0]])
+        y_theta = np.vstack([euler[1], omega[1]])
+        y_psi = np.vstack([euler[2], omega[2]])
+        u2 = self.Cphi.get_u(t, y_phi, phid, b[0])
+        u3 = self.Ctheta.get_u(t, y_theta, thetad, b[1])
+        u4 = self.Cpsi.get_u(t, y_psi, psid, b[2])
+        ctr_forces = np.vstack([q, u2, u3, u4])
+
         # rotors
-        forces = np.vstack([u1, u2, u3, u4])
+        ctrls1 = np.vstack([u1, u2, u3, u4])
+        th = np.linalg.pinv(self.B_r2f) @ ctrls1
+        pwms_rotor = (th / self.c_th) * 1000 + 1000
+        forces = np.vstack((
+            pwms_rotor,
+            np.vstack(env.plant.u_trims_fixed)
+        ))
 
         ''' set derivatives '''
         x, y, z = env.plant.pos.state.ravel()
-        self.Cx.set_dot(t, x, posd[0][0])
-        self.Cy.set_dot(t, y, posd[0][1])
-        self.Cz.set_dot(t, z, posd[0][2])
+        self.Cx.set_dot(t, x, posd[0])
+        self.Cy.set_dot(t, y, posd[1])
+        self.Cz.set_dot(t, z, posd[2])
         self.Cphi.set_dot(t, euler[0], phid, b[0])
         self.Ctheta.set_dot(t, euler[1], thetad, b[1])
         self.Cpsi.set_dot(t, euler[2], psid, b[2])
@@ -125,10 +138,11 @@ class BLFController(BaseEnv):
             "bound_err": bound_err,
             "bound_ang": bound_ang,
             "posd": posd,
-            "eulerd": eulerd,
+            "angd": eulerd,
             "ang": euler,
+            "ctr_forces": ctr_forces,
         }
-        return forces, controller_info
+        return ctr_forces, forces, controller_info
 
 
 class outerLoop(BaseEnv):
@@ -137,11 +151,10 @@ class outerLoop(BaseEnv):
         self.e = BaseSystem(np.zeros((3, 1)))
         self.integ_e = BaseSystem(np.zeros((1,)))
 
-        self.alp, self.eps = alp, eps
+        self.alp, self.eps, self.k = alp, eps, rho_k
         self.rho_0, self.rho_inf = rho.ravel()
-        self.k = rho_k
         self.theta = np.array([theta, 2*theta-1, 3*theta-2])
-        self.K = K
+        self.K = np.array([2, 10, 0])
 
     def deriv(self, e, integ_e, y, ref, t):
         alp, eps, theta = self.alp, self.eps, self.theta
@@ -204,14 +217,13 @@ class innerLoop(BaseEnv):
         self.lamb = BaseSystem(np.zeros((2, 1)))
         self.integ_e = BaseSystem(np.zeros((1,)))
 
-        self.alp, self.eps = alp, eps
-        self.xi, self.rho, self.c = xi, rho, c
+        self.alp, self.eps, self.rho, self.xi, self.c = alp, eps, rho, xi, c
         self.K = K
         self.theta = np.array([theta, 2*theta-1, 3*theta-2])
 
     def deriv(self, x, lamb, integ_e, t, y, ref, b):
         alp, eps, theta = self.alp, self.eps, self.theta
-        nu = self.get_virtual(t, ref)
+        nu = self.get_virtual(t, y, ref)
         bound = b*self.xi
         nu_sat = np.clip(nu, bound[0], bound[1])
 
@@ -225,7 +237,7 @@ class innerLoop(BaseEnv):
         integ_edot = y - ref
         return xdot, lambdot, integ_edot
 
-    def get_virtual(self, t, ref):
+    def get_virtual(self, t, y, ref):
         K, c, rho = self.K, self.c, self.rho
         x = self.x.state
         lamb = self.lamb.state
@@ -277,11 +289,12 @@ class innerLoop(BaseEnv):
 
         return nu
 
-    def get_u(self, t, ref, b):
-        nu = self.get_virtual(t, ref)
-        bound = b*self.xi
-        nu_sat = np.clip(nu, bound[0], bound[1])
-        u = nu_sat / b
+    def get_u(self, t, y, ref, b):
+        nu = self.get_virtual(t, y, ref)
+        # bound = b*self.xi
+        # nu_sat = np.clip(nu, bound[0], bound[1])
+        # u = nu_sat / b
+        u = nu / b
         return u
 
     def set_dot(self, t, y, ref, b):

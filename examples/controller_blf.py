@@ -1,3 +1,9 @@
+from ray import tune
+import os
+import json
+from ray.air import CheckpointConfig, RunConfig
+from ray.tune.search.hyperopt import HyperOptSearch
+
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
@@ -207,22 +213,11 @@ class Quad(BaseEnv):
     def get_Lambda(self, t):
         """Lambda function"""
         if t > 5:
-            W1 = 0.5
+            W1 = 0.
         else:
             W1 = 1
 
-        if t > 7:
-            W2 = 0.8
-        else:
-            W2 = 1
-
-        if t > 11:
-            W3 = 0.3
-        elif t > 6:
-            W3 = 0.7/25*(t-11)**2 + 0.3
-        else:
-            W3 = 1
-        W = np.diag([W1, W2, W3, 1])
+        W = np.diag([W1, 1, 1, 1])
         return W
 
     def set_Lambda(self, t, brfs):
@@ -234,7 +229,7 @@ class ExtendedQuadEnv(fym.BaseEnv):
     ENV_CONFIG = {
         "fkw": {
             "dt": 0.01,
-            "max_t": 20,
+            "max_t": 10,
         },
         "quad": {
             "init": {
@@ -252,7 +247,7 @@ class ExtendedQuadEnv(fym.BaseEnv):
         # quad
         self.plant = Quad(env_config["quad"])
         # controller
-        self.controller = ftc.make("BLF", self)
+        self.controller = ftc.make("BLF")(self, env_config)
 
     def step(self):
         env_info, done = self.update()
@@ -298,8 +293,8 @@ class ExtendedQuadEnv(fym.BaseEnv):
         return env_info
 
 
-def run():
-    env = ExtendedQuadEnv()
+def run(config):
+    env = ExtendedQuadEnv(config)
     flogger = fym.Logger("data.h5")
 
     env.reset()
@@ -315,7 +310,7 @@ def run():
 
     finally:
         flogger.close()
-        plot()
+        return
 
 
 def plot():
@@ -474,8 +469,89 @@ def main(args):
     if args.only_plot:
         plot()
         return
+    elif args.with_ray:
+        def objective(config):
+            np.seterr(all="raise")
+
+            env = ExtendedQuadEnv(config)
+
+            env.reset()
+            tf = 0
+            try:
+                while True:
+                    done, env_info = env.step()
+                    tf = env.info["t"]
+
+                    if done:
+                        break
+
+            finally:
+                return {"tf": tf}
+
+        config = {
+            "k11": tune.uniform(1.01, 5),
+            "k12": tune.uniform(20, 40),
+            "k13": tune.uniform(0, 2),
+            "k21": tune.uniform(10, 30),
+            "k22": tune.uniform(10, 30),
+            "k23": tune.uniform(0, 2),
+            "eps1": tune.uniform(1.01, 5),
+            "eps2": tune.uniform(15, 35),
+        }
+        current_best_params = [{
+            "k11": 2,
+            "k12": 30,
+            "k13": 5/30/(0.5)**2,
+            "k21": 500/30,
+            "k22": 30,
+            "k23": 5/30/np.deg2rad(45)**2,
+            "eps1": 5,
+            "eps2": 25,
+        }]
+        search = HyperOptSearch(
+            metric="tf",
+            mode="max",
+            points_to_evaluate=current_best_params,
+        )
+        tuner = tune.Tuner(
+            tune.with_resources(
+                objective,
+                resources={"cpu": 12},
+            ),
+            param_space=config,
+            tune_config=tune.TuneConfig(
+                num_samples=1000,
+                search_alg=search,
+            ),
+            run_config=RunConfig(
+                name="train_run",
+                local_dir="data/ray_results",
+                verbose=1,
+                checkpoint_config=CheckpointConfig(
+                    num_to_keep=5,
+                    checkpoint_score_attribute="tf",
+                    checkpoint_score_order="max",
+                ),
+            ),
+        )
+        results = tuner.fit()
+        config = results.get_best_result(metric="tf", mode="max").config
+        with open("data/ray_results/train_run/best_config.json", "w") as f:
+            json.dump(config, f)  # json file은 cat cmd로 볼 수 있다
+        return
     else:
-        run()
+        current_best_params = {
+            "k11": 2,
+            "k12": 30,
+            "k13": 5/30/(0.5)**2,
+            "k21": 500/30,
+            "k22": 30,
+            "k23": 5/30/np.deg2rad(45)**2,
+            "eps1": 5,
+            "eps2": 25,
+        }
+        run(current_best_params)
+        plot()
 
         if args.plot:
             plot()
@@ -485,5 +561,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", "--plot", action="store_true")
     parser.add_argument("-P", "--only-plot", action="store_true")
+    parser.add_argument("-r", "--with-ray", action="store_true")
     args = parser.parse_args()
     main(args)

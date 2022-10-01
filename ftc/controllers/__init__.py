@@ -12,3 +12,7 @@ register(
     id="BLF",
     entry_point="ftc.controllers.BLF.BLF_g:BLFController",
 )
+register(
+    id="BLF-LC62",
+    entry_point="ftc.controllers.BLF-LC62.BLF_g_LC62:BLFController",
+)

@@ -5,8 +5,8 @@ from ftc.registration import registry
 
 
 def make(id, env=None):
-    assert env is not None
-    return registry[id](env)
+    # assert env is not None
+    return registry[id]
 
 
 def get_controllers(*args, env=None):
