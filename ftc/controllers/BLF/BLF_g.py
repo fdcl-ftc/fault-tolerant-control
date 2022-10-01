@@ -69,22 +69,12 @@ class BLFController(BaseEnv):
         q[1] = self.Cy.get_virtual(t)
         q[2] = self.Cz.get_virtual(t)
         # Inverse solution
-        u1 = m * (q[0]**2 + q[1]**2 + (q[2])**2)**(1/2) + m*g
-        # phid = np.clip(np.arcsin(q[1] * m / u1),
-        #                - np.deg2rad(45), np.deg2rad(45))
-        # thetad = np.clip(np.arctan(q[0] / (q[2] - g)),
-        #                  - np.deg2rad(45), np.deg2rad(45))
-        # psid = 0
-        # eulerd = np.vstack([phid, thetad, psid])
+        u1 = m * (q[0]**2 + q[1]**2 + (q[2]-g)**2)**(1/2)
+        phid = np.clip(np.arcsin(q[1] * m / u1),
+                       - np.deg2rad(45), np.deg2rad(45))
+        thetad = np.clip(np.arctan(q[0] / (q[2] - g)),
+                         - np.deg2rad(45), np.deg2rad(45))
         psid = 0
-        phid = 0
-        thetad = 0
-        # phid = np.clip(np.arcsin((np.sin(psid)*q[0]-np.cos(psid)*q[1]) * m / u1),
-        #                - np.deg2rad(45), np.deg2rad(45))
-        # thetad = np.clip(np.arctan((np.cos(psid)*q[0]+np.sin(psid)*q[1]) / (q[2] - g)),
-        #                  - np.deg2rad(45), np.deg2rad(45))
-        # thetad = np.clip(m / u1 / np.cos(phid) * (
-        #     np.cos(psid)*q[0] + np.sin(psid)*q[1]), -np.deg2rad(45), np.deg2rad(45))
         eulerd = np.vstack([phid, thetad, psid])
 
         ''' inner loop control '''
