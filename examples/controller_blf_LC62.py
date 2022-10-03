@@ -1,3 +1,9 @@
+from ray import tune
+import os
+import json
+from ray.air import CheckpointConfig, RunConfig
+from ray.tune.search.hyperopt import HyperOptSearch
+
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
@@ -42,7 +48,7 @@ class MyEnv(fym.BaseEnv):
         env_config = safeupdate(self.ENV_CONFIG, env_config)
         super().__init__(**env_config["fkw"])
         self.plant = LC62(env_config["plant"])
-        self.controller = ftc.make("BLF-LC62", self)
+        self.controller = ftc.make("BLF-LC62")(self, env_config)
         # self.rotor_dyn = ActuatorDynamics(tau=0.01, shape=(11, 1))
 
     def step(self):
@@ -95,8 +101,8 @@ class MyEnv(fym.BaseEnv):
         return Lambda * ctrls
 
 
-def run():
-    env = MyEnv()
+def run(config):
+    env = MyEnv(config)
     flogger = fym.Logger("data.h5")
 
     env.reset()
@@ -312,8 +318,100 @@ def main(args):
     if args.only_plot:
         plot()
         return
+    elif args.with_ray:
+        def objective(config):
+            np.seterr(all="raise")
+
+            env = MyEnv(config)
+
+            env.reset()
+            tf = 0
+            try:
+                while True:
+                    done, env_info = env.step()
+                    tf = env.info["t"]
+
+                    if done:
+                        break
+
+            finally:
+                return {"tf": tf}
+
+        config = {
+            "k11": tune.uniform(0.01, 2),
+            "k12": tune.uniform(0.01, 2),
+            "k13": tune.uniform(0, 1),
+            "k21": tune.uniform(0.01, 3),
+            "k22": tune.uniform(0.01, 3),
+            "k23": tune.uniform(0, 1),
+            "eps11": tune.uniform(200, 400),
+            "eps12": tune.uniform(100, 300),
+            "eps13": tune.uniform(300, 500),
+            "eps21": tune.uniform(100, 300),
+            "eps22": tune.uniform(50, 250),
+            "eps23": tune.uniform(50, 250),
+        }
+        current_best_params = [{
+            "k11": 2/300,
+            "k12": 1/10,
+            "k13": 0,
+            "k21": 5/20,
+            "k22": 2/10,
+            "k23": 0,
+            "eps11": 300,
+            "eps12": 100,
+            "eps13": 400,
+            "eps21": 150,
+            "eps22": 100,
+            "eps23": 100,
+        }]
+        search = HyperOptSearch(
+            metric="tf",
+            mode="max",
+            points_to_evaluate=current_best_params,
+        )
+        tuner = tune.Tuner(
+            tune.with_resources(
+                objective,
+                resources={"cpu": 12},
+            ),
+            param_space=config,
+            tune_config=tune.TuneConfig(
+                num_samples=1000,
+                search_alg=search,
+            ),
+            run_config=RunConfig(
+                name="train_run",
+                local_dir="data/ray_results",
+                verbose=1,
+                checkpoint_config=CheckpointConfig(
+                    num_to_keep=5,
+                    checkpoint_score_attribute="tf",
+                    checkpoint_score_order="max",
+                ),
+            ),
+        )
+        results = tuner.fit()
+        config = results.get_best_result(metric="tf", mode="max").config
+        with open("data/ray_results/train_run/best_config.json", "w") as f:
+            json.dump(config, f)  # json file은 cat cmd로 볼 수 있다
+        return
     else:
-        run()
+        params = {
+            "k11": 2/300,
+            "k12": 1/10,
+            "k13": 0,
+            "k21": 5/20,
+            "k22": 2/10,
+            "k23": 0,
+            "eps11": 300,
+            "eps12": 100,
+            "eps13": 400,
+            "eps21": 150,
+            "eps22": 100,
+            "eps23": 100,
+        }
+        run(params)
 
         if args.plot:
             plot()
@@ -323,5 +421,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", "--plot", action="store_true")
     parser.add_argument("-P", "--only-plot", action="store_true")
+    parser.add_argument("-r", "--with-ray", action="store_true")
     args = parser.parse_args()
     main(args)
