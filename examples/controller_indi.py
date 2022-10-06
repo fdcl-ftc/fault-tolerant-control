@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import animation
 import argparse
 
 import fym
@@ -7,6 +8,7 @@ import fym
 import ftc
 from ftc.utils import safeupdate
 from ftc.models.LC62 import LC62
+from ftc.plotframe import LC62Frame, update_plot
 
 np.seterr(all="raise")
 
@@ -177,7 +179,6 @@ def plot():
     ax = axes[0, 3]
     ax.plot(data["t"], np.rad2deg(data["plant"]["omega"][:, 0].squeeze(-1)), "k-")
     ax.set_ylabel(r"$p$, deg/s")
-    ax.legend(["Response", "Ref"], loc="upper right")
 
     ax = axes[1, 3]
     ax.plot(data["t"], np.rad2deg(data["plant"]["omega"][:, 1].squeeze(-1)), "k-")
@@ -221,7 +222,7 @@ def plot():
     ax.plot(data["t"], data["FM"][:, 3].squeeze(-1), "k-")
     ax.plot(data["t"], data["FM"][:, 3].squeeze(-1), "r--")
     ax.set_ylabel(r"$M_x$")
-    ax.legend(["Response", "Ref"], loc="upper right")
+    ax.legend(["Response", "Command"], loc="upper right")
 
     ax = axes[1, 1]
     ax.plot(data["t"], data["FM"][:, 4].squeeze(-1), "k-")
@@ -299,7 +300,25 @@ def plot():
     fig.subplots_adjust(wspace=0.5)
     fig.align_ylabels(axs)
 
+    """ Figure 6 - Animation """
+    t = data["t"]
+    x = data["plant"]["pos"].squeeze(-1).T
+    q = data["plant"]["quat"].squeeze(-1).T
+
+    numFrames = 10
+
+    fig = plt.figure()
+    ax = fig.add_subplot(projection='3d')
+
+    uav = LC62Frame(ax)
+    ani = animation.FuncAnimation(
+        fig, update_plot, frames=len(t[::numFrames]),
+        fargs=(uav, t, x, q, numFrames), interval=1
+    )
+    # ani.save("animation.gif", dpi=80, writer="imagemagick", fps=25)
+
     plt.show()
+    return ani
 
 
 def main(args):
