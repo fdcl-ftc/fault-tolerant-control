@@ -56,7 +56,7 @@ class BLFController(BaseEnv):
         self.B_r2f = np.array((
             [-1, -1, -1, -1, -1, -1],
             [-self.dy2, self.dy1, self.dy1, -self.dy2, -self.dy2, self.dy1],
-            [self.dx2, self.dx2, -self.dx1, self.dx3, -self.dx1, self.dx3],
+            [-self.dx2, -self.dx2, self.dx1, -self.dx3, self.dx1, -self.dx3],
             [-c, c, -c, c, c, -c]
         ))
 
