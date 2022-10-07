@@ -67,16 +67,13 @@ class MyEnv(fym.BaseEnv):
     def set_dot(self, t):
         ctr_forces, ctrls0, controller_info = self.controller.get_control(t, self)
         ctrls = ctrls0
-        bctrls = self.plant.saturate(ctrls0)
 
         """ set faults """
         # lctrls = self.set_Lambda(t, bctrls)  # lambda * bctrls
         # ctrls = self.plant.saturate(lctrls)
 
-        FM = self.plant.get_FM(*self.plant.observe_list(), bctrls)
-        self.plant.set_dot(t, FM)
-        # FM = np.zeros((6, 1))
-        # self.plant.set_dot(t, ctr_forces)
+        FM = np.zeros((6, 1))
+        self.plant.set_dot(t, ctr_forces)
 
         env_info = {
             "t": t,
