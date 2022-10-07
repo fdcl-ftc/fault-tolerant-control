@@ -88,7 +88,6 @@ class BLFController(BaseEnv):
                          - np.deg2rad(45), np.deg2rad(45))
         psid = 0
         eulerd = np.vstack([phid, thetad, psid])
-        q[2] = q[2] + m*g
 
         ''' inner loop control '''
         y_phi = np.vstack([euler[0], omega[0]])
