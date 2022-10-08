@@ -54,7 +54,7 @@ class MyEnv(fym.BaseEnv):
         return self.observe_flat()
 
     def get_ref(self, t, *args):
-        posd = np.vstack((1, 1, 0))
+        posd = np.vstack((0, 0, 0))
         posd_dot = np.vstack((0, 0, 0))
         refs = {"posd": posd, "posd_dot": posd_dot}
         return [refs[key] for key in args]
@@ -300,25 +300,25 @@ def plot():
     fig.subplots_adjust(wspace=0.5)
     fig.align_ylabels(axs)
 
-    """ Figure 6 - Animation """
-    t = data["t"]
-    x = data["plant"]["pos"].squeeze(-1).T
-    q = data["plant"]["quat"].squeeze(-1).T
+    # """ Figure 6 - Animation """
+    # t = data["t"]
+    # x = data["plant"]["pos"].squeeze(-1).T
+    # q = data["plant"]["quat"].squeeze(-1).T
 
-    numFrames = 10
+    # numFrames = 10
 
-    fig = plt.figure()
-    ax = fig.add_subplot(projection='3d')
+    # fig = plt.figure()
+    # ax = fig.add_subplot(projection='3d')
 
-    uav = LC62Frame(ax)
-    ani = animation.FuncAnimation(
-        fig, update_plot, frames=len(t[::numFrames]),
-        fargs=(uav, t, x, q, numFrames), interval=1
-    )
-    # ani.save("animation.gif", dpi=80, writer="imagemagick", fps=25)
+    # uav = LC62Frame(ax)
+    # ani = animation.FuncAnimation(
+    #     fig, update_plot, frames=len(t[::numFrames]),
+    #     fargs=(uav, t, x, q, numFrames), interval=1
+    # )
+    # # ani.save("animation.gif", dpi=80, writer="imagemagick", fps=25)
 
     plt.show()
-    return ani
+    # return ani
 
 
 def main(args):
