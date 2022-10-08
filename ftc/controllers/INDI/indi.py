@@ -18,7 +18,8 @@ class INDIController(fym.BaseEnv):
             [-c, c, -c, c, c, -c]
         ))
         self.lpf_dxi = fym.BaseSystem(np.zeros((4, 1)))
-        self.tau = 0.1
+        self.lpf_nu = fym.BaseSystem(np.zeros((4, 1)))
+        self.tau = 0.05
 
     def get_control(self, t, env, u0):
         pos, vel, quat, omega = env.plant.observe_list()
@@ -26,15 +27,15 @@ class INDIController(fym.BaseEnv):
 
         posd, posd_dot = env.get_ref(t, "posd", "posd_dot")
 
-        """ outer-loop control """
-        xo, xod = pos[0:2], posd[0:2]
-        xo_dot, xod_dot = vel[0:2], posd_dot[0:2]
-        eo, eo_dot = xo - xod, xo_dot - xod_dot
-        Ko1 = 0.5*np.diag((3, 1))
-        Ko2 = 0.5*np.diag((3, 2))
-        nuo = (- Ko1 @ eo - Ko2 @ eo_dot) / env.plant.g
-        angd = np.vstack((nuo[1], - nuo[0], 0))
-        # angd = np.deg2rad(np.vstack((0, 0, 0)))
+        # """ outer-loop control """
+        # xo, xod = pos[0:2], posd[0:2]
+        # xo_dot, xod_dot = vel[0:2], posd_dot[0:2]
+        # eo, eo_dot = xo - xod, xo_dot - xod_dot
+        # Ko1 = 0.5*np.diag((3, 1))
+        # Ko2 = 0.5*np.diag((3, 2))
+        # nuo = (- Ko1 @ eo - Ko2 @ eo_dot) / env.plant.g
+        # angd = np.vstack((nuo[1], - nuo[0], 0))
+        angd = np.deg2rad(np.vstack((10, 10, 0)))
 
         """ inner-loop control """
         xi = np.vstack((pos[2], ang))
@@ -52,17 +53,19 @@ class INDIController(fym.BaseEnv):
 
         """ control increment """
         xi_dot_f = self.lpf_dxi.state
+        nu_f = self.lpf_nu.state
         ddxi = (xi_dot - xi_dot_f) / self.tau
         du = np.linalg.inv(g) @ (nui - ddxi)
-
-        """ set derivatives """
-        self.lpf_dxi.dot = - (xi_dot_f - xi_dot) / self.tau
 
         """ controls """
         nu0 = self.B_r2f @ ((u0[:6] - 1000) / 1000 * self.c_th)
         nu = nu0 + du
 
-        th = np.linalg.pinv(self.B_r2f) @ nu
+        """ set derivatives """
+        self.lpf_dxi.dot = - (xi_dot_f - xi_dot) / self.tau
+        self.lpf_nu.dot = - (nu_f - nu) / self.tau
+
+        th = np.linalg.pinv(self.B_r2f) @ nu_f
         pwms_rotor = (th / self.c_th) * 1000 + 1000
 
         ctrls = np.vstack((
