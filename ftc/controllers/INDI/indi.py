@@ -20,6 +20,7 @@ class INDIController(fym.BaseEnv):
         self.lpf_dxi = fym.BaseSystem(np.zeros((4, 1)))
         self.lpf_nu = fym.BaseSystem(np.zeros((4, 1)))
         self.tau = 0.05
+        self.Ki1, self.Ki2 = np.diag(env.K1), np.diag(env.K2)
 
     def get_control(self, t, env):
         pos, vel, quat, omega = env.plant.observe_list()
@@ -44,12 +45,12 @@ class INDIController(fym.BaseEnv):
         xid_dot = np.vstack((posd_dot[2], 0, 0, 0))
         ei = xi - xid
         ei_dot = xi_dot - xid_dot
-        Ki1 = 2*np.diag((5, 10, 10, 1))
-        Ki2 = 1*np.diag((5, 10, 10, 2))
+        # Ki1 = 5*np.diag((5, 10, 10, 10))
+        # Ki2 = 1*np.diag((5, 10, 10, 10))
         g = np.zeros((4, 4))
         g[0, 0] = quat2dcm(quat).T[2, 2] / env.plant.m
         g[1:4, 1:4] = env.plant.Jinv
-        nui = - Ki1 @ ei - Ki2 @ ei_dot
+        nui = - self.Ki1 @ ei - self.Ki2 @ ei_dot
 
         """ control increment """
         xi_dot_f = self.lpf_dxi.state
