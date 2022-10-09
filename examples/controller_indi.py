@@ -44,10 +44,11 @@ class MyEnv(fym.BaseEnv):
         self.plant = LC62(env_config["plant"])
         self.ndicontroller = ftc.make("NDI", self)
         self.controller = ftc.make("INDI", self)
+        self.u0, _ = self.ndicontroller.get_control(0, self)
         # self.rotor_dyn = ActuatorDynamics(tau=0.01, shape=(11, 1))
 
-    def step(self, u0):
-        env_info, done = self.update(u0=u0)
+    def step(self):
+        env_info, done = self.update()
         return done, env_info
 
     def observation(self):
@@ -59,8 +60,8 @@ class MyEnv(fym.BaseEnv):
         refs = {"posd": posd, "posd_dot": posd_dot}
         return [refs[key] for key in args]
 
-    def set_dot(self, t, u0):
-        ctrls0, controller_info = self.controller.get_control(t, self, u0)
+    def set_dot(self, t):
+        ctrls0, controller_info = self.controller.get_control(t, self)
         ctrls = ctrls0
         bctrls = self.plant.saturate(ctrls0)
 
@@ -99,14 +100,12 @@ def run():
     flogger = fym.Logger("data.h5")
 
     env.reset()
-    u0, _ = env.ndicontroller.get_control(0, env)
     try:
         while True:
             env.render()
 
-            done, env_info = env.step(u0)
+            done, env_info = env.step()
             flogger.record(env=env_info)
-            u0 = env_info["ctrls0"]
 
             if done:
                 break
