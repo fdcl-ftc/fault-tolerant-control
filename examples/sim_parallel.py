@@ -38,11 +38,12 @@ class Env(fym.BaseEnv):
         self.plant = LC62(plant_init)
         self.ndicontroller = ftc.make("NDI", self)
         self.controller = ftc.make("INDI", self)
+        self.u0, _ = self.ndicontroller.get_control(0, self)
         self.tf = env_config["fkw"]["max_t"]
         self.cuttime = 2
 
-    def step(self, u0):
-        env_info, done = self.update(u0=u0)
+    def step(self):
+        env_info, done = self.update()
         if not all(-50 < a < 50 for a in np.rad2deg(env_info["ang"][:2])):
             done = True
         return done, env_info
@@ -56,8 +57,8 @@ class Env(fym.BaseEnv):
         refs = {"posd": posd, "posd_dot": posd_dot}
         return [refs[key] for key in args]
 
-    def set_dot(self, t, u0):
-        ctrls0, controller_info = self.controller.get_control(t, self, u0)
+    def set_dot(self, t):
+        ctrls0, controller_info = self.controller.get_control(t, self)
         ctrls = ctrls0
         bctrls = self.plant.saturate(ctrls0)
 
@@ -289,4 +290,4 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--plot", action="store_true")
     parser.add_argument("-P", "--only-plot", action="store_true")
     args = parser.parse_args()
-    main(args, N=3, seed=0, i=0)
+    main(args, N=1, seed=0, i=0)

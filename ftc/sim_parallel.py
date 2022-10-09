@@ -14,14 +14,12 @@ def sim(i, initial, Env):
     flogger = fym.Logger(loggerpath)
 
     env.reset()
-    u0, _ = env.ndicontroller.get_control(0, env)
 
     while True:
         env.render(mode=None)
 
-        done, env_info = env.step(u0)
+        done, env_info = env.step()
         flogger.record(env=env_info, initial=initial)
-        u0 = env_info["ctrls0"]
 
         if done:
             break
