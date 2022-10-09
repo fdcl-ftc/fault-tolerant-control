@@ -21,7 +21,7 @@ class INDIController(fym.BaseEnv):
         self.lpf_nu = fym.BaseSystem(np.zeros((4, 1)))
         self.tau = 0.05
 
-    def get_control(self, t, env, u0):
+    def get_control(self, t, env):
         pos, vel, quat, omega = env.plant.observe_list()
         ang = np.vstack(quat2angle(quat)[::-1])
 
@@ -35,7 +35,7 @@ class INDIController(fym.BaseEnv):
         # Ko2 = 0.5*np.diag((3, 2))
         # nuo = (- Ko1 @ eo - Ko2 @ eo_dot) / env.plant.g
         # angd = np.vstack((nuo[1], - nuo[0], 0))
-        angd = np.deg2rad(np.vstack((10, 10, 0)))
+        angd = np.deg2rad(np.vstack((0, 0, 0)))
 
         """ inner-loop control """
         xi = np.vstack((pos[2], ang))
@@ -58,6 +58,7 @@ class INDIController(fym.BaseEnv):
         du = np.linalg.inv(g) @ (nui - ddxi)
 
         """ controls """
+        u0 = env.u0
         nu0 = self.B_r2f @ ((u0[:6] - 1000) / 1000 * self.c_th)
         nu = nu0 + du
 
@@ -72,6 +73,8 @@ class INDIController(fym.BaseEnv):
             pwms_rotor,
             np.vstack(env.plant.u_trims_fixed)
         ))
+
+        env.u0 = ctrls
 
         controller_info = {
             "posd": posd,
