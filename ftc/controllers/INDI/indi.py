@@ -44,8 +44,8 @@ class INDIController(fym.BaseEnv):
         xid_dot = np.vstack((posd_dot[2], 0, 0, 0))
         ei = xi - xid
         ei_dot = xi_dot - xid_dot
-        Ki1 = 5*np.diag((5, 10, 10, 10))
-        Ki2 = 1*np.diag((5, 10, 10, 10))
+        Ki1 = 2*np.diag((5, 10, 10, 1))
+        Ki2 = 1*np.diag((5, 10, 10, 2))
         g = np.zeros((4, 4))
         g[0, 0] = quat2dcm(quat).T[2, 2] / env.plant.m
         g[1:4, 1:4] = env.plant.Jinv
