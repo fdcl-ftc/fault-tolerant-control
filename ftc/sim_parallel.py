@@ -19,7 +19,7 @@ def sim(i, initial, gain, Env):
         env.render(mode=None)
 
         done, env_info = env.step()
-        flogger.record(env=env_info, initial=initial)
+        flogger.record(env=env_info, initial=initial, gain=gain)
 
         if done:
             break
