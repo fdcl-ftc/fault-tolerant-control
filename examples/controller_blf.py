@@ -213,11 +213,21 @@ class Quad(BaseEnv):
     def get_Lambda(self, t):
         """Lambda function"""
         if t > 5:
-            W1 = 0.
+            W1 = 0.5
         else:
             W1 = 1
+        if t > 7:
+            W2 = 0.7
+        else:
+            W2 = 1
+        if t > 13:
+            W3 = 0.4
+        elif t > 11:
+            W3 = 0.8
+        else:
+            W3 = 1
 
-        W = np.diag([W1, 1, 1, 1])
+        W = np.diag([W1, W2, W3, 1])
         return W
 
     def set_Lambda(self, t, brfs):
@@ -229,7 +239,7 @@ class ExtendedQuadEnv(fym.BaseEnv):
     ENV_CONFIG = {
         "fkw": {
             "dt": 0.01,
-            "max_t": 10,
+            "max_t": 20,
         },
         "quad": {
             "init": {
@@ -248,7 +258,8 @@ class ExtendedQuadEnv(fym.BaseEnv):
         # quad
         self.plant = Quad(env_config["quad"])
         # controller
-        self.controller = ftc.make("BLF")(self, env_config)
+        self.env_config = env_config
+        self.controller = ftc.make("BLF", self)
 
     def step(self):
         env_info, done = self.update()

@@ -8,8 +8,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 
-import ray
-from ray import tune
 import fym
 
 import ftc
@@ -48,7 +46,8 @@ class MyEnv(fym.BaseEnv):
         env_config = safeupdate(self.ENV_CONFIG, env_config)
         super().__init__(**env_config["fkw"])
         self.plant = LC62(env_config["plant"])
-        self.controller = ftc.make("BLF-LC62")(self, env_config)
+        self.env_config = env_config
+        self.controller = ftc.make("BLF-LC62", self)
         # self.rotor_dyn = ActuatorDynamics(tau=0.01, shape=(11, 1))
 
     def step(self):

@@ -20,13 +20,14 @@ def q(x):
 
 
 class BLFController(BaseEnv):
-    def __init__(self, env, env_config):
+    def __init__(self, env):
         super().__init__()
         # controllers
         alp = np.array([3, 3, 1])
         rho = np.array([1, 0.5])
         rho_k = 0.5
         theta = 0.7
+        env_config = env.env_config
         self.Cx = outerLoop(alp, env_config["eps1"], rho, rho_k, theta,
                             np.array([env_config["k11"], env_config["k12"],
                                       env_config["k13"]]))
