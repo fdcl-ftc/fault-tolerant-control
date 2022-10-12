@@ -188,8 +188,7 @@ class LC62(fym.BaseEnv):
         R6: rear left,   [CW]
         """
         rcmds = (pwms_rotor - 1000) / 1000
-        # th = (- 19281*rcmds**3 + 36503*rcmds**2 - 992.75*rcmds) * self.g / 1000
-        th = 128 * rcmds
+        th = (- 19281*rcmds**3 + 36503*rcmds**2 - 992.75*rcmds) * self.g / 1000
         tq = - 6.3961*rcmds**3 + 12.092*rcmds**2 - 0.3156*rcmds
         # th = np.polyval(self.tables["th_r"], rcmds) * self.g / 1000
         # tq = np.polyval(self.tables["tq_r"], rcmds)
