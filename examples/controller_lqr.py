@@ -17,22 +17,20 @@ class MyEnv(fym.BaseEnv):
             "dt": 0.01,
             "max_t": 20,
         },
-        "init": {
-            "pos": np.vstack((0.5, 0.5, 0.0)),
-            "vel": np.zeros((3, 1)),
-            "quat": np.vstack((1, 0, 0, 0)),
-            "omega": np.zeros((3, 1)),
+        "plant": {
+            "init": {
+                "pos": np.vstack((0.5, 0.5, 0.0)),
+                "vel": np.zeros((3, 1)),
+                "quat": np.vstack((1, 0, 0, 0)),
+                "omega": np.zeros((3, 1)),
+            },
         },
     }
 
     def __init__(self, env_config={}):
         env_config = safeupdate(self.ENV_CONFIG, env_config)
         super().__init__(**env_config["fkw"])
-        self.plant = Multicopter(env_config["init"]["pos"],
-                                 env_config["init"]["vel"],
-                                 env_config["init"]["quat"],
-                                 env_config["init"]["omega"],
-                                 )
+        self.plant = Multicopter(env_config["plant"])
         self.Q = np.diag([1, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0])
         self.R = np.diag([1, 1, 1, 1])
         self.controller = ftc.make("LQR", self)
