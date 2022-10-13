@@ -42,9 +42,8 @@ class MyEnv(fym.BaseEnv):
         env_config = safeupdate(self.ENV_CONFIG, env_config)
         super().__init__(**env_config["fkw"])
         self.plant = LC62(env_config["plant"])
-        self.ndicontroller = ftc.make("NDI", self)
         self.controller = ftc.make("INDI", self)
-        self.u0, _ = self.ndicontroller.get_control(0, self)
+        self.u0 = self.controller.get_u0(self)
         # self.rotor_dyn = ActuatorDynamics(tau=0.01, shape=(11, 1))
 
     def step(self):
