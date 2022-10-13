@@ -84,3 +84,42 @@ class INDIController(fym.BaseEnv):
             "dxi": xi_dot_f,
         }
         return ctrls, controller_info
+
+    def get_u0(self, env):
+        pos, vel, quat, omega = env.plant.observe_list()
+        ang = np.vstack(quat2angle(quat)[::-1])
+
+        posd, posd_dot = env.get_ref(0, "posd", "posd_dot")
+
+        """ outer-loop control """
+        xo, xod = pos[0:2], posd[0:2]
+        xo_dot, xod_dot = vel[0:2], posd_dot[0:2]
+        eo, eo_dot = xo - xod, xo_dot - xod_dot
+        Ko1 = 1*np.diag((1, 1))
+        Ko2 = 2*np.diag((1, 1))
+        nuo = (- Ko1 @ eo - Ko2 @ eo_dot) / env.plant.g
+        angd = np.vstack((nuo[1], - nuo[0], 0))
+
+        """ inner-loop control """
+        xi = np.vstack((pos[2], ang))
+        xid = np.vstack((posd[2], angd))
+        xi_dot = np.vstack((vel[2], omega))
+        xid_dot = np.vstack((posd_dot[2], 0, 0, 0))
+        ei = xi - xid
+        ei_dot = xi_dot - xid_dot
+        Ki1 = 2*np.diag((5, 10, 10, 10))
+        Ki2 = 1*np.diag((5, 10, 10, 10))
+        f = np.vstack((env.plant.g,
+                       - env.plant.Jinv @ np.cross(omega, env.plant.J @ omega, axis=0)))
+        g = np.zeros((4, 4))
+        g[0, 0] = quat2dcm(quat).T[2, 2] / env.plant.m
+        g[1:4, 1:4] = env.plant.Jinv
+        nui = np.linalg.inv(g) @ (- f - Ki1 @ ei - Ki2 @ ei_dot)
+
+        th = np.linalg.pinv(self.B_r2f) @ nui
+        pwms_rotor = (th / self.c_th) * 1000 + 1000
+        ctrls = np.vstack((
+            pwms_rotor,
+            np.vstack(env.plant.u_trims_fixed)
+        ))
+        return ctrls
