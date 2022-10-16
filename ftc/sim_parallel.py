@@ -26,6 +26,11 @@ def sim(i, initial, gain, Env):
 
     flogger.close()
 
+    data = fym.load(loggerpath)
+    rc = data["env"]["rc"].squeeze()
+    cost = np.trapz(rc, x=data["env"]["t"])
+    fym.save(loggerpath, data, info=dict(cost=cost))
+
     # data = fym.load(loggerpath)
     # time_index = data["env"]["t"] > env.tf - env.cuttime
     # alt_error = (

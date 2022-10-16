@@ -2,9 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import animation
 import argparse
+import torch
 
 import fym
-from fym.utils.rot import angle2quat
+from fym.utils.rot import angle2quat, quat2angle
 
 import ftc
 from ftc.utils import safeupdate
@@ -29,9 +30,8 @@ class Env(fym.BaseEnv):
         }
         self.K1, self.K2 = gain
         self.plant = LC62(env_config)
-        self.ndicontroller = ftc.make("NDI", self)
         self.controller = ftc.make("INDI", self)
-        self.u0, _ = self.ndicontroller.get_control(0, self)
+        self.u0 = self.controller.get_u0(self)
 
     def step(self):
         env_info, done = self.update()
@@ -69,6 +69,7 @@ class Env(fym.BaseEnv):
             "angd": controller_info["angd"],
             "ctrls0": ctrls0,
             "ctrls": ctrls,
+            "rc": self.running_cost(),
         }
 
         return env_info
@@ -83,23 +84,48 @@ class Env(fym.BaseEnv):
         Lambda = self.get_Lambda(t)
         return Lambda * ctrls
 
+    def running_cost(self):
+        pos, vel, quat, omega = self.plant.observe_list()
+        ang = np.vstack(quat2angle(quat)[::-1])
+        rc = pos[2]**2 + vel[2]**2 + ang.T @ ang + omega.T @ omega
+        return rc
+
 
 def parsim(N=1, seed=0):
     np.random.seed(seed)
-    pos = np.random.uniform(0, 0, size=(N, 3, 1))
-    vel = np.random.uniform(0, 0, size=(N, 3, 1))
-    angle = np.random.uniform(*np.deg2rad((-10, 10)), size=(N, 3, 1))
-    omega = np.random.uniform(*np.deg2rad((-0, 0)), size=(N, 3, 1))
-    k1v = np.random.uniform(5, 20, size=(N, 1))
-    k1a = np.random.uniform(10, 50, size=(N, 2))
-    k1a_psi = np.random.uniform(0.1, 5, size=(N, 1))
-    k2v = np.random.uniform(5, 20, size=(N, 1))
-    k2a = np.random.uniform(10, 50, size=(N, 2))
-    k2a_psi = np.random.uniform(0.1, 5, size=(N, 1))
+    # pos = np.random.uniform(0, 0, size=(N, 3, 1))
+    # vel = np.random.uniform(0, 0, size=(N, 3, 1))
+    # angle = np.random.uniform(*np.deg2rad((-10, 10)), size=(N, 3, 1))
+    # omega = np.random.uniform(*np.deg2rad((-0, 0)), size=(N, 3, 1))
+    # k1v = np.random.uniform(5, 20, size=(N, 1))
+    # k1a = np.random.uniform(10, 50, size=(N, 2))
+    # k1a_psi = np.random.uniform(0.1, 5, size=(N, 1))
+    # k2v = np.random.uniform(5, 20, size=(N, 1))
+    # k2a = np.random.uniform(10, 50, size=(N, 2))
+    # k2a_psi = np.random.uniform(0.1, 5, size=(N, 1))
+    # k1 = np.hstack((k1v, k1a, k1a_psi))
+    # k2 = np.hstack((k2v, k2a, k2a_psi))
+
+    test_result = torch.load("test_result.pt")
+    dataset = test_result["dataset"]
+    initial_state = dataset["condition"]  # d x n
+    gain = dataset["decision"]  # d x m
+    predicted_optimal_gain = dataset["predicted_optimal_decision"]  # d x m
+
+    pos = np.zeros((1000, 3, 1))
+    vel = np.zeros((1000, 3, 1))
+    angle = np.zeros((1000, 3, 1))
+    omega = np.zeros((1000, 3, 1))
+    pos[:, 2, 0] = initial_state[:, 0]
+    vel[:, 2, 0] = initial_state[:, 1]
+    angle[:, :, 0] = initial_state[:, 2:5]
+    omega[:, :, 0] = initial_state[:, 5:8]
+    # k1 = gain[:, :4]
+    # k2 = gain[:, 4:]
+    k1 = predicted_optimal_gain[:, :4]
+    k2 = predicted_optimal_gain[:, 4:]
 
     initials = np.stack((pos, vel, angle, omega), axis=1)
-    k1 = np.hstack((k1v, k1a, k1a_psi))
-    k2 = np.hstack((k2v, k2a, k2a_psi))
     gains = np.stack((k1, k2), axis=1)
     sim_parallel(N, initials, gains, Env)
 
