@@ -1,411 +1,422 @@
-from ray import tune
-import json
-from ray.air import CheckpointConfig, RunConfig
-from ray.tune.search.hyperopt import HyperOptSearch
+import sys
+import traceback
+from pathlib import Path
 
-import numpy as np
-import matplotlib.pyplot as plt
-import argparse
-
+import click
 import fym
+import ipdb
+import matplotlib.pyplot as plt
+import numpy as np
+from loguru import logger
+from numpy import cos, sin
 
-import ftc
-from ftc.utils import safeupdate
 from ftc.models.LC62 import LC62
+from ftc.utils import make, safeupdate
 
-np.seterr(all="raise")
+
+class Scenario:
+    """Position control scenario
+
+    Source:
+        https://www.notion.so/nrfteams/3-8252622d923d45a7af4cf84e9c5f0fd0#9e0660872bdd45159f48f6e23cd24aec
+
+    """
+
+    LAMBDA_SCENARIOS = [
+        {
+            "rotor1": {"t": 4, "level": 1.0},
+            "rotor2": {"t": 8, "level": 1.0},
+            "rotor3": {"t1": 12, "t2": 12, "level": 1.0},
+        },
+        {
+            "rotor1": {"t": 4, "level": 0.1},
+            "rotor2": {"t": 8, "level": 0.5},
+            "rotor3": {"t1": 12, "t2": 15, "level": 0.7},
+        },
+    ]
+
+    def __init__(self, scenario_config={}):
+        self.init = {
+            "pos": np.vstack((0.0, 0.0, 0.0)),
+            "vel": np.zeros((3, 1)),
+            "quat": np.vstack((1.0, 0.0, 0.0, 0.0)),
+            "omega": np.zeros((3, 1)),
+        }
+        self.Lambda_scenario = self.LAMBDA_SCENARIOS[scenario_config["index"]]
+
+    def posd(self, t):
+        return np.vstack((5.0, 0.0, 0.0))
+
+    def posd_dot(self, t):
+        return np.zeros((3, 1))
+
+    def posd_ddot(self, t):
+        return np.zeros((3, 1))
+
+    def psid(self, t):
+        return 0.0
+
+    def psid_dot(self, t):
+        return 0.0
+
+    def psid_ddot(self, t):
+        return 0.0
+
+    def get_disturbance(self, t):
+        dv = np.vstack((0.3 * sin(3 * t), 0.3 * cos(2 * t), 0.3 * sin(t)))
+        domega = np.vstack((0.2 * sin(1.5 * t), 0.2 * cos(2.5 * t), 0.2 * sin(t)))
+        return dv, domega
+
+    def get_Lambda(self, t):
+        ls = self.Lambda_scenario
+
+        Lambda = np.ones((6, 1))
+        Lambda[0] = 1 if t < ls["rotor1"]["t"] else ls["rotor1"]["level"]
+        Lambda[1] = 1 if t < ls["rotor2"]["t"] else ls["rotor2"]["level"]
+        Lambda[2] = (
+            1
+            if t < ls["rotor3"]["t1"]
+            else 1
+            - (1 - ls["rotor3"]["level"])
+            * np.sin(
+                (np.pi / 2)
+                * (t - ls["rotor3"]["t1"])
+                / (ls["rotor3"]["t2"] - ls["rotor3"]["t1"])
+            )
+            if t < ls["rotor3"]["t2"]
+            else ls["rotor3"]["level"]
+        )
+        return Lambda
+
+    def get_delta(self, t):
+        return np.zeros((4, 1))
 
 
-class MyEnv(fym.BaseEnv):
+class Env(fym.BaseEnv):
     ENV_CONFIG = {
         "fkw": {
             "dt": 0.01,
-            "max_t": 10,
+            "max_t": 20,
         },
-        "plant": {
-            "init": {
-                "pos": np.vstack((0.0, 0.0, 0.0)),
-                "vel": np.zeros((3, 1)),
-                "quat": np.vstack((1, 0, 0, 0)),
-                "omega": np.zeros((3, 1)),
-            },
-        },
+        "scenario_config": {"index": 0},
+        "break": False,
     }
 
     def __init__(self, env_config={}):
-        env_config = safeupdate(self.ENV_CONFIG, env_config)
-        super().__init__(**env_config["fkw"])
-        self.plant = LC62(env_config["plant"])
-        self.env_config = env_config
-        self.controller = ftc.make("Adaptive", self)
+        self.env_config = safeupdate(self.ENV_CONFIG, env_config)
+        super().__init__(**self.env_config["fkw"])
 
-    def step(self):
-        env_info, done = self.update()
-        return done, env_info
+        self.scenario = Scenario(self.env_config["scenario_config"])
+        self.plant = LC62({"init": self.scenario.init})
+        self.controller = make(id="Adaptive", env=self)
 
-    def observation(self):
-        return self.observe_flat()
-
-    def get_ref(self, t, *args):
-        posd = np.vstack([0, 0, 0])
-        posd_dot = np.vstack([0, 0, 0])
-        refs = {"posd": posd, "posd_dot": posd_dot}
-        return [refs[key] for key in args]
+        self.brk = self.env_config["break"]
 
     def set_dot(self, t):
-        ctr_forces, ctrls0, controller_info = self.controller.get_control(t, self)
-        ctrls = ctrls0
-
-        """ set faults """
-        # lctrls = self.set_Lambda(t, bctrls)  # lambda * bctrls
-        # ctrls = self.plant.saturate(lctrls)
-
-        FM = np.zeros((6, 1))
-        self.plant.set_dot(t, ctr_forces)
+        control_input, controller_info = self.controller.get_control(t, self)
+        FM = self.plant.get_FM(*self.plant.observe_list(), ctrls=control_input)
+        self.plant.set_dot(t, FM)
 
         env_info = {
             "t": t,
-            **self.observe_dict(),
             **controller_info,
-            "ctrls0": ctrls0,
-            "ctrls": ctrls,
-            "FM": FM,
-            "Lambda": self.get_Lambda(t),
         }
-
         return env_info
 
-    def get_Lambda(self, t):
-        """Lambda function"""
 
-        Lambda = np.ones((11, 1))
-        return Lambda
+def _run(env_config):
+    np.seterr(all="raise")
 
-    def set_Lambda(self, t, ctrls):
-        Lambda = self.get_Lambda(t)
-        return Lambda * ctrls
+    env = Env(env_config)
 
+    # save logger path
+    path = Path("data.h5")
+    env.logger = fym.Logger(path)
+    env.logger.set_info(**env_config)
+    logger.info(f"Data file will be saved in {path}")
 
-def run(config):
-    env = MyEnv(config)
-    flogger = fym.Logger("data.h5")
-
+    # simulate
     env.reset()
+
     try:
         while True:
             env.render()
 
-            done, env_info = env.step()
-            flogger.record(env=env_info)
+            _, done = env.update()
 
             if done:
                 break
 
+    except:
+        *_, tb = sys.exc_info()
+        traceback.print_exc()
+        if env_config["break"]:
+            ipdb.post_mortem(tb)
+
     finally:
-        flogger.close()
-        plot()
+        env.close()
+        return path
 
 
-def plot():
-    data = fym.load("data.h5")["env"]
+def selected_plots(path, t_range=(0, None), show=True):
+    data = dict(fym.load(path))
 
-    """ Figure 1 - States """
-    fig, axes = plt.subplots(3, 4, figsize=(18, 5), squeeze=False, sharex=True)
+    t0 = t_range[0]
+    tf = t_range[1] or max(data["t"])
 
-    """ Column 1 - States: Position """
-    ax = axes[0, 0]
-    ax.plot(data["t"], data["plant"]["pos"][:, 0].squeeze(-1), "k-")
-    ax.plot(data["t"], data["posd"][:, 0].squeeze(-1), "r--")
-    ax.plot(data["t"], data["obs_pos"][:, 0].squeeze(-1), "b--")
-    ax.set_ylabel(r"$x$, m")
-    ax.legend(["Response", "Command", "Estimation"], loc="upper right")
-    ax.set_xlim(data["t"][0], data["t"][-1])
+    fig, axes = plt.subplots(3, 2, figsize=(8, 6), squeeze=False, sharex=True)
 
-    ax = axes[1, 0]
-    ax.plot(data["t"], data["plant"]["pos"][:, 1].squeeze(-1), "k-")
-    ax.plot(data["t"], data["posd"][:, 1].squeeze(-1), "r--")
-    ax.plot(data["t"], data["obs_pos"][:, 1].squeeze(-1), "b--")
-    ax.set_ylabel(r"$y$, m")
+    cax = axes[:, 0]
 
-    ax = axes[2, 0]
-    ax.plot(data["t"], data["plant"]["pos"][:, 2].squeeze(-1), "k-")
-    ax.plot(data["t"], data["posd"][:, 2].squeeze(-1), "r--")
-    ax.plot(data["t"], data["obs_pos"][:, 2].squeeze(-1), "b--")
-    ax.set_ylabel(r"$z$, m")
+    ax = cax[0]
+    ax.plot(data["t"], data["pos"][:, 0, 0], "k-", label=r"$x$")
+    ax.plot(data["t"], data["posd"][:, 0, 0], "r--", label=r"$x_d$")
+    ax.legend(loc="upper right")
 
+    ax = cax[1]
+    ax.plot(data["t"], data["pos"][:, 1, 0], "k-", label=r"$y$")
+    ax.plot(data["t"], data["posd"][:, 1, 0], "r--", label=r"$y_d$")
+    ax.legend(loc="upper right")
+
+    ax = cax[2]
+    ax.plot(data["t"], data["pos"][:, 2, 0], "k-", label=r"$z$")
+    ax.plot(data["t"], data["posd"][:, 2, 0], "r--", label=r"$z_d$")
+    ax.legend(loc="upper right")
+
+    ax = cax[-1]
+    ax.set_xlabel("Time, sec")
+    ax.set_xlim(t0, tf)
+
+    for ax in cax:
+        ax.set_ylim(-6, 6)
+
+    cax = axes[:, 1]
+
+    ax = cax[0]
+    ax.plot(data["t"], (data["pos"] - data["posd"])[:, 0, 0], "k-", label=r"$e_x$")
+    ax.legend(loc="upper right")
+
+    ax = cax[1]
+    ax.plot(data["t"], (data["pos"] - data["posd"])[:, 1, 0], "k-", label=r"$e_y$")
+    ax.legend(loc="upper right")
+
+    ax = cax[2]
+    ax.plot(data["t"], (data["pos"] - data["posd"])[:, 2, 0], "k-", label=r"$e_z$")
+    ax.legend(loc="upper right")
+
+    ax = cax[-1]
     ax.set_xlabel("Time, sec")
 
-    """ Column 2 - States: Velocity """
-    ax = axes[0, 1]
-    ax.plot(data["t"], data["plant"]["vel"][:, 0].squeeze(-1), "k-")
-    ax.plot(data["t"], data["plant"]["vel"][:, 0].squeeze(-1), "k-")
-    ax.set_ylabel(r"$v_x$, m/s")
+    for ax in cax:
+        ax.set_ylim(-6, 6)
 
-    ax = axes[1, 1]
-    ax.plot(data["t"], data["plant"]["vel"][:, 1].squeeze(-1), "k-")
-    ax.set_ylabel(r"$v_y$, m/s")
-
-    ax = axes[2, 1]
-    ax.plot(data["t"], data["plant"]["vel"][:, 2].squeeze(-1), "k-")
-    ax.set_ylabel(r"$v_z$, m/s")
-
-    ax.set_xlabel("Time, sec")
-
-    """ Column 3 - States: Euler angles """
-    ax = axes[0, 2]
-    ax.plot(data["t"], np.rad2deg(data["ang"][:, 0].squeeze(-1)), "k-")
-    ax.plot(data["t"], np.rad2deg(data["angd"][:, 0].squeeze(-1)), "r--")
-    ax.plot(data["t"], np.rad2deg(data["obs_ang"][:, 0].squeeze(-1)), "b--")
-    ax.set_ylabel(r"$\phi$, deg")
-
-    ax = axes[1, 2]
-    ax.plot(data["t"], np.rad2deg(data["ang"][:, 1].squeeze(-1)), "k-")
-    ax.plot(data["t"], np.rad2deg(data["angd"][:, 1].squeeze(-1)), "r--")
-    ax.plot(data["t"], np.rad2deg(data["obs_ang"][:, 1].squeeze(-1)), "b--")
-    ax.set_ylabel(r"$\theta$, deg")
-
-    ax = axes[2, 2]
-    ax.plot(data["t"], np.rad2deg(data["ang"][:, 2].squeeze(-1)), "k-")
-    ax.plot(data["t"], np.rad2deg(data["angd"][:, 2].squeeze(-1)), "r--")
-    ax.plot(data["t"], np.rad2deg(data["obs_ang"][:, 2].squeeze(-1)), "b--")
-    ax.set_ylabel(r"$\psi$, deg")
-
-    ax.set_xlabel("Time, sec")
-
-    """ Column 4 - States: Angular rates """
-    ax = axes[0, 3]
-    ax.plot(data["t"], np.rad2deg(data["plant"]["omega"][:, 0].squeeze(-1)), "k-")
-    ax.set_ylabel(r"$p$, deg/s")
-    ax.legend(["Response", "Ref"], loc="upper right")
-
-    ax = axes[1, 3]
-    ax.plot(data["t"], np.rad2deg(data["plant"]["omega"][:, 1].squeeze(-1)), "k-")
-    ax.set_ylabel(r"$q$, deg/s")
-
-    ax = axes[2, 3]
-    ax.plot(data["t"], np.rad2deg(data["plant"]["omega"][:, 2].squeeze(-1)), "k-")
-    ax.set_ylabel(r"$r$, deg/s")
-
+    ax = cax[-1]
     ax.set_xlabel("Time, sec")
 
     fig.tight_layout()
-    fig.subplots_adjust(wspace=0.3)
-    fig.align_ylabels(axes)
 
-    """ Figure 2 - Generalized forces """
-    fig, axes = plt.subplots(3, 2, squeeze=False, sharex=True)
+    """ Plot 2 """
 
-    """ Column 1 - Generalized forces: Forces """
-    ax = axes[0, 0]
-    ax.plot(data["t"], data["FM"][:, 0].squeeze(-1), "k-")
-    ax.plot(data["t"], data["ctr_forces"][:, 0].squeeze(-1), "r--")
-    ax.set_ylabel(r"$F_x$")
-    ax.legend(["Response"], loc="upper right")
-    ax.set_xlim(data["t"][0], data["t"][-1])
+    fig, axes = plt.subplots(3, 3, figsize=(9.5, 6), squeeze=False, sharex=True)
 
-    ax = axes[1, 0]
-    ax.plot(data["t"], data["FM"][:, 1].squeeze(-1), "k-")
-    ax.plot(data["t"], data["ctr_forces"][:, 1].squeeze(-1), "r--")
-    ax.set_ylabel(r"$F_y$")
+    cax = axes[:, 0]
 
-    ax = axes[2, 0]
-    ax.plot(data["t"], data["FM"][:, 2].squeeze(-1), "k-")
-    ax.plot(data["t"], data["ctr_forces"][:, 2].squeeze(-1), "r--")
-    ax.set_ylabel(r"$F_z$")
+    ax = cax[0]
+    ax.plot(data["t"], np.rad2deg(data["anglesd"][:, 0, 0]), "r--", label=r"$\phi_d$")
+    ax.plot(data["t"], np.rad2deg(data["angles"][:, 0, 0]), "k-", label=r"$\phi$")
+    ax.legend(loc="upper right")
 
+    ax = cax[1]
+    ax.plot(data["t"], np.rad2deg(data["anglesd"][:, 1, 0]), "r--", label=r"$\theta_d$")
+    ax.plot(data["t"], np.rad2deg(data["angles"][:, 1, 0]), "k-", label=r"$\theta$")
+    ax.legend(loc="upper right")
+
+    ax = cax[2]
+    ax.plot(data["t"], np.rad2deg(data["anglesd"][:, 2, 0]), "r--", label=r"$\psi_d$")
+    ax.plot(data["t"], np.rad2deg(data["angles"][:, 2, 0]), "k-", label=r"$\psi$")
+    ax.legend(loc="upper right")
+
+    for ax in cax:
+        ax.set_ylim(-5, 5)
+
+    ax = cax[-1]
     ax.set_xlabel("Time, sec")
 
-    """ Column 2 - Generalized forces: Moments """
-    ax = axes[0, 1]
-    ax.plot(data["t"], data["FM"][:, 3].squeeze(-1), "k-")
-    ax.plot(data["t"], data["ctr_forces"][:, 3].squeeze(-1), "r--")
-    ax.set_ylabel(r"$M_x$")
-    ax.legend(["Response"], loc="upper right")
+    cax = axes[:, 1]
 
-    ax = axes[1, 1]
-    ax.plot(data["t"], data["FM"][:, 4].squeeze(-1), "k-")
-    ax.plot(data["t"], data["ctr_forces"][:, 4].squeeze(-1), "r--")
-    ax.set_ylabel(r"$M_y$")
+    ax = cax[0]
+    ax.plot(data["t"], np.rad2deg(data["omegad"][:, 0, 0]), "r--", label=r"$p_d$")
+    ax.plot(data["t"], np.rad2deg(data["omega"][:, 0, 0]), "k-", label=r"$p$")
+    ax.legend(loc="upper right")
 
-    ax = axes[2, 1]
-    ax.plot(data["t"], data["FM"][:, 5].squeeze(-1), "k-")
-    ax.plot(data["t"], data["ctr_forces"][:, 5].squeeze(-1), "r--")
-    ax.set_ylabel(r"$M_z$")
+    ax = cax[1]
+    ax.plot(data["t"], np.rad2deg(data["omegad"][:, 1, 0]), "r--", label=r"$q_d$")
+    ax.plot(data["t"], np.rad2deg(data["omega"][:, 1, 0]), "k-", label=r"$q$")
+    ax.legend(loc="upper right")
 
+    ax = cax[2]
+    ax.plot(data["t"], np.rad2deg(data["omegad"][:, 2, 0]), "r--", label=r"$r_d$")
+    ax.plot(data["t"], np.rad2deg(data["omega"][:, 2, 0]), "k-", label=r"$r$")
+    ax.legend(loc="upper right")
+
+    for ax in cax:
+        ax.set_ylim(-90, 90)
+
+    ax = cax[-1]
+    ax.set_xlabel("Time, sec")
+
+    cax = axes[:, 2]
+
+    ax = cax[0]
+    ax.plot(
+        data["t"],
+        np.rad2deg(data["omega"] - data["omegad"])[:, 0, 0],
+        "k-",
+        label=r"$e_p$",
+    )
+    ax.legend(loc="upper right")
+
+    ax = cax[1]
+    ax.plot(
+        data["t"],
+        np.rad2deg(data["omega"] - data["omegad"])[:, 1, 0],
+        "k-",
+        label=r"$e_q$",
+    )
+    ax.legend(loc="upper right")
+
+    ax = cax[2]
+    ax.plot(
+        data["t"],
+        np.rad2deg(data["omega"] - data["omegad"])[:, 2, 0],
+        "k-",
+        label=r"$e_r$",
+    )
+    ax.legend(loc="upper right")
+
+    for ax in cax:
+        ax.set_ylim(-90, 90)
+
+    ax = cax[-1]
     ax.set_xlabel("Time, sec")
 
     fig.tight_layout()
-    fig.subplots_adjust(wspace=0.5)
-    fig.align_ylabels(axes)
 
-    """ Figure 3 - Rotor thrusts """
-    fig, axs = plt.subplots(3, 2, sharex=True)
-    ylabels = np.array((["Rotor 1", "Rotor 2"],
-                        ["Rotor 3", "Rotor 4"],
-                        ["Rotor 5", "Rotor 6"]))
-    for i, _ylabel in np.ndenumerate(ylabels):
-        ax = axs[i]
-        ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, sum(i)], "k-", label="Response")
-        ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, sum(i)], "r--", label="Command")
-        ax.grid()
-        if i == (0, 1):
-            ax.legend(loc="upper right")
-        plt.setp(ax, ylabel=_ylabel)
-        ax.set_ylim([1000-5, 2000+5])
-    plt.gcf().supxlabel("Time, sec")
-    plt.gcf().supylabel("Rotor Thrusts")
+    """ Plot 3 """
+
+    fig, axes = plt.subplots(4, 2, figsize=(8, 6), squeeze=False, sharex=True)
+
+    cax = axes[:, 0]
+
+    ax = cax[0]
+    ax.plot(data["t"], data["uc"][:, 0, 0], "r--", label=r"$f_{1 c}$")
+    ax.plot(data["t"], data["u"][:, 0, 0], "k-", label=r"$f_1$")
+    ax.legend(loc="upper right")
+
+    ax = cax[1]
+    ax.plot(data["t"], data["uc"][:, 1, 0], "r--", label=r"$f_{2 c}$")
+    ax.plot(data["t"], data["u"][:, 1, 0], "k-", label=r"$f_2$")
+    ax.legend(loc="upper right")
+
+    ax = cax[2]
+    ax.plot(data["t"], data["uc"][:, 2, 0], "r--", label=r"$f_{3 c}$")
+    ax.plot(data["t"], data["u"][:, 2, 0], "k-", label=r"$f_3$")
+    ax.legend(loc="upper right")
+
+    ax = cax[3]
+    ax.plot(data["t"], data["uc"][:, 3, 0], "r--", label=r"$f_{4 c}$")
+    ax.plot(data["t"], data["u"][:, 3, 0], "k-", label=r"$f_4$")
+    ax.legend(loc="upper right")
+
+    for ax in cax:
+        ax.set_ylim(900, 2100)
+
+    ax = cax[-1]
+    ax.set_xlabel("Time, sec")
+
+    cax = axes[:, 1]
+
+    ax = cax[0]
+    ax.plot(data["t"], data["Lambda"][:, 0, 0], "k-", label=r"$\lambda_1$")
+    ax.legend(loc="upper right")
+
+    ax = cax[1]
+    ax.plot(data["t"], data["Lambda"][:, 1, 0], "k-", label=r"$\lambda_2$")
+    ax.legend(loc="upper right")
+
+    ax = cax[2]
+    ax.plot(data["t"], data["Lambda"][:, 2, 0], "k-", label=r"$\lambda_3$")
+    ax.legend(loc="upper right")
+
+    ax = cax[3]
+    ax.plot(data["t"], data["Lambda"][:, 3, 0], "k-", label=r"$\lambda_4$")
+    ax.legend(loc="upper right")
+
+    for ax in cax:
+        ax.set_ylim(-0.1, 1.1)
+
+    ax = cax[-1]
+    ax.set_xlabel("Time, sec")
 
     fig.tight_layout()
-    fig.subplots_adjust(wspace=0.5)
-    fig.align_ylabels(axs)
 
-    """ Figure 4 - Pusher and Control surfaces """
-    fig, axs = plt.subplots(5, 1, sharex=True)
-    ylabels = np.array(("Pusher 1", "Pusher 2",
-                        r"$\delta_a$", r"$\delta_e$", r"$\delta_r$"))
-    for i, _ylabel in enumerate(ylabels):
-        ax = axs[i]
-        ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, i+6], "k-", label="Response")
-        ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, i+6], "r--", label="Command")
-        ax.grid()
-        plt.setp(ax, ylabel=_ylabel)
-        # if i < 2:
-        #     ax.set_ylim([1000-5, 2000+5])
-        if i == 0:
-            ax.legend(loc="upper right")
-    plt.gcf().supxlabel("Time, sec")
-    plt.gcf().supylabel("Pusher and Control Surfaces")
+    """ Plot 4 - 3D Trajectory """
 
-    fig.tight_layout()
-    fig.subplots_adjust(wspace=0.5)
-    fig.align_ylabels(axs)
+    fig = plt.figure()
+    ax = fig.add_subplot(projection="3d")
 
-    # dist
-    plt.figure()
+    idx = np.abs(data["t"] - tf).argmin()
+    x = data["pos"][:idx, 0, 0]
+    y = data["pos"][:idx, 1, 0]
+    h = -data["pos"][:idx, 2, 0]
 
-    ax = plt.subplot(611)
-    for i, _label in enumerate([r"$d_x$", r"$d_y$", r"$d_z$",
-                                r"$d_\phi$", r"$d_\theta$", r"$d_\psi$"]):
-        if i != 0:
-            plt.subplot(611+i, sharex=ax)
-        plt.plot(data["t"], data["dist"][:, i, 0], "k", label=" distarbance")
-        plt.ylabel(_label)
-        if i == 0:
-            plt.legend(loc='upper right')
-    plt.gcf().supylabel("dist")
-    plt.gcf().supxlabel("Time, sec")
-    plt.tight_layout()
+    xd = data["posd"][:idx, 0, 0]
+    yd = data["posd"][:idx, 1, 0]
+    hd = -data["posd"][:idx, 2, 0]
+
+    ax.plot(xd, yd, hd, "b-")
+    ax.plot(x, y, h, "r--")
+
+    ax.set_xlim(-1, 6)
+    ax.set_ylim(-1, 6)
+    ax.set_zlim(-3, 3)
+    limits = np.array([getattr(ax, f"get_{axis}lim")() for axis in "xyz"])
+    ax.set_box_aspect(np.ptp(limits, axis=1))
 
     plt.show()
 
 
-def main(args):
-    if args.only_plot:
-        plot()
+@click.group()
+def main():
+    pass
+
+
+@main.command()
+@click.option("-p", "--plot", is_flag=True)
+@click.option("-P", "--only-plot", is_flag=True)
+@click.option("-t", "--max-t", type=float, default=20)
+@click.option("--dt", type=float, default=0.01)
+@click.option("-b", "--break", is_flag=True)
+@click.option("--scenario-index", type=int, default=0)
+def run(**kwargs):
+    if kwargs["only_plot"]:
+        path = Path("data.h5")
+        selected_plots(path, show=True)
         return
-    elif args.with_ray:
-        def objective(config):
-            np.seterr(all="raise")
 
-            env = MyEnv(config)
+    env_config = {
+        "fkw": {
+            "max_t": kwargs["max_t"],
+            "dt": kwargs["dt"],
+        },
+        "scenario_config": {"index": kwargs["scenario_index"]},
+        "break": kwargs["break"],
+    }
+    path = _run(env_config)
 
-            env.reset()
-            tf = 0
-            try:
-                while True:
-                    done, env_info = env.step()
-                    tf = env.info["t"]
-
-                    if done:
-                        break
-
-            finally:
-                return {"tf": tf}
-
-        config = {
-            "k11": tune.uniform(0.01, 2),
-            "k12": tune.uniform(0.01, 2),
-            "k13": tune.uniform(0, 1),
-            "k21": tune.uniform(0.01, 3),
-            "k22": tune.uniform(0.01, 3),
-            "k23": tune.uniform(0, 1),
-            "eps11": tune.uniform(200, 400),
-            "eps12": tune.uniform(100, 300),
-            "eps13": tune.uniform(300, 500),
-            "eps21": tune.uniform(100, 300),
-            "eps22": tune.uniform(50, 250),
-            "eps23": tune.uniform(50, 250),
-        }
-        current_best_params = [{
-            "k11": 2/300,
-            "k12": 1/10,
-            "k13": 0,
-            "k21": 5/20,
-            "k22": 2/10,
-            "k23": 0,
-            "eps11": 300,
-            "eps12": 100,
-            "eps13": 400,
-            "eps21": 150,
-            "eps22": 100,
-            "eps23": 100,
-        }]
-        search = HyperOptSearch(
-            metric="tf",
-            mode="max",
-            points_to_evaluate=current_best_params,
-        )
-        tuner = tune.Tuner(
-            tune.with_resources(
-                objective,
-                resources={"cpu": 12},
-            ),
-            param_space=config,
-            tune_config=tune.TuneConfig(
-                num_samples=1000,
-                search_alg=search,
-            ),
-            run_config=RunConfig(
-                name="train_run",
-                local_dir="data/ray_results",
-                verbose=1,
-                checkpoint_config=CheckpointConfig(
-                    num_to_keep=5,
-                    checkpoint_score_attribute="tf",
-                    checkpoint_score_order="max",
-                ),
-            ),
-        )
-        results = tuner.fit()
-        config = results.get_best_result(metric="tf", mode="max").config
-        with open("data/ray_results/train_run/best_config.json", "w") as f:
-            json.dump(config, f)  # json file은 cat cmd로 볼 수 있다
-        return
-    else:
-        params = {
-            "k11": 2/300,
-            "k12": 1/10,
-            "k13": 0,
-            "k21": 5/20,
-            "k22": 2/10,
-            "k23": 0,
-            "eps11": 300,
-            "eps12": 100,
-            "eps13": 400,
-            "eps21": 150,
-            "eps22": 100,
-            "eps23": 100,
-        }
-        run(params)
-
-        if args.plot:
-            plot()
+    if kwargs["plot"]:
+        selected_plots(path, show=True)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-p", "--plot", action="store_true")
-    parser.add_argument("-P", "--only-plot", action="store_true")
-    parser.add_argument("-r", "--with-ray", action="store_true")
-    args = parser.parse_args()
-    main(args)
+    main()

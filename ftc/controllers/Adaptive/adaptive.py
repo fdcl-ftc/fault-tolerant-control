@@ -1,9 +1,8 @@
 import fym
 import numpy as np
+from fym.utils.rot import quat2angle
 from numpy import cos, sin, tan
 from sklearn.gaussian_process.kernels import RBF
-
-from ftc.utils import safeupdate
 
 
 def cross(x, y):
@@ -12,65 +11,66 @@ def cross(x, y):
 
 class Adaptive(fym.BaseEnv):
     CONTROLLER_CONFIG = {
-        "lemniscate": {
-            "outer_surface_factor": 7,
-            "outer_proportional": 5,
-            "outer_adaptive_gain": 0.3,
-            "outer_adaptive_decay": 0.1,
-            "inner_surface_factor": 20,
-            "inner_proportional": 5,
-            "inner_adaptive_gain": 0.3,
-            "inner_adaptive_decay": 0.1,
-            "aux_decay": 0.5,
-            "use_Nussbaum": False,
-        },
-    }
-
-    TUNE_CONFIG = {
-        "outer_surface_factor": 3,
-        "outer_proportional": 1.5,
-        "outer_adaptive_gain": 1.35,
-        "outer_adaptive_decay": 0.0012,
-        "inner_surface_factor": 3,
+        "outer_surface_factor": 20,
+        "outer_proportional": 0.008,
+        "outer_adaptive_gain": 0.0017,
+        "outer_adaptive_decay": 0.07,
+        "inner_surface_factor": 20,
         "inner_proportional": 3,
-        "inner_adaptive_gain": 2,
-        "inner_adaptive_decay": 0.01,
+        "inner_adaptive_gain": 0.3,
+        "inner_adaptive_decay": 0.2,
+        "use_Nussbaum": True,
     }
 
-    def __init__(self, controller_config={}, scenario="lemniscate"):
+    def __init__(self, env):
         super().__init__()
 
-        self.controller_config = safeupdate(
-            self.CONTROLLER_CONFIG[scenario], controller_config
-        )
+        cfg = self.CONTROLLER_CONFIG
 
         """ Fym Systems """
 
         """ Aux """
         self.W1hat = fym.BaseSystem()
         self.W2hat = fym.BaseSystem()
-        if self.controller_config["use_Nussbaum"]:
-            self.mu = fym.BaseSystem(shape=(4, 1))
+        if cfg["use_Nussbaum"]:
+            self.mu = fym.BaseSystem(shape=(6, 1))
 
         """ Basis function """
 
         self.kernel = RBF(3.0, "fixed")
         self.centers = np.zeros((50, 1))
 
+        """ LC62 """
+
+        # c = 5.38
+        c = 0.3156
+        dy1, dy2 = env.plant.dy1, env.plant.dy2
+        dx1, dx2, dx3 = env.plant.dx1, env.plant.dx2, env.plant.dx3
+        self.B = np.array(
+            (
+                [1, 1, 1, 1, 1, 1],
+                [-dy2, dy1, dy1, -dy2, -dy2, dy1],
+                [-dx2, -dx2, dx1, -dx3, dx1, -dx3],
+                [-c, c, -c, c, c, -c],
+            )
+        )
+        self.Binv = np.linalg.pinv(self.B)
+
     def get_control(self, t, env):
         """Get control input"""
 
-        cfg = self.controller_config
+        cfg = self.CONTROLLER_CONFIG
 
-        """ Uncertain model """
+        """ Model uncertainties """
+
         m = env.plant.m * 1.2
         g = env.plant.g
-        J = env.plant.J * np.vstack((1.2, 1.1, 1.3))
-        Jinv = 1 / J
-        B = env.plant.B
-        Binv = env.plant.Binv
+        J = env.plant.J
+        Jinv = env.plant.Jinv
+        B = self.B
+        Binv = self.Binv
 
-        """ Outer-Loop Control """
+        """ Outer-loop control """
 
         pos = env.plant.pos.state
         vel = env.plant.vel.state
@@ -89,7 +89,6 @@ class Adaptive(fym.BaseEnv):
             posd,
             vel,
             posd_dot,
-            # posd_ddot,
         )
         varphi1 = Phi1.T @ Phi1
 
@@ -116,8 +115,9 @@ class Adaptive(fym.BaseEnv):
         phid = np.arcsin((-Qx * sin(psid) + Qy * cos(psid)) / uf)
         thetad = np.arctan((Qx * cos(psid) + Qy * sin(psid)) / Qz)
 
-        """ Inner-Loop Control """
-        angles = env.plant.get_angles()
+        """ Inner-loop control """
+
+        angles = self.get_angles(env.plant.quat.state)
         phi, theta, _ = angles
         xi = angles[:, None]
         omega = env.plant.omega.state
@@ -165,7 +165,6 @@ class Adaptive(fym.BaseEnv):
             xid,
             xi_dot,
             xid_dot,
-            # xid_ddot,
         )
         varphi2 = Phi2.T @ Phi2
         W2hat = self.W2hat.state
@@ -175,28 +174,24 @@ class Adaptive(fym.BaseEnv):
         )
 
         # control input
-        v = J * (
-            (1 / J) * cross(omega, J * omega)
+        v = J @ (
+            Jinv @ cross(omega, J @ omega)
             + np.linalg.inv(H)
             @ (
-                -cfg["inner_adaptive_gain"] * W2hat * varphi2 * z2
-                - H_dot @ omega
+                -H_dot @ omega
+                - cfg["inner_adaptive_gain"] * W2hat * varphi2 * z2
                 + xid_ddot
                 - cfg["inner_surface_factor"] * e2_dot
                 - cfg["inner_proportional"] * z2
             )
         )
 
-        # vmin = -np.vstack((0.8, 0.8, 0.05))
-        # vmax = np.vstack((0.8, 0.8, 0.05))
-        # hv = np.clip(v, vmin, vmax)
-        # hv = v
         uc = Binv @ np.vstack((uf, v))
 
         G = np.block(
             [
                 [-cos(phi) * cos(theta) / m, np.zeros((1, 3))],
-                [np.zeros((3, 1)), H @ np.diag(Jinv.ravel())],
+                [np.zeros((3, 1)), H @ Jinv],
             ]
         )
 
@@ -210,33 +205,30 @@ class Adaptive(fym.BaseEnv):
 
         """ set derivatives """
 
-        # omegad = np.linalg.inv(H) @ xid_dot
+        # Saturated PWM with LoE
+        uc = np.clip(uc, 0, 160)
+        Lambda = env.scenario.get_Lambda(t)
+        pwm = Lambda * uc / 160 * 1000 + 1000
 
-        eta43l = np.nan * np.ones((3, 1))
-        eta43u = np.nan * np.ones((3, 1))
-
-        control_input = uc
+        control_input = np.vstack((pwm, *env.plant.u_trims_fixed))
+        FM = env.plant.B_VTOL(control_input, env.plant.omega.state)
+        f = -FM[2]
+        tau = FM[3:]
 
         controller_info = {
             "pos": pos,
             "posd": posd,
-            "epos_trans": np.nan * np.ones((3, 1)),
-            "epos_upper_bound": np.nan * np.ones((3, 1)),
-            "epos_lower_bound": np.nan * np.ones((3, 1)),
             "vel": vel,
             "veld": posd_dot,
             "angles": xi,
             "anglesd": xid,
             "omega": xi_dot + cfg["inner_surface_factor"] * xi,
             "omegad": xid_dot + cfg["inner_surface_factor"] * xid,
-            "eomega_trans": np.nan * np.ones((3, 1)),
-            "eomega_upper_bound": np.nan * np.ones((3, 1)),
-            "eomega_lower_bound": np.nan * np.ones((3, 1)),
-            "uc": uc,
-            "eta43l": eta43l,
-            "eta43u": eta43u,
-            "v": v,
-            "hv": v,
+            "uc": pwm,
+            "u": control_input,
+            "f": f,
+            "tau": tau,
+            "Lambda": Lambda,
         }
 
         if env.brk and t >= env.clock.max_t:
@@ -254,17 +246,7 @@ class Adaptive(fym.BaseEnv):
         return Phi
 
     def Nussbaum(self, mu):
-        # return mu**2 * cos(mu)
-        # return np.exp(mu**2) * cos(np.pi * mu / 2)
         return np.exp(mu**2 / 2) * (mu**2 + 2) * sin(mu) + 1
 
-    def g(self, tau, low, high, with_grad=False):
-        return np.clip(tau, low, high)
-        # c = 0.5 * (high + low)
-        # s = 0.5 * (high - low)
-        # h = s * np.tanh((tau - c) / s) + c
-        # if not with_grad:
-        #     return h
-        # else:
-        #     h_grad = 1 - np.tanh((tau - c) / s) ** 2
-        #     return h, h_grad
+    def get_angles(self, quat):
+        return np.asarray(quat2angle(quat)[::-1])
