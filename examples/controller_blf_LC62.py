@@ -3,12 +3,14 @@ import os
 import json
 from ray.air import CheckpointConfig, RunConfig
 from ray.tune.search.hyperopt import HyperOptSearch
+from ray.tune import CLIReporter
 
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 
 import fym
+from fym.utils.rot import angle2quat, quat2angle
 
 import ftc
 from ftc.utils import safeupdate
@@ -27,6 +29,7 @@ class ActuatorDynamics(fym.BaseSystem):
 
 
 class MyEnv(fym.BaseEnv):
+    # euler = np.random.uniform(-np.deg2rad(5), np.deg2rad(5), size=(3, 1))
     ENV_CONFIG = {
         "fkw": {
             "dt": 0.01,
@@ -38,6 +41,10 @@ class MyEnv(fym.BaseEnv):
                 "vel": np.zeros((3, 1)),
                 "quat": np.vstack((1, 0, 0, 0)),
                 "omega": np.zeros((3, 1)),
+                # "pos": np.random.uniform(-1, 1, size=(3, 1)),
+                # "vel": np.random.uniform(-1, 1, size=(3, 1)),
+                # "quat": angle2quat(euler[0], euler[1], euler[2]),
+                # "omega": np.random.uniform(-np.deg2rad(5), np.deg2rad(5), size=(3, 1)),
             },
         },
     }
@@ -48,10 +55,15 @@ class MyEnv(fym.BaseEnv):
         self.plant = LC62(env_config["plant"])
         self.env_config = env_config
         self.controller = ftc.make("BLF-LC62", self)
+        self.fdi_delay = 0.1
         # self.rotor_dyn = ActuatorDynamics(tau=0.01, shape=(11, 1))
 
     def step(self):
         env_info, done = self.update()
+        euler = quat2angle(self.plant.quat.state)
+        for e in euler:
+            if abs(e) > np.deg2rad(10):
+                done = True
         return done, env_info
 
     def observation(self):
@@ -68,11 +80,17 @@ class MyEnv(fym.BaseEnv):
         ctrls = ctrls0
 
         """ set faults """
+        lctrls = ctrls.copy()
+        Lambda = self.get_Lambda(t)
+        for i in range(6):
+            lctrls[i] = Lambda[i] * (lctrls[i] - 1000) / 1000
+            lctrls[i] = lctrls[i] * 1000 + 1000
+
         # lctrls = self.set_Lambda(t, bctrls)  # lambda * bctrls
         # ctrls = self.plant.saturate(lctrls)
 
-        FM = np.zeros((6, 1))
-        self.plant.set_dot(t, ctr_forces)
+        FM = self.plant.get_FM(*self.plant.observe_list(), lctrls)
+        self.plant.set_dot(t, FM)
 
         env_info = {
             "t": t,
@@ -80,6 +98,7 @@ class MyEnv(fym.BaseEnv):
             **controller_info,
             "ctrls0": ctrls0,
             "ctrls": ctrls,
+            "lctrls": lctrls,
             "FM": FM,
             "Lambda": self.get_Lambda(t),
         }
@@ -88,13 +107,13 @@ class MyEnv(fym.BaseEnv):
 
     def get_Lambda(self, t):
         """Lambda function"""
+        if t > 5:
+            W1 = 0.5
+        else:
+            W1 = 1
+        Lambda = np.array([W1, 1, 1, 1, 1, 1])
 
-        Lambda = np.ones((11, 1))
         return Lambda
-
-    def set_Lambda(self, t, ctrls):
-        Lambda = self.get_Lambda(t)
-        return Lambda * ctrls
 
 
 def run(config):
@@ -257,7 +276,7 @@ def plot():
     for i, _ylabel in np.ndenumerate(ylabels):
         ax = axs[i]
         ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, sum(i)], "k-", label="Response")
-        ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, sum(i)], "r--", label="Command")
+        ax.plot(data["t"], data["lctrls"].squeeze(-1)[:, sum(i)], "r--", label="Command")
         ax.grid()
         if i == (0, 1):
             ax.legend(loc="upper right")
@@ -334,32 +353,44 @@ def main(args):
                 return {"tf": tf}
 
         config = {
-            "k11": tune.uniform(0.01, 2),
-            "k12": tune.uniform(0.01, 2),
-            "k13": tune.uniform(0, 1),
-            "k21": tune.uniform(0.01, 3),
-            "k22": tune.uniform(0.01, 3),
-            "k23": tune.uniform(0, 1),
-            "eps11": tune.uniform(200, 400),
-            "eps12": tune.uniform(100, 300),
-            "eps13": tune.uniform(300, 500),
-            "eps21": tune.uniform(100, 300),
-            "eps22": tune.uniform(50, 250),
-            "eps23": tune.uniform(50, 250),
+            "k11": tune.uniform(0.01, 100),
+            "k12": tune.uniform(0.01, 100),
+            "k13": 0,
+            "k21": tune.uniform(0.1, 100),
+            "k22": tune.uniform(0.1, 100),
+            "k23": 0,
+            "k31": tune.uniform(0.1, 100),
+            "k32": tune.uniform(0.1, 100),
+            "k33": 0,
+            "k41": tune.uniform(0.1, 100),
+            "k42": tune.uniform(0.1, 100),
+            "k43": 0,
+            "eps11": 2,
+            "eps12": 2,
+            "eps13": tune.uniform(2, 100),
+            "eps21": tune.uniform(2, 100),
+            "eps22": tune.uniform(2, 100),
+            "eps23": tune.uniform(2, 100),
         }
         current_best_params = [{
             "k11": 2/300,
-            "k12": 1/10,
+            "k12": 0.1,
             "k13": 0,
-            "k21": 5/20,
-            "k22": 2/10,
+            "k21": 0.1,
+            "k22": 15,
             "k23": 0,
-            "eps11": 300,
-            "eps12": 100,
-            "eps13": 400,
-            "eps21": 150,
-            "eps22": 100,
-            "eps23": 100,
+            "k31": 5,
+            "k32": 10,
+            "k33": 1,
+            "k41": 300/40,
+            "k42": 40,
+            "k43": 0,
+            "eps11": 30,
+            "eps12": 10,
+            "eps13": 50,
+            "eps21": 25,
+            "eps22": 25,
+            "eps23": 25,
         }]
         search = HyperOptSearch(
             metric="tf",
@@ -380,6 +411,13 @@ def main(args):
                 name="train_run",
                 local_dir="data/ray_results",
                 verbose=1,
+                progress_reporter=CLIReporter(
+                    parameter_columns=list(config.keys())[:3],
+                    max_progress_rows=3,
+                    metric="tf",
+                    mode="max",
+                    sort_by_metric=True,
+                ),
                 checkpoint_config=CheckpointConfig(
                     num_to_keep=5,
                     checkpoint_score_attribute="tf",
@@ -395,17 +433,23 @@ def main(args):
     else:
         params = {
             "k11": 2/300,
-            "k12": 1/10,
+            "k12": 0.1,
             "k13": 0,
-            "k21": 5/20,
-            "k22": 2/10,
+            "k21": 0.01,
+            "k22": 1,
             "k23": 0,
-            "eps11": 300,
-            "eps12": 100,
-            "eps13": 400,
-            "eps21": 150,
-            "eps22": 100,
-            "eps23": 100,
+            "k31": 5,
+            "k32": 10,
+            "k33": 1,
+            "k41": 300/40,
+            "k42": 40,
+            "k43": 0,
+            "eps11": 30,
+            "eps12": 10,
+            "eps13": 50,
+            "eps21": 25,
+            "eps22": 25,
+            "eps23": 25,
         }
         run(params)
 

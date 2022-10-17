@@ -45,11 +45,11 @@ class BLFController(BaseEnv):
                               np.array([env_config["k21"], env_config["k22"],
                                         env_config["k23"]]))
         self.Ctheta = innerLoop(alp, env_config["eps22"], xi, rho, c, theta,
-                                np.array([env_config["k21"], env_config["k22"],
-                                          env_config["k23"]]))
+                                np.array([env_config["k31"], env_config["k32"],
+                                          env_config["k33"]]))
         self.Cpsi = innerLoop(alp, env_config["eps23"], xi, rho, c, theta,
-                              np.array([env_config["k21"], env_config["k22"],
-                                        env_config["k23"]]))
+                              np.array([env_config["k41"], env_config["k42"],
+                                        env_config["k43"]]))
 
         self.dx1, self.dx2, self.dx3 = env.plant.dx1, env.plant.dx2, env.plant.dx3
         self.dy1, self.dy2 = env.plant.dy1, env.plant.dy2
@@ -77,8 +77,8 @@ class BLFController(BaseEnv):
 
         ''' outer loop control '''
         q = np.zeros((3, 1))
-        q[0] = self.Cx.get_virtual(t)
-        q[1] = self.Cy.get_virtual(t)
+        # q[0] = self.Cx.get_virtual(t)
+        # q[1] = self.Cy.get_virtual(t)
         q[2] = self.Cz.get_virtual(t)
 
         # Inverse solution
@@ -87,6 +87,8 @@ class BLFController(BaseEnv):
                        - np.deg2rad(45), np.deg2rad(45))
         thetad = np.clip(np.arctan(q[0] / (q[2] - g)),
                          - np.deg2rad(45), np.deg2rad(45))
+        phid = 0
+        thetad = 0
         psid = 0
         eulerd = np.vstack([phid, thetad, psid])
 
@@ -100,11 +102,19 @@ class BLFController(BaseEnv):
         ctr_forces = np.vstack([q, u2, u3, u4])
 
         # rotors
-        ctrls1 = np.vstack([u1, u2, u3, u4])
-        th = np.linalg.pinv(self.B_r2f) @ ctrls1
+        ctrls1 = np.vstack([-u1, u2, u3, u4])
+        Lambda = np.diag(env.get_Lambda(t-env.fdi_delay))
+        th = np.linalg.pinv(self.B_r2f.dot(Lambda)) @ ctrls1
         pwms_rotor = (th / self.c_th) * 1000 + 1000
         forces = np.vstack((
             pwms_rotor,
+            np.vstack(env.plant.u_trims_fixed)
+        ))
+
+        th_n = np.linalg.pinv(self.B_r2f) @ ctrls1
+        pwms_rotor_n = (th_n / self.c_th) * 1000 + 1000
+        forces_n = np.vstack((
+            pwms_rotor_n,
             np.vstack(env.plant.u_trims_fixed)
         ))
 
@@ -144,7 +154,8 @@ class BLFController(BaseEnv):
             "obs_pos": obs_pos,
             "obs_ang": obs_ang,
             "dist": dist,
-            "forces": forces,
+            "rotors": forces,
+            "rotors_nofault": forces_n,
             "q": q,
             "bound_err": bound_err,
             "bound_ang": bound_ang,
