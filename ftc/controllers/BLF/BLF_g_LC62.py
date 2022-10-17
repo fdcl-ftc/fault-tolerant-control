@@ -30,24 +30,26 @@ class BLFController(BaseEnv):
         # controllers
         env_config = env.env_config
         self.Cx = outerLoop(alp, env_config["eps11"], rho, rho_k, theta,
-                            np.array([env_config["k11"], env_config["k12"],
-                                      env_config["k13"]]))
+                            np.array([env_config["k01"], env_config["k02"],
+                                      env_config["k03"]]))
         self.Cy = outerLoop(alp, env_config["eps12"], rho, rho_k, theta,
                             np.array([env_config["k11"], env_config["k12"],
                                       env_config["k13"]]))
         self.Cz = outerLoop(alp, env_config["eps13"], rho, rho_k, theta,
-                            np.array([env_config["k11"], env_config["k12"],
-                                      env_config["k13"]]))
+                            np.array([env_config["k51"], env_config["k52"],
+                                      env_config["k53"]]))
         rho = np.deg2rad([45, 130])
-        xi = np.array([-1, 1]) * 10
-        c = np.zeros((2,))
-        self.Cphi = innerLoop(alp, env_config["eps21"], xi, rho, c, theta,
+        xi1 = np.array([-1, 1]) * 2000 * 0.717 * 3
+        xi2 = np.array([-1, 1]) * 2000 * 3
+        xi3 = np.array([-1, 1]) * 2000 * 0.0338 * 3
+        c = np.ones((2,)) * 20
+        self.Cphi = innerLoop(alp, env_config["eps21"], xi1, rho, c, theta,
                               np.array([env_config["k21"], env_config["k22"],
                                         env_config["k23"]]))
-        self.Ctheta = innerLoop(alp, env_config["eps22"], xi, rho, c, theta,
+        self.Ctheta = innerLoop(alp, env_config["eps22"], xi2, rho, c, theta,
                                 np.array([env_config["k31"], env_config["k32"],
                                           env_config["k33"]]))
-        self.Cpsi = innerLoop(alp, env_config["eps23"], xi, rho, c, theta,
+        self.Cpsi = innerLoop(alp, env_config["eps23"], xi3, rho, c, theta,
                               np.array([env_config["k41"], env_config["k42"],
                                         env_config["k43"]]))
 
@@ -77,8 +79,8 @@ class BLFController(BaseEnv):
 
         ''' outer loop control '''
         q = np.zeros((3, 1))
-        # q[0] = self.Cx.get_virtual(t)
-        # q[1] = self.Cy.get_virtual(t)
+        q[0] = self.Cx.get_virtual(t)
+        q[1] = self.Cy.get_virtual(t)
         q[2] = self.Cz.get_virtual(t)
 
         # Inverse solution
@@ -87,8 +89,8 @@ class BLFController(BaseEnv):
                        - np.deg2rad(45), np.deg2rad(45))
         thetad = np.clip(np.arctan(q[0] / (q[2] - g)),
                          - np.deg2rad(45), np.deg2rad(45))
-        phid = 0
-        thetad = 0
+        # phid = 0
+        # thetad = 0
         psid = 0
         eulerd = np.vstack([phid, thetad, psid])
 
@@ -108,13 +110,6 @@ class BLFController(BaseEnv):
         pwms_rotor = (th / self.c_th) * 1000 + 1000
         forces = np.vstack((
             pwms_rotor,
-            np.vstack(env.plant.u_trims_fixed)
-        ))
-
-        th_n = np.linalg.pinv(self.B_r2f) @ ctrls1
-        pwms_rotor_n = (th_n / self.c_th) * 1000 + 1000
-        forces_n = np.vstack((
-            pwms_rotor_n,
             np.vstack(env.plant.u_trims_fixed)
         ))
 
@@ -155,7 +150,6 @@ class BLFController(BaseEnv):
             "obs_ang": obs_ang,
             "dist": dist,
             "rotors": forces,
-            "rotors_nofault": forces_n,
             "q": q,
             "bound_err": bound_err,
             "bound_ang": bound_ang,
@@ -176,7 +170,7 @@ class outerLoop(BaseEnv):
         self.alp, self.eps, self.k = alp, eps, rho_k
         self.rho_0, self.rho_inf = rho.ravel()
         self.theta = np.array([theta, 2*theta-1, 3*theta-2])
-        self.K = np.array([2, 10, 0])
+        self.K = K
 
     def deriv(self, e, integ_e, y, ref, t):
         alp, eps, theta = self.alp, self.eps, self.theta

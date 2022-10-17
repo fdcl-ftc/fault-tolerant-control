@@ -27,7 +27,7 @@ class ActuatorDynamics(fym.BaseSystem):
 
 
 class MyEnv(fym.BaseEnv):
-    # euler = np.random.uniform(-np.deg2rad(5), np.deg2rad(5), size=(3, 1))
+    euler = np.random.uniform(-np.deg2rad(5), np.deg2rad(5), size=(3, 1))
     ENV_CONFIG = {
         "fkw": {
             "dt": 0.01,
@@ -58,18 +58,14 @@ class MyEnv(fym.BaseEnv):
 
     def step(self):
         env_info, done = self.update()
-        euler = quat2angle(self.plant.quat.state)
-        for e in euler:
-            if abs(e) > np.deg2rad(10):
-                done = True
         return done, env_info
 
     def observation(self):
         return self.observe_flat()
 
     def get_ref(self, t, *args):
-        posd = np.vstack([0, 0, 0])
-        posd_dot = np.vstack([0, 0, 0])
+        posd = np.vstack([np.sin(t), 0, 0])
+        posd_dot = np.vstack([np.cos(t), 0, 0])
         refs = {"posd": posd, "posd_dot": posd_dot}
         return [refs[key] for key in args]
 
@@ -105,21 +101,21 @@ class MyEnv(fym.BaseEnv):
 
     def get_Lambda(self, t):
         """Lambda function"""
-        if t > 5:
-            W1 = 0.5
-        else:
-            W1 = 1
-        if t > 7:
-            W2 = 0.7
-        else:
-            W2 = 1
-        if t > 10:
-            W3 = 0.6
-        elif t > 16:
-            W3 = 0.4
-        else:
-            W3 = 1
-        Lambda = np.array([W1, W2, W3, 1, 1, 1])
+        # if t > 5:
+        #     W1 = 0.5
+        # else:
+        #     W1 = 1
+        # if t > 7:
+        #     W2 = 0.7
+        # else:
+        #     W2 = 1
+        # if t > 10:
+        #     W3 = 0.6
+        # elif t > 16:
+        #     W3 = 0.4
+        # else:
+        #     W3 = 1
+        Lambda = np.array([1, 1, 1, 1, 1, 1])
 
         return Lambda
 
@@ -154,7 +150,7 @@ def plot():
     ax = axes[0, 0]
     ax.plot(data["t"], data["plant"]["pos"][:, 0].squeeze(-1), "k-")
     ax.plot(data["t"], data["posd"][:, 0].squeeze(-1), "r--")
-    ax.plot(data["t"], data["obs_pos"][:, 0].squeeze(-1), "b--")
+    ax.plot(data["t"], data["obs_pos"][:, 0].squeeze(-1)+data["posd"][:, 0].squeeze(-1), "b--")
     ax.set_ylabel(r"$x$, m")
     ax.legend(["Response", "Command", "Estimation"], loc="upper right")
     ax.set_xlim(data["t"][0], data["t"][-1])
@@ -162,13 +158,13 @@ def plot():
     ax = axes[1, 0]
     ax.plot(data["t"], data["plant"]["pos"][:, 1].squeeze(-1), "k-")
     ax.plot(data["t"], data["posd"][:, 1].squeeze(-1), "r--")
-    ax.plot(data["t"], data["obs_pos"][:, 1].squeeze(-1), "b--")
+    ax.plot(data["t"], data["obs_pos"][:, 1].squeeze(-1)+data["posd"][:, 1].squeeze(-1), "b--")
     ax.set_ylabel(r"$y$, m")
 
     ax = axes[2, 0]
     ax.plot(data["t"], data["plant"]["pos"][:, 2].squeeze(-1), "k-")
     ax.plot(data["t"], data["posd"][:, 2].squeeze(-1), "r--")
-    ax.plot(data["t"], data["obs_pos"][:, 2].squeeze(-1), "b--")
+    ax.plot(data["t"], data["obs_pos"][:, 2].squeeze(-1)+data["posd"][:, 2].squeeze(-1), "b--")
     ax.set_ylabel(r"$z$, m")
 
     ax.set_xlabel("Time, sec")
@@ -440,20 +436,26 @@ def main(args):
         return
     else:
         params = {
-            "k11": 2/3,
-            "k12": 1,
+            "k01": 0.01,
+            "k02": 0.01,
+            "k03": 0,
+            "k11": 0.1,
+            "k12": 5,
             "k13": 0,
-            "k21": 0.5,
+            "k51": 0.01,
+            "k52": 0.1,
+            "k53": 0,
+            "k21": 5,
             "k22": 1,
             "k23": 0,
-            "k31": 0.5,
+            "k31": 5,
             "k32": 20,
             "k33": 0,
             "k41": 500/40,
             "k42": 40,
             "k43": 0,
-            "eps11": 15,
-            "eps12": 15,
+            "eps11": 30,
+            "eps12": 2,
             "eps13": 25,
             "eps21": 5,
             "eps22": 7,
