@@ -109,16 +109,16 @@ class MyEnv(fym.BaseEnv):
             W1 = 0.5
         else:
             W1 = 1
-        # if t > 7:
-        #     W2 = 0.7
-        # else:
-        #     W2 = 1
-        # if t > 10:
-        #     W3 = 0.6
-        # elif t > 14:
-        #     W3 = 0.4
-        # else:
-        #     W3 = 1
+        if t > 7:
+            W2 = 0.7
+        else:
+            W2 = 1
+        if t > 10:
+            W3 = 0.6
+        elif t > 16:
+            W3 = 0.4
+        else:
+            W3 = 1
         Lambda = np.array([W1, W2, W3, 1, 1, 1])
 
         return Lambda
@@ -446,7 +446,7 @@ def main(args):
             "k21": 0.5,
             "k22": 1,
             "k23": 0,
-            "k31": 0.8,
+            "k31": 0.5,
             "k32": 20,
             "k33": 0,
             "k41": 500/40,
@@ -456,7 +456,7 @@ def main(args):
             "eps12": 15,
             "eps13": 25,
             "eps21": 5,
-            "eps22": 25,
+            "eps22": 7,
             "eps23": 25,
         }
         run(params)
