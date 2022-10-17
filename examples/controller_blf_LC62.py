@@ -16,8 +16,6 @@ import ftc
 from ftc.utils import safeupdate
 from ftc.models.LC62 import LC62
 
-np.seterr(all="raise")
-
 
 class ActuatorDynamics(fym.BaseSystem):
     def __init__(self, tau, **kwargs):
@@ -344,7 +342,7 @@ def main(args):
             try:
                 while True:
                     done, env_info = env.step()
-                    tf = env.info["t"]
+                    tf = env_info["t"]
 
                     if done:
                         break
@@ -353,8 +351,8 @@ def main(args):
                 return {"tf": tf}
 
         config = {
-            "k11": tune.uniform(0.01, 100),
-            "k12": tune.uniform(0.01, 100),
+            "k11": 2/300,
+            "k12": 0.1,
             "k13": 0,
             "k21": tune.uniform(0.1, 100),
             "k22": tune.uniform(0.1, 100),
@@ -362,32 +360,32 @@ def main(args):
             "k31": tune.uniform(0.1, 100),
             "k32": tune.uniform(0.1, 100),
             "k33": 0,
-            "k41": tune.uniform(0.1, 100),
-            "k42": tune.uniform(0.1, 100),
+            "k41": 500/40,
+            "k42": 40,
             "k43": 0,
             "eps11": 2,
             "eps12": 2,
-            "eps13": tune.uniform(2, 100),
-            "eps21": tune.uniform(2, 100),
-            "eps22": tune.uniform(2, 100),
-            "eps23": tune.uniform(2, 100),
+            "eps13": 25,
+            "eps21": 25,
+            "eps22": 25,
+            "eps23": 25,
         }
         current_best_params = [{
             "k11": 2/300,
             "k12": 0.1,
             "k13": 0,
-            "k21": 0.1,
-            "k22": 15,
+            "k21": 0.5,
+            "k22": 0.1,
             "k23": 0,
-            "k31": 5,
+            "k31": 0.8,
             "k32": 10,
-            "k33": 1,
-            "k41": 300/40,
+            "k33": 0,
+            "k41": 500/40,
             "k42": 40,
             "k43": 0,
-            "eps11": 30,
-            "eps12": 10,
-            "eps13": 50,
+            "eps11": 1,
+            "eps12": 1,
+            "eps13": 25,
             "eps21": 25,
             "eps22": 25,
             "eps23": 25,
@@ -400,7 +398,7 @@ def main(args):
         tuner = tune.Tuner(
             tune.with_resources(
                 objective,
-                resources={"cpu": 12},
+                resources={"cpu": os.cpu_count()},
             ),
             param_space=config,
             tune_config=tune.TuneConfig(
@@ -435,18 +433,18 @@ def main(args):
             "k11": 2/300,
             "k12": 0.1,
             "k13": 0,
-            "k21": 0.01,
-            "k22": 1,
+            "k21": 0.5,
+            "k22": 0.1,
             "k23": 0,
-            "k31": 5,
+            "k31": 0.8,
             "k32": 10,
-            "k33": 1,
-            "k41": 300/40,
+            "k33": 0,
+            "k41": 500/40,
             "k42": 40,
             "k43": 0,
-            "eps11": 30,
-            "eps12": 10,
-            "eps13": 50,
+            "eps11": 1,
+            "eps12": 1,
+            "eps13": 25,
             "eps21": 25,
             "eps22": 25,
             "eps23": 25,
