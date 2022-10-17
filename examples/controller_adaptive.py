@@ -27,11 +27,13 @@ class Scenario:
             "rotor1": {"t": 4, "level": 1.0},
             "rotor2": {"t": 8, "level": 1.0},
             "rotor3": {"t1": 12, "t2": 12, "level": 1.0},
+            "rotor4": {"t": 15, "level": 1.0},
         },
         {
-            "rotor1": {"t": 4, "level": 0.1},
-            "rotor2": {"t": 8, "level": 0.5},
-            "rotor3": {"t1": 12, "t2": 15, "level": 0.7},
+            "rotor1": {"t": 3, "level": 0.1},
+            "rotor2": {"t": 7, "level": 0.5},
+            "rotor3": {"t1": 10, "t2": 13, "level": 0.7},
+            "rotor4": {"t": 15, "level": 0.6},
         },
     ]
 
@@ -86,6 +88,7 @@ class Scenario:
             if t < ls["rotor3"]["t2"]
             else ls["rotor3"]["level"]
         )
+        Lambda[3] = 1 if t < ls["rotor4"]["t"] else ls["rotor4"]["level"]
         return Lambda
 
     def get_delta(self, t):
