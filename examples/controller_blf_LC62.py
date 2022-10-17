@@ -31,7 +31,7 @@ class MyEnv(fym.BaseEnv):
     ENV_CONFIG = {
         "fkw": {
             "dt": 0.01,
-            "max_t": 10,
+            "max_t": 20,
         },
         "plant": {
             "init": {
@@ -109,7 +109,17 @@ class MyEnv(fym.BaseEnv):
             W1 = 0.5
         else:
             W1 = 1
-        Lambda = np.array([W1, 1, 1, 1, 1, 1])
+        # if t > 7:
+        #     W2 = 0.7
+        # else:
+        #     W2 = 1
+        # if t > 10:
+        #     W3 = 0.6
+        # elif t > 14:
+        #     W3 = 0.4
+        # else:
+        #     W3 = 1
+        Lambda = np.array([W1, W2, W3, 1, 1, 1])
 
         return Lambda
 
@@ -374,8 +384,8 @@ def main(args):
             "k11": 2/300,
             "k12": 0.1,
             "k13": 0,
-            "k21": 0.5,
-            "k22": 0.1,
+            "k21": 0,
+            "k22": 0,
             "k23": 0,
             "k31": 0.8,
             "k32": 10,
@@ -430,22 +440,22 @@ def main(args):
         return
     else:
         params = {
-            "k11": 2/300,
-            "k12": 0.1,
+            "k11": 2/3,
+            "k12": 1,
             "k13": 0,
-            "k21": 10,
+            "k21": 0.5,
             "k22": 1,
             "k23": 0,
             "k31": 0.8,
-            "k32": 10,
+            "k32": 20,
             "k33": 0,
             "k41": 500/40,
             "k42": 40,
             "k43": 0,
-            "eps11": 1,
-            "eps12": 1,
+            "eps11": 15,
+            "eps12": 15,
             "eps13": 25,
-            "eps21": 25,
+            "eps21": 5,
             "eps22": 25,
             "eps23": 25,
         }
