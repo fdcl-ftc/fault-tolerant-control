@@ -74,14 +74,11 @@ class MyEnv(fym.BaseEnv):
         ctrls = ctrls0
 
         """ set faults """
-        lctrls = ctrls.copy()
         Lambda = self.get_Lambda(t)
-        for i in range(6):
-            lctrls[i] = Lambda[i] * (lctrls[i] - 1000) / 1000
-            lctrls[i] = lctrls[i] * 1000 + 1000
-
-        # lctrls = self.set_Lambda(t, bctrls)  # lambda * bctrls
-        # ctrls = self.plant.saturate(lctrls)
+        lctrls = np.vstack([
+            (Lambda[:, None] * (ctrls[0:6] - 1000) / 1000) * 1000 + 1000,
+            ctrls[6:11]
+        ])
 
         FM = self.plant.get_FM(*self.plant.observe_list(), lctrls)
         self.plant.set_dot(t, FM)
@@ -119,19 +116,19 @@ def run(config):
     flogger = fym.Logger("data.h5")
 
     env.reset()
-    try:
-        while True:
-            env.render()
+    # try:
+    while True:
+        env.render()
 
-            done, env_info = env.step()
-            flogger.record(env=env_info)
+        done, env_info = env.step()
+        flogger.record(env=env_info)
 
-            if done:
-                break
+        if done:
+            break
 
-    finally:
-        flogger.close()
-        plot()
+    # finally:
+    flogger.close()
+    plot()
 
 
 def plot():
@@ -291,25 +288,20 @@ def plot():
     fig.align_ylabels(axes)
 
     """ Figure 3 - Rotor thrusts """
-    fig, axs = plt.subplots(3, 2, sharex=True)
-    ylabels = np.array((["Rotor 1", "Rotor 2"],
-                        ["Rotor 3", "Rotor 4"],
-                        ["Rotor 5", "Rotor 6"]))
-    for i, _ylabel in np.ndenumerate(ylabels):
-        ax = axs[i]
-        ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, sum(i)], "k-", label="Response")
-        ax.plot(data["t"], data["lctrls"].squeeze(-1)[:, sum(i)], "r--", label="Command")
-        ax.grid()
-        if i == (0, 1):
-            ax.legend(loc="upper right")
-        plt.setp(ax, ylabel=_ylabel)
-        ax.set_ylim([1000-5, 2000+5])
+    plt.figure()
+
+    ax = plt.subplot(321)
+    for i in range(6):
+        if i != 0:
+            plt.subplot(321+i, sharex=ax)
+        plt.ylim([1000-5, 2000+5])
+        plt.plot(data["t"], data["lctrls"].squeeze(-1)[:, i], "k-", label="Response")
+        plt.plot(data["t"], data["ctrls"].squeeze(-1)[:, i], "r--", label="Command")
+        if i == 0:
+            plt.legend(loc='upper right')
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Rotor Thrusts")
-
-    fig.tight_layout()
-    fig.subplots_adjust(wspace=0.5)
-    fig.align_ylabels(axs)
+    plt.tight_layout()
 
     """ Figure 4 - Pusher and Control surfaces """
     fig, axs = plt.subplots(5, 1, sharex=True)
@@ -327,10 +319,6 @@ def plot():
             ax.legend(loc="upper right")
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Pusher and Control Surfaces")
-
-    fig.tight_layout()
-    fig.subplots_adjust(wspace=0.5)
-    fig.align_ylabels(axs)
 
     # dist
     plt.figure()
