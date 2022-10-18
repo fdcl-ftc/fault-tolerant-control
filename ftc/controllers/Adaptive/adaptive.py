@@ -12,11 +12,11 @@ def cross(x, y):
 class Adaptive(fym.BaseEnv):
     CONTROLLER_CONFIG = {
         "outer_surface_factor": 20,
-        "outer_proportional": 0.008,
-        "outer_adaptive_gain": 0.0017,
-        "outer_adaptive_decay": 0.07,
-        "inner_surface_factor": 20,
-        "inner_proportional": 3,
+        "outer_proportional": 0.005,
+        "outer_adaptive_gain": 0.001,
+        "outer_adaptive_decay": 0.05,
+        "inner_surface_factor": 10,
+        "inner_proportional": 5,
         "inner_adaptive_gain": 0.3,
         "inner_adaptive_decay": 0.2,
         "use_Nussbaum": True,

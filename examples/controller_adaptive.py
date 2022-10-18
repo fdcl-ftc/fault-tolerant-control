@@ -47,7 +47,7 @@ class Scenario:
         self.Lambda_scenario = self.LAMBDA_SCENARIOS[scenario_config["index"]]
 
     def posd(self, t):
-        return np.vstack((5.0, 0.0, 0.0))
+        return np.vstack((1.0, 0.0, 0.0))
 
     def posd_dot(self, t):
         return np.zeros((3, 1))
