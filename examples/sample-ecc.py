@@ -87,7 +87,7 @@ class Env(fym.BaseEnv):
     def running_cost(self):
         pos, vel, quat, omega = self.plant.observe_list()
         ang = np.vstack(quat2angle(quat)[::-1])
-        rc = pos[2]**2 + vel[2]**2 + ang.T @ ang + omega.T @ omega
+        rc = pos[2]**2 + vel[2]**2 + 100 * ang.T @ ang + 100 * omega.T @ omega
         return rc
 
 
@@ -134,3 +134,82 @@ if __name__ == "__main__":
     N = 1
     seed = 0
     parsim(N, seed)
+
+    # data = fym.load("data/env_0000.h5")["env"]
+
+    # """ Figure 1 - States """
+    # fig, axes = plt.subplots(3, 4, figsize=(18, 5), squeeze=False, sharex=True)
+
+    # """ Column 1 - States: Position """
+    # ax = axes[0, 0]
+    # ax.plot(data["t"], data["plant"]["pos"][:, 0].squeeze(-1), "k-")
+    # ax.plot(data["t"], data["posd"][:, 0].squeeze(-1), "r--")
+    # ax.set_ylabel(r"$x$, m")
+    # ax.legend(["Response", "Command"], loc="upper right")
+    # ax.set_xlim(data["t"][0], data["t"][-1])
+
+    # ax = axes[1, 0]
+    # ax.plot(data["t"], data["plant"]["pos"][:, 1].squeeze(-1), "k-")
+    # ax.plot(data["t"], data["posd"][:, 1].squeeze(-1), "r--")
+    # ax.set_ylabel(r"$y$, m")
+
+    # ax = axes[2, 0]
+    # ax.plot(data["t"], data["plant"]["pos"][:, 2].squeeze(-1), "k-")
+    # ax.plot(data["t"], data["posd"][:, 2].squeeze(-1), "r--")
+    # ax.set_ylabel(r"$z$, m")
+
+    # ax.set_xlabel("Time, sec")
+
+    # """ Column 2 - States: Velocity """
+    # ax = axes[0, 1]
+    # ax.plot(data["t"], data["plant"]["vel"][:, 0].squeeze(-1), "k-")
+    # ax.set_ylabel(r"$v_x$, m/s")
+
+    # ax = axes[1, 1]
+    # ax.plot(data["t"], data["plant"]["vel"][:, 1].squeeze(-1), "k-")
+    # ax.set_ylabel(r"$v_y$, m/s")
+
+    # ax = axes[2, 1]
+    # ax.plot(data["t"], data["plant"]["vel"][:, 2].squeeze(-1), "k-")
+    # ax.set_ylabel(r"$v_z$, m/s")
+
+    # ax.set_xlabel("Time, sec")
+
+    # """ Column 3 - States: Euler angles """
+    # ax = axes[0, 2]
+    # ax.plot(data["t"], np.rad2deg(data["ang"][:, 0].squeeze(-1)), "k-")
+    # ax.plot(data["t"], np.rad2deg(data["angd"][:, 0].squeeze(-1)), "r--")
+    # ax.set_ylabel(r"$\phi$, deg")
+
+    # ax = axes[1, 2]
+    # ax.plot(data["t"], np.rad2deg(data["ang"][:, 1].squeeze(-1)), "k-")
+    # ax.plot(data["t"], np.rad2deg(data["angd"][:, 1].squeeze(-1)), "r--")
+    # ax.set_ylabel(r"$\theta$, deg")
+
+    # ax = axes[2, 2]
+    # ax.plot(data["t"], np.rad2deg(data["ang"][:, 2].squeeze(-1)), "k-")
+    # ax.plot(data["t"], np.rad2deg(data["angd"][:, 2].squeeze(-1)), "r--")
+    # ax.set_ylabel(r"$\psi$, deg")
+
+    # ax.set_xlabel("Time, sec")
+
+    # """ Column 4 - States: Angular rates """
+    # ax = axes[0, 3]
+    # ax.plot(data["t"], np.rad2deg(data["plant"]["omega"][:, 0].squeeze(-1)), "k-")
+    # ax.set_ylabel(r"$p$, deg/s")
+
+    # ax = axes[1, 3]
+    # ax.plot(data["t"], np.rad2deg(data["plant"]["omega"][:, 1].squeeze(-1)), "k-")
+    # ax.set_ylabel(r"$q$, deg/s")
+
+    # ax = axes[2, 3]
+    # ax.plot(data["t"], np.rad2deg(data["plant"]["omega"][:, 2].squeeze(-1)), "k-")
+    # ax.set_ylabel(r"$r$, deg/s")
+
+    # ax.set_xlabel("Time, sec")
+
+    # fig.tight_layout()
+    # fig.subplots_adjust(wspace=0.3)
+    # fig.align_ylabels(axes)
+
+    # plt.show()
