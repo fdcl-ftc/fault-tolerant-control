@@ -24,7 +24,7 @@ class BLFController(BaseEnv):
         super().__init__()
         # controller gain
         alp = np.array([3, 3, 1])
-        rho = np.array([1, 0.5])
+        rho = np.array([2, 0.5])
         rho_k = 0.5
         theta = 0.7
         # controllers
@@ -85,7 +85,7 @@ class BLFController(BaseEnv):
 
         # Inverse solution
         u1 = m * (q[0]**2 + q[1]**2 + (q[2]-g)**2)**(1/2)
-        phid = np.clip(np.arcsin(- q[1] * m / u1),
+        phid = np.clip(np.arcsin(q[1] * m / u1),
                        - np.deg2rad(45), np.deg2rad(45))
         thetad = np.clip(np.arctan(q[0] / (q[2] - g)),
                          - np.deg2rad(45), np.deg2rad(45))

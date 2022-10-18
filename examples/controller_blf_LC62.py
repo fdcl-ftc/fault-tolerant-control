@@ -64,8 +64,8 @@ class MyEnv(fym.BaseEnv):
         return self.observe_flat()
 
     def get_ref(self, t, *args):
-        posd = np.vstack([np.sin(t), 0, 0])
-        posd_dot = np.vstack([np.cos(t), 0, 0])
+        posd = np.vstack([np.sin(t), np.cos(t), -t])
+        posd_dot = np.vstack([np.cos(t), -np.sin(t), -1])
         refs = {"posd": posd, "posd_dot": posd_dot}
         return [refs[key] for key in args]
 
@@ -101,21 +101,15 @@ class MyEnv(fym.BaseEnv):
 
     def get_Lambda(self, t):
         """Lambda function"""
-        # if t > 5:
-        #     W1 = 0.5
-        # else:
-        #     W1 = 1
-        # if t > 7:
-        #     W2 = 0.7
-        # else:
-        #     W2 = 1
-        # if t > 10:
-        #     W3 = 0.6
-        # elif t > 16:
-        #     W3 = 0.4
-        # else:
-        #     W3 = 1
-        Lambda = np.array([1, 1, 1, 1, 1, 1])
+        if t > 5:
+            W1 = 0.5
+        else:
+            W1 = 1
+        if t > 7:
+            W2 = 0.7
+        else:
+            W2 = 1
+        Lambda = np.array([W1, W2, 1, 1, 1, 1])
 
         return Lambda
 
@@ -148,23 +142,35 @@ def plot():
 
     """ Column 1 - States: Position """
     ax = axes[0, 0]
-    ax.plot(data["t"], data["plant"]["pos"][:, 0].squeeze(-1), "k-")
-    ax.plot(data["t"], data["posd"][:, 0].squeeze(-1), "r--")
-    ax.plot(data["t"], data["obs_pos"][:, 0].squeeze(-1)+data["posd"][:, 0].squeeze(-1), "b--")
+    ax.plot(data["t"], data["plant"]["pos"][:, 0].squeeze(-1)-data["posd"][:, 0].squeeze(-1), "k-")
+    ax.plot(data["t"], data["obs_pos"][:, 0].squeeze(-1), "b--")
+    ax.plot(data["t"], data["bound_err"], "r:")
+    ax.plot(data["t"], -data["bound_err"], "r:")
+    # ax.plot(data["t"], data["plant"]["pos"][:, 0].squeeze(-1), "k-")
+    # ax.plot(data["t"], data["posd"][:, 0].squeeze(-1), "r--")
+    # ax.plot(data["t"], data["obs_pos"][:, 0].squeeze(-1)+data["posd"][:, 0].squeeze(-1), "b--")
     ax.set_ylabel(r"$x$, m")
     ax.legend(["Response", "Command", "Estimation"], loc="upper right")
     ax.set_xlim(data["t"][0], data["t"][-1])
 
     ax = axes[1, 0]
-    ax.plot(data["t"], data["plant"]["pos"][:, 1].squeeze(-1), "k-")
-    ax.plot(data["t"], data["posd"][:, 1].squeeze(-1), "r--")
-    ax.plot(data["t"], data["obs_pos"][:, 1].squeeze(-1)+data["posd"][:, 1].squeeze(-1), "b--")
+    ax.plot(data["t"], data["plant"]["pos"][:, 1].squeeze(-1)-data["posd"][:, 1].squeeze(-1), "k-")
+    ax.plot(data["t"], data["obs_pos"][:, 1].squeeze(-1), "b--")
+    ax.plot(data["t"], data["bound_err"], "r:")
+    ax.plot(data["t"], -data["bound_err"], "r:")
+    # ax.plot(data["t"], data["plant"]["pos"][:, 1].squeeze(-1), "k-")
+    # ax.plot(data["t"], data["posd"][:, 1].squeeze(-1), "r--")
+    # ax.plot(data["t"], data["obs_pos"][:, 1].squeeze(-1)+data["posd"][:, 1].squeeze(-1), "b--")
     ax.set_ylabel(r"$y$, m")
 
     ax = axes[2, 0]
-    ax.plot(data["t"], data["plant"]["pos"][:, 2].squeeze(-1), "k-")
-    ax.plot(data["t"], data["posd"][:, 2].squeeze(-1), "r--")
-    ax.plot(data["t"], data["obs_pos"][:, 2].squeeze(-1)+data["posd"][:, 2].squeeze(-1), "b--")
+    ax.plot(data["t"], data["plant"]["pos"][:, 2].squeeze(-1)-data["posd"][:, 2].squeeze(-1), "k-")
+    ax.plot(data["t"], data["obs_pos"][:, 2].squeeze(-1), "b--")
+    ax.plot(data["t"], data["bound_err"], "r:")
+    ax.plot(data["t"], -data["bound_err"], "r:")
+    # ax.plot(data["t"], data["plant"]["pos"][:, 2].squeeze(-1), "k-")
+    # ax.plot(data["t"], data["posd"][:, 2].squeeze(-1), "r--")
+    # ax.plot(data["t"], data["obs_pos"][:, 2].squeeze(-1)+data["posd"][:, 2].squeeze(-1), "b--")
     ax.set_ylabel(r"$z$, m")
 
     ax.set_xlabel("Time, sec")
@@ -190,18 +196,24 @@ def plot():
     ax.plot(data["t"], np.rad2deg(data["ang"][:, 0].squeeze(-1)), "k-")
     ax.plot(data["t"], np.rad2deg(data["angd"][:, 0].squeeze(-1)), "r--")
     ax.plot(data["t"], np.rad2deg(data["obs_ang"][:, 0].squeeze(-1)), "b--")
+    ax.plot(data["t"], np.rad2deg(data["bound_ang"][:, 0]), "r:")
+    ax.plot(data["t"], np.rad2deg(-data["bound_ang"][:, 0]), "r:")
     ax.set_ylabel(r"$\phi$, deg")
 
     ax = axes[1, 2]
     ax.plot(data["t"], np.rad2deg(data["ang"][:, 1].squeeze(-1)), "k-")
     ax.plot(data["t"], np.rad2deg(data["angd"][:, 1].squeeze(-1)), "r--")
     ax.plot(data["t"], np.rad2deg(data["obs_ang"][:, 1].squeeze(-1)), "b--")
+    ax.plot(data["t"], np.rad2deg(data["bound_ang"][:, 0]), "r:")
+    ax.plot(data["t"], np.rad2deg(-data["bound_ang"][:, 0]), "r:")
     ax.set_ylabel(r"$\theta$, deg")
 
     ax = axes[2, 2]
     ax.plot(data["t"], np.rad2deg(data["ang"][:, 2].squeeze(-1)), "k-")
     ax.plot(data["t"], np.rad2deg(data["angd"][:, 2].squeeze(-1)), "r--")
     ax.plot(data["t"], np.rad2deg(data["obs_ang"][:, 2].squeeze(-1)), "b--")
+    ax.plot(data["t"], np.rad2deg(data["bound_ang"][:, 0]), "r:")
+    ax.plot(data["t"], np.rad2deg(-data["bound_ang"][:, 0]), "r:")
     ax.set_ylabel(r"$\psi$, deg")
 
     ax.set_xlabel("Time, sec")
@@ -209,15 +221,21 @@ def plot():
     """ Column 4 - States: Angular rates """
     ax = axes[0, 3]
     ax.plot(data["t"], np.rad2deg(data["plant"]["omega"][:, 0].squeeze(-1)), "k-")
+    ax.plot(data["t"], np.rad2deg(data["bound_ang"][:, 1]), "r:")
+    ax.plot(data["t"], np.rad2deg(-data["bound_ang"][:, 1]), "r:")
     ax.set_ylabel(r"$p$, deg/s")
     ax.legend(["Response", "Ref"], loc="upper right")
 
     ax = axes[1, 3]
     ax.plot(data["t"], np.rad2deg(data["plant"]["omega"][:, 1].squeeze(-1)), "k-")
+    ax.plot(data["t"], np.rad2deg(data["bound_ang"][:, 1]), "r:")
+    ax.plot(data["t"], np.rad2deg(-data["bound_ang"][:, 1]), "r:")
     ax.set_ylabel(r"$q$, deg/s")
 
     ax = axes[2, 3]
     ax.plot(data["t"], np.rad2deg(data["plant"]["omega"][:, 2].squeeze(-1)), "k-")
+    ax.plot(data["t"], np.rad2deg(data["bound_ang"][:, 1]), "r:")
+    ax.plot(data["t"], np.rad2deg(-data["bound_ang"][:, 1]), "r:")
     ax.set_ylabel(r"$r$, deg/s")
 
     ax.set_xlabel("Time, sec")
@@ -437,26 +455,26 @@ def main(args):
     else:
         params = {
             "k01": 1,
-            "k02": 0.01,
+            "k02": 0.1,
             "k03": 0,
-            "k11": 100/12,
-            "k12": 12,
+            "k11": 1.3,
+            "k12": 0.1,
             "k13": 0,
             "k51": 1,
-            "k52": 0.01,
+            "k52": 0.05,
             "k53": 0,
-            "k21": 200/20,
-            "k22": 20,
+            "k21": 500/40,
+            "k22": 40,
             "k23": 0,
-            "k31": 300/20,
-            "k32": 20,
+            "k31": 500/40,
+            "k32": 40,
             "k33": 0,
             "k41": 500/40,
             "k42": 40,
             "k43": 0,
             "eps11": 5,
-            "eps12": 2,
-            "eps13": 12,
+            "eps12": 5,
+            "eps13": 20,
             "eps21": 30,
             "eps22": 30,
             "eps23": 30,
