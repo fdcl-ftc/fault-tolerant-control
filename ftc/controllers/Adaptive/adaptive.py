@@ -11,14 +11,14 @@ def cross(x, y):
 
 class Adaptive(fym.BaseEnv):
     CONTROLLER_CONFIG = {
-        "outer_surface_factor": 20,
-        "outer_proportional": 0.005,
-        "outer_adaptive_gain": 0.001,
-        "outer_adaptive_decay": 0.05,
-        "inner_surface_factor": 10,
-        "inner_proportional": 5,
-        "inner_adaptive_gain": 0.3,
-        "inner_adaptive_decay": 0.2,
+        "outer_surface_factor": np.vstack((0.6, 0.6, 6.0)),
+        "outer_proportional": np.vstack((0.3, 0.3, 3.0)),
+        "outer_adaptive_gain": 0.2,
+        "outer_adaptive_decay": 0.1,
+        "inner_surface_factor": 20.0,
+        "inner_proportional": 7.0,
+        "inner_adaptive_gain": 1.2,
+        "inner_adaptive_decay": 0.7,
         "use_Nussbaum": True,
     }
 
