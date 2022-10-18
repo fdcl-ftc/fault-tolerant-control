@@ -11,14 +11,14 @@ def cross(x, y):
 
 class Adaptive(fym.BaseEnv):
     CONTROLLER_CONFIG = {
-        "outer_surface_factor": np.vstack((0.6, 0.6, 6.0)),
-        "outer_proportional": np.vstack((0.3, 0.3, 3.0)),
-        "outer_adaptive_gain": 0.2,
-        "outer_adaptive_decay": 0.1,
-        "inner_surface_factor": 20.0,
-        "inner_proportional": 7.0,
-        "inner_adaptive_gain": 1.2,
-        "inner_adaptive_decay": 0.7,
+        "outer_surface_factor": np.vstack((1.2, 1.2, 1.2)),
+        "outer_proportional": np.vstack((0.2, 0.2, 5)),
+        "outer_adaptive_gain": np.vstack((0.001, 0.001, 0.3)),
+        "outer_adaptive_decay": np.vstack((0.1, 0.1, 0.1)),
+        "inner_surface_factor": 20,
+        "inner_proportional": 5,
+        "inner_adaptive_gain": 0.001,
+        "inner_adaptive_decay": 0.1,
         "use_Nussbaum": True,
     }
 
@@ -30,14 +30,14 @@ class Adaptive(fym.BaseEnv):
         """ Fym Systems """
 
         """ Aux """
-        self.W1hat = fym.BaseSystem()
+        self.W1hat = fym.BaseSystem(shape=(3, 1))
         self.W2hat = fym.BaseSystem()
         if cfg["use_Nussbaum"]:
             self.mu = fym.BaseSystem(shape=(6, 1))
 
         """ Basis function """
 
-        self.kernel = RBF(3.0, "fixed")
+        self.kernel = RBF(10.0, "fixed")
         self.centers = np.zeros((50, 1))
 
         """ LC62 """
@@ -63,7 +63,7 @@ class Adaptive(fym.BaseEnv):
 
         """ Model uncertainties """
 
-        m = env.plant.m * 1.2
+        m = env.plant.m
         g = env.plant.g
         J = env.plant.J
         Jinv = env.plant.Jinv
@@ -84,17 +84,12 @@ class Adaptive(fym.BaseEnv):
         z1 = e1_dot + cfg["outer_surface_factor"] * e1
 
         # adaptive
-        Phi1 = self.get_Psi(
-            pos,
-            posd,
-            vel,
-            posd_dot,
-        )
-        varphi1 = Phi1.T @ Phi1
+        Phi1 = self.get_Psi(pos, vel)
+        varphi1 = (1 + np.linalg.norm(Phi1)) ** 2 * np.ones((3, 1))
 
         W1hat = self.W1hat.state
         self.W1hat.dot = (
-            cfg["outer_adaptive_gain"] * varphi1 * z1.T @ z1
+            cfg["outer_adaptive_gain"] * varphi1 * z1**2
             - cfg["outer_adaptive_decay"] * W1hat
         )
 
@@ -160,13 +155,8 @@ class Adaptive(fym.BaseEnv):
         e2_dot = xi_dot - xid_dot
         z2 = e2_dot + cfg["inner_surface_factor"] * e2
 
-        Phi2 = self.get_Psi(
-            xi,
-            xid,
-            xi_dot,
-            xid_dot,
-        )
-        varphi2 = Phi2.T @ Phi2
+        Phi2 = self.get_Psi(xi, xi_dot)
+        varphi2 = (1 + np.linalg.norm(Phi2)) ** 2
         W2hat = self.W2hat.state
         self.W2hat.dot = (
             cfg["inner_adaptive_gain"] * varphi2 * z2.T @ z2
@@ -179,11 +169,11 @@ class Adaptive(fym.BaseEnv):
             + np.linalg.inv(H)
             @ (
                 -H_dot @ omega
-                - cfg["inner_adaptive_gain"] * W2hat * varphi2 * z2
                 + xid_ddot
                 - cfg["inner_surface_factor"] * e2_dot
                 - cfg["inner_proportional"] * z2
             )
+            - cfg["inner_adaptive_gain"] * W2hat * varphi2 * z2
         )
 
         uc = Binv @ np.vstack((uf, v))
@@ -199,7 +189,7 @@ class Adaptive(fym.BaseEnv):
             mu = self.mu.state
             N = self.Nussbaum(mu)
 
-            b = 0.001
+            b = 1
             self.mu.dot = -b * 1 * (B.T @ G.T @ np.vstack((z1[2:], z2))) * uc
             uc = N * uc
 
