@@ -38,18 +38,18 @@ class BLFController(BaseEnv):
         self.Cz = outerLoop(alp, env_config["eps13"], rho, rho_k, theta,
                             np.array([env_config["k51"], env_config["k52"],
                                       env_config["k53"]]))
-        rho = np.deg2rad([45, 130])
+        rho = np.deg2rad([45, 160])
         xi1 = np.array([-1, 1]) * 2000 * 0.717 * 3
         xi2 = np.array([-1, 1]) * 2000 * 3
         xi3 = np.array([-1, 1]) * 2000 * 0.0338 * 3
-        c = np.ones((2,)) * 20
-        self.Cphi = innerLoop(alp, env_config["eps21"], xi1, rho, c, theta,
+        c_ = np.ones((2,)) * 20
+        self.Cphi = innerLoop(alp, env_config["eps21"], xi1, rho, c_, theta,
                               np.array([env_config["k21"], env_config["k22"],
                                         env_config["k23"]]))
-        self.Ctheta = innerLoop(alp, env_config["eps22"], xi2, rho, c, theta,
+        self.Ctheta = innerLoop(alp, env_config["eps22"], xi2, rho, c_, theta,
                                 np.array([env_config["k31"], env_config["k32"],
                                           env_config["k33"]]))
-        self.Cpsi = innerLoop(alp, env_config["eps23"], xi3, rho, c, theta,
+        self.Cpsi = innerLoop(alp, env_config["eps23"], xi3, rho, c_, theta,
                               np.array([env_config["k41"], env_config["k42"],
                                         env_config["k43"]]))
 
