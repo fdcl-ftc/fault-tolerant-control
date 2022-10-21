@@ -4,6 +4,7 @@ from matplotlib import animation
 import argparse
 
 import fym
+from fym.utils.rot import angle2quat
 
 import ftc
 from ftc.utils import safeupdate
@@ -23,6 +24,7 @@ class ActuatorDynamics(fym.BaseSystem):
 
 
 class MyEnv(fym.BaseEnv):
+    # euler = np.random.uniform(-np.deg2rad(10), np.deg2rad(10), size=(3, 1))
     ENV_CONFIG = {
         "fkw": {
             "dt": 0.01,
@@ -34,6 +36,10 @@ class MyEnv(fym.BaseEnv):
                 "vel": np.zeros((3, 1)),
                 "quat": np.vstack((1, 0, 0, 0)),
                 "omega": np.zeros((3, 1)),
+                # "pos": np.random.uniform(-1, 1, size=(3, 1)),
+                # "vel": np.random.uniform(-2, 2, size=(3, 1)),
+                # "quat": angle2quat(0, euler[1], euler[0]),
+                # "omega": np.random.uniform(-np.deg2rad(5), np.deg2rad(5), size=(3, 1)),
             },
         },
     }
@@ -91,7 +97,8 @@ class MyEnv(fym.BaseEnv):
 
     def set_Lambda(self, t, ctrls):
         Lambda = self.get_Lambda(t)
-        return Lambda * ctrls
+        ctrls[:6] = Lambda[:6,:] * ((ctrls[:6] - 1000) / 1000) * 1000 + 1000
+        return ctrls
 
 
 def run():
@@ -244,9 +251,10 @@ def plot():
                         ["Rotor 3", "Rotor 4"],
                         ["Rotor 5", "Rotor 6"]))
     for i, _ylabel in np.ndenumerate(ylabels):
+        x, y = i
         ax = axs[i]
-        ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, sum(i)], "k-", label="Response")
-        ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, sum(i)], "r--", label="Command")
+        ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, 2*x+y], "k-", label="Response")
+        ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, 2*x+y], "r--", label="Command")
         ax.grid()
         if i == (0, 1):
             ax.legend(loc="upper right")
@@ -302,6 +310,7 @@ def plot():
     # t = data["t"]
     # x = data["plant"]["pos"].squeeze(-1).T
     # q = data["plant"]["quat"].squeeze(-1).T
+    # lamb = data["Lambda"].squeeze(-1).T
 
     # numFrames = 10
 
@@ -311,7 +320,7 @@ def plot():
     # uav = LC62Frame(ax)
     # ani = animation.FuncAnimation(
     #     fig, update_plot, frames=len(t[::numFrames]),
-    #     fargs=(uav, t, x, q, numFrames), interval=1
+    #     fargs=(uav, t, x, q, lamb, numFrames), interval=1
     # )
     # # ani.save("animation.gif", dpi=80, writer="imagemagick", fps=25)
 

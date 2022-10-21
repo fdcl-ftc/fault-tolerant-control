@@ -27,15 +27,15 @@ class INDIController(fym.BaseEnv):
 
         posd, posd_dot = env.get_ref(t, "posd", "posd_dot")
 
-        # """ outer-loop control """
-        # xo, xod = pos[0:2], posd[0:2]
-        # xo_dot, xod_dot = vel[0:2], posd_dot[0:2]
-        # eo, eo_dot = xo - xod, xo_dot - xod_dot
-        # Ko1 = 0.5*np.diag((3, 1))
-        # Ko2 = 0.5*np.diag((3, 2))
-        # nuo = (- Ko1 @ eo - Ko2 @ eo_dot) / env.plant.g
-        # angd = np.vstack((nuo[1], - nuo[0], 0))
-        angd = np.deg2rad(np.vstack((0, 0, 0)))
+        """ outer-loop control """
+        xo, xod = pos[0:2], posd[0:2]
+        xo_dot, xod_dot = vel[0:2], posd_dot[0:2]
+        eo, eo_dot = xo - xod, xo_dot - xod_dot
+        Ko1 = 0.5*np.diag((2, 1))
+        Ko2 = 0.5*np.diag((3, 2))
+        nuo = (- Ko1 @ eo - Ko2 @ eo_dot) / env.plant.g
+        angd = np.vstack((nuo[1], - nuo[0], 0))
+        # angd = np.deg2rad(np.vstack((0, 0, 0)))
 
         """ inner-loop control """
         xi = np.vstack((pos[2], ang))
@@ -66,6 +66,11 @@ class INDIController(fym.BaseEnv):
         self.lpf_dxi.dot = - (xi_dot_f - xi_dot) / self.tau
         self.lpf_nu.dot = - (nu_f - nu) / self.tau
 
+        # _B = self.B_r2f.copy()
+        # if t > 1.1:
+        #     _B[:, 0] = np.zeros(4,)
+        #     _B[:, 1] = np.zeros(4,)
+        # th = np.linalg.pinv(_B) @ nu_f
         th = np.linalg.pinv(self.B_r2f) @ nu_f
         pwms_rotor = (th / self.c_th) * 1000 + 1000
 
