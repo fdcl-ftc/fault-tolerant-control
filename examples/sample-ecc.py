@@ -142,109 +142,124 @@ def parsim(N=1, seed=0):
 if __name__ == "__main__":
     N = 1
     seed = 0
-    parsim(N, seed)
+    # parsim(N, seed)
 
-    # dataopt = fym.load("dataopt/env_0002.h5")["env"]
-    # datatest = fym.load("datatest/env_0002.h5")["env"]
-    # datafix = fym.load("datafix/env_0002.h5")["env"]
+    dataopt = fym.load("dataopt/env_0002.h5")["env"]  # plse
+    datatest = fym.load("datatest/env_0002.h5")["env"]  # random
+    datafix2 = fym.load("datafix2/env_0002.h5")["env"]
+    datafix3 = fym.load("datafix3/env_0002.h5")["env"]
+    datafnn = fym.load("datafnn/env_0002.h5")["env"]
 
-    # """ Figure 1 - States """
-    # fig, axes = plt.subplots(3, 4, figsize=(18, 5), squeeze=False, sharex=True)
+    """ Figure 1 - States """
+    fig, axes = plt.subplots(2, 4, figsize=(18, 5), squeeze=False, sharex=True)
 
-    # """ Column 1 - States: Position """
-    # ax = axes[0, 0]
-    # ax.plot(dataopt["t"], dataopt["plant"]["pos"][:, 0].squeeze(-1), "k-")
-    # ax.plot(datatest["t"], datatest["plant"]["pos"][:, 0].squeeze(-1), "b-.")
-    # ax.plot(datafix["t"], datafix["plant"]["pos"][:, 0].squeeze(-1), "g:")
-    # ax.plot(dataopt["t"], dataopt["posd"][:, 0].squeeze(-1), "r--")
-    # ax.set_ylabel(r"$x$, m")
-    # ax.legend(["Res (PLSE)", "Res (Random)", "Res (Fixed)", "Command"], loc="upper right")
-    # ax.set_xlim(dataopt["t"][0], dataopt["t"][-1])
+    """ Column 1 """
+    ax = axes[0, 0]
+    ax.plot(dataopt["t"], dataopt["plant"]["pos"][:, 2].squeeze(-1), "k-")
+    ax.plot(datatest["t"], datatest["plant"]["pos"][:, 2].squeeze(-1), "b-.")
+    ax.plot(datafix2["t"], datafix2["plant"]["pos"][:, 2].squeeze(-1), "g:")
+    ax.plot(datafix3["t"], datafix3["plant"]["pos"][:, 2].squeeze(-1), "m^")
+    ax.plot(datafnn["t"], datafnn["plant"]["pos"][:, 2].squeeze(-1), "c.")
+    ax.plot(dataopt["t"], dataopt["posd"][:, 2].squeeze(-1), "r--")
+    ax.set_ylabel(r"$z$, m")
+    ax.legend(["Res(PLSE)", "Res(Random)", "Res(Fix2)", "Res(Fix3)", "Res(FNN)", "Command"], loc="upper right")
 
-    # ax = axes[1, 0]
-    # ax.plot(dataopt["t"], dataopt["plant"]["pos"][:, 1].squeeze(-1), "k-")
-    # ax.plot(datatest["t"], datatest["plant"]["pos"][:, 1].squeeze(-1), "b-.")
-    # ax.plot(datafix["t"], datafix["plant"]["pos"][:, 1].squeeze(-1), "g:")
-    # ax.plot(dataopt["t"], dataopt["posd"][:, 1].squeeze(-1), "r--")
-    # ax.set_ylabel(r"$y$, m")
+    ax.set_xlabel("Time, sec")
 
-    # ax = axes[2, 0]
-    # ax.plot(dataopt["t"], dataopt["plant"]["pos"][:, 2].squeeze(-1), "k-")
-    # ax.plot(datatest["t"], datatest["plant"]["pos"][:, 2].squeeze(-1), "b-.")
-    # ax.plot(datafix["t"], datafix["plant"]["pos"][:, 2].squeeze(-1), "g:")
-    # ax.plot(dataopt["t"], dataopt["posd"][:, 2].squeeze(-1), "r--")
-    # ax.set_ylabel(r"$z$, m")
+    ax = axes[0, 1]
+    ax.plot(dataopt["t"], dataopt["plant"]["vel"][:, 2].squeeze(-1), "k-")
+    ax.plot(datatest["t"], datatest["plant"]["vel"][:, 2].squeeze(-1), "b-.")
+    ax.plot(datafix2["t"], datafix2["plant"]["vel"][:, 2].squeeze(-1), "g:")
+    ax.plot(datafix3["t"], datafix3["plant"]["vel"][:, 2].squeeze(-1), "m^")
+    ax.plot(datafnn["t"], datafnn["plant"]["vel"][:, 2].squeeze(-1), "c.")
+    ax.set_ylabel(r"$v_z$, m/s")
 
-    # ax.set_xlabel("Time, sec")
+    ax.set_xlabel("Time, sec")
 
-    # """ Column 2 - States: Velocity """
-    # ax = axes[0, 1]
-    # ax.plot(dataopt["t"], dataopt["plant"]["vel"][:, 0].squeeze(-1), "k-")
-    # ax.plot(datatest["t"], datatest["plant"]["vel"][:, 0].squeeze(-1), "b-.")
-    # ax.plot(datafix["t"], datafix["plant"]["vel"][:, 0].squeeze(-1), "g:")
-    # ax.set_ylabel(r"$v_x$, m/s")
+    ax = axes[0, 2]
+    ax.plot(dataopt["t"], np.rad2deg(dataopt["ang"][:, 0].squeeze(-1)), "k-")
+    ax.plot(datatest["t"], np.rad2deg(datatest["ang"][:, 0].squeeze(-1)), "b-.")
+    ax.plot(datafix2["t"], np.rad2deg(datafix2["ang"][:, 0].squeeze(-1)), "g:")
+    ax.plot(datafix3["t"], np.rad2deg(datafix3["ang"][:, 0].squeeze(-1)), "m^")
+    ax.plot(datafnn["t"], np.rad2deg(datafnn["ang"][:, 0].squeeze(-1)), "c.")
+    ax.plot(dataopt["t"], np.rad2deg(dataopt["angd"][:, 0].squeeze(-1)), "r--")
+    ax.set_ylabel(r"$\phi$, deg")
 
-    # ax = axes[1, 1]
-    # ax.plot(dataopt["t"], dataopt["plant"]["vel"][:, 1].squeeze(-1), "k-")
-    # ax.plot(datatest["t"], datatest["plant"]["vel"][:, 1].squeeze(-1), "b-.")
-    # ax.plot(datafix["t"], datafix["plant"]["vel"][:, 1].squeeze(-1), "g:")
-    # ax.set_ylabel(r"$v_y$, m/s")
+    ax = axes[0, 3]
+    ax.plot(dataopt["t"], np.rad2deg(dataopt["ang"][:, 1].squeeze(-1)), "k-")
+    ax.plot(datatest["t"], np.rad2deg(datatest["ang"][:, 1].squeeze(-1)), "b-.")
+    ax.plot(datafix2["t"], np.rad2deg(datafix2["ang"][:, 1].squeeze(-1)), "g:")
+    ax.plot(datafix3["t"], np.rad2deg(datafix3["ang"][:, 1].squeeze(-1)), "m^")
+    ax.plot(datafnn["t"], np.rad2deg(datafnn["ang"][:, 1].squeeze(-1)), "c.")
+    ax.plot(dataopt["t"], np.rad2deg(dataopt["angd"][:, 1].squeeze(-1)), "r--")
+    ax.set_ylabel(r"$\theta$, deg")
 
-    # ax = axes[2, 1]
-    # ax.plot(dataopt["t"], dataopt["plant"]["vel"][:, 2].squeeze(-1), "k-")
-    # ax.plot(datatest["t"], datatest["plant"]["vel"][:, 2].squeeze(-1), "b-.")
-    # ax.plot(datafix["t"], datafix["plant"]["vel"][:, 2].squeeze(-1), "g:")
-    # ax.set_ylabel(r"$v_z$, m/s")
+    """ Column 2 """
+    ax = axes[1, 0]
+    ax.plot(dataopt["t"], np.rad2deg(dataopt["ang"][:, 2].squeeze(-1)), "k-")
+    ax.plot(datatest["t"], np.rad2deg(datatest["ang"][:, 2].squeeze(-1)), "b-.")
+    ax.plot(datafix2["t"], np.rad2deg(datafix2["ang"][:, 2].squeeze(-1)), "g:")
+    ax.plot(datafix3["t"], np.rad2deg(datafix3["ang"][:, 2].squeeze(-1)), "m^")
+    ax.plot(datafnn["t"], np.rad2deg(datafnn["ang"][:, 2].squeeze(-1)), "c.")
+    ax.plot(dataopt["t"], np.rad2deg(dataopt["angd"][:, 2].squeeze(-1)), "r--")
+    ax.set_ylabel(r"$\psi$, deg")
 
-    # ax.set_xlabel("Time, sec")
+    ax.set_xlabel("Time, sec")
 
-    # """ Column 3 - States: Euler angles """
-    # ax = axes[0, 2]
-    # ax.plot(dataopt["t"], np.rad2deg(dataopt["ang"][:, 0].squeeze(-1)), "k-")
-    # ax.plot(datatest["t"], np.rad2deg(datatest["ang"][:, 0].squeeze(-1)), "b-.")
-    # ax.plot(datafix["t"], np.rad2deg(datafix["ang"][:, 0].squeeze(-1)), "g:")
-    # ax.plot(dataopt["t"], np.rad2deg(dataopt["angd"][:, 0].squeeze(-1)), "r--")
-    # ax.set_ylabel(r"$\phi$, deg")
+    ax = axes[1, 1]
+    ax.plot(dataopt["t"], np.rad2deg(dataopt["plant"]["omega"][:, 0].squeeze(-1)), "k-")
+    ax.plot(datatest["t"], np.rad2deg(datatest["plant"]["omega"][:, 0].squeeze(-1)), "b-.")
+    ax.plot(datafix2["t"], np.rad2deg(datafix2["plant"]["omega"][:, 0].squeeze(-1)), "g:")
+    ax.plot(datafix3["t"], np.rad2deg(datafix3["plant"]["omega"][:, 0].squeeze(-1)), "m^")
+    ax.plot(datafnn["t"], np.rad2deg(datafnn["plant"]["omega"][:, 0].squeeze(-1)), "c.")
+    ax.set_ylabel(r"$p$, deg/s")
 
-    # ax = axes[1, 2]
-    # ax.plot(dataopt["t"], np.rad2deg(dataopt["ang"][:, 1].squeeze(-1)), "k-")
-    # ax.plot(datatest["t"], np.rad2deg(datatest["ang"][:, 1].squeeze(-1)), "b-.")
-    # ax.plot(datafix["t"], np.rad2deg(datafix["angd"][:, 1].squeeze(-1)), "g:")
-    # ax.plot(dataopt["t"], np.rad2deg(dataopt["angd"][:, 1].squeeze(-1)), "r--")
-    # ax.set_ylabel(r"$\theta$, deg")
+    ax = axes[1, 2]
+    ax.plot(dataopt["t"], np.rad2deg(dataopt["plant"]["omega"][:, 1].squeeze(-1)), "k-")
+    ax.plot(datatest["t"], np.rad2deg(datatest["plant"]["omega"][:, 1].squeeze(-1)), "b-.")
+    ax.plot(datafix2["t"], np.rad2deg(datafix2["plant"]["omega"][:, 1].squeeze(-1)), "g:")
+    ax.plot(datafix3["t"], np.rad2deg(datafix3["plant"]["omega"][:, 1].squeeze(-1)), "m^")
+    ax.plot(datafnn["t"], np.rad2deg(datafnn["plant"]["omega"][:, 1].squeeze(-1)), "c.")
+    ax.set_ylabel(r"$q$, deg/s")
 
-    # ax = axes[2, 2]
-    # ax.plot(dataopt["t"], np.rad2deg(dataopt["ang"][:, 2].squeeze(-1)), "k-")
-    # ax.plot(datatest["t"], np.rad2deg(datatest["ang"][:, 2].squeeze(-1)), "b-.")
-    # ax.plot(datafix["t"], np.rad2deg(datafix["angd"][:, 2].squeeze(-1)), "g:")
-    # ax.plot(dataopt["t"], np.rad2deg(dataopt["angd"][:, 2].squeeze(-1)), "r--")
-    # ax.set_ylabel(r"$\psi$, deg")
+    ax = axes[1, 3]
+    ax.plot(dataopt["t"], np.rad2deg(dataopt["plant"]["omega"][:, 2].squeeze(-1)), "k-")
+    ax.plot(datatest["t"], np.rad2deg(datatest["plant"]["omega"][:, 2].squeeze(-1)), "b-.")
+    ax.plot(datafix2["t"], np.rad2deg(datafix2["plant"]["omega"][:, 2].squeeze(-1)), "g:")
+    ax.plot(datafix3["t"], np.rad2deg(datafix3["plant"]["omega"][:, 2].squeeze(-1)), "m^")
+    ax.plot(datafnn["t"], np.rad2deg(datafnn["plant"]["omega"][:, 2].squeeze(-1)), "c.")
+    ax.set_ylabel(r"$r$, deg/s")
 
-    # ax.set_xlabel("Time, sec")
+    ax.set_xlabel("Time, sec")
 
-    # """ Column 4 - States: Angular rates """
-    # ax = axes[0, 3]
-    # ax.plot(dataopt["t"], np.rad2deg(dataopt["plant"]["omega"][:, 0].squeeze(-1)), "k-")
-    # ax.plot(datatest["t"], np.rad2deg(datatest["plant"]["omega"][:, 0].squeeze(-1)), "b-.")
-    # ax.plot(datafix["t"], np.rad2deg(datafix["plant"]["omega"][:, 0].squeeze(-1)), "g:")
-    # ax.set_ylabel(r"$p$, deg/s")
+    fig.tight_layout()
+    fig.subplots_adjust(wspace=0.3)
+    fig.align_ylabels(axes)
 
-    # ax = axes[1, 3]
-    # ax.plot(dataopt["t"], np.rad2deg(dataopt["plant"]["omega"][:, 1].squeeze(-1)), "k-")
-    # ax.plot(datatest["t"], np.rad2deg(datatest["plant"]["omega"][:, 1].squeeze(-1)), "b-.")
-    # ax.plot(datafix["t"], np.rad2deg(datafix["plant"]["omega"][:, 1].squeeze(-1)), "g:")
-    # ax.set_ylabel(r"$q$, deg/s")
+    """ Figure 2 - Rotor thrusts """
+    fig, axs = plt.subplots(3, 2, sharex=True)
+    ylabels = np.array((["Rotor 1", "Rotor 2"],
+                        ["Rotor 3", "Rotor 4"],
+                        ["Rotor 5", "Rotor 6"]))
+    for i, _ylabel in np.ndenumerate(ylabels):
+        x, y = i
+        ax = axs[i]
+        ax.plot(data["t"], dataopt["ctrls"].squeeze(-1)[:, 2*x+y], "k-", label="Res(PLSE)")
+        ax.plot(data["t"], datatest["ctrls"].squeeze(-1)[:, 2*x+y], "b-.", label="Res(Random)")
+        ax.plot(data["t"], datafix2["ctrls"].squeeze(-1)[:, 2*x+y], "g:", label="Res(Fix2)")
+        ax.plot(data["t"], datafix3["ctrls"].squeeze(-1)[:, 2*x+y], "m^", label="Res(Fix3)")
+        ax.plot(data["t"], datafnn["ctrls"].squeeze(-1)[:, 2*x+y], "c.", label="Res(FNN)")
+        # ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, 2*x+y], "r--", label="Command")
+        ax.grid()
+        if i == (0, 1):
+            ax.legend(loc="upper right")
+        plt.setp(ax, ylabel=_ylabel)
+        ax.set_ylim([1000-5, 2000+5])
+    plt.gcf().supxlabel("Time, sec")
+    plt.gcf().supylabel("Rotor Thrusts")
 
-    # ax = axes[2, 3]
-    # ax.plot(dataopt["t"], np.rad2deg(dataopt["plant"]["omega"][:, 2].squeeze(-1)), "k-")
-    # ax.plot(datatest["t"], np.rad2deg(datatest["plant"]["omega"][:, 2].squeeze(-1)), "b-.")
-    # ax.plot(datafix["t"], np.rad2deg(datafix["plant"]["omega"][:, 2].squeeze(-1)), "g:")
-    # ax.set_ylabel(r"$r$, deg/s")
+    fig.tight_layout()
+    fig.subplots_adjust(wspace=0.5)
+    fig.align_ylabels(axs)
 
-    # ax.set_xlabel("Time, sec")
-
-    # fig.tight_layout()
-    # fig.subplots_adjust(wspace=0.3)
-    # fig.align_ylabels(axes)
-
-    # plt.show()
+    plt.show()
