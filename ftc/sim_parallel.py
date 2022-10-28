@@ -9,7 +9,7 @@ import fym
 
 
 def sim(i, initial, gain, Env):
-    loggerpath = Path("data", f"env_{i:04d}.h5")
+    loggerpath = Path("data", f"env_{i:05d}.h5")
     env = Env(initial, gain)
     flogger = fym.Logger(loggerpath)
 
@@ -25,11 +25,6 @@ def sim(i, initial, gain, Env):
             break
 
     flogger.close()
-
-    data = fym.load(loggerpath)
-    rc = data["env"]["rc"].squeeze()
-    cost = np.trapz(rc, x=data["env"]["t"])
-    fym.save(loggerpath, data, info=dict(cost=cost))
 
     # data = fym.load(loggerpath)
     # time_index = data["env"]["t"] > env.tf - env.cuttime

@@ -45,12 +45,19 @@ class INDIController(fym.BaseEnv):
         xid_dot = np.vstack((posd_dot[2], 0, 0, 0))
         ei = xi - xid
         ei_dot = xi_dot - xid_dot
-        # Ki1 = 5*np.diag((5, 10, 10, 10))
-        # Ki2 = 1*np.diag((5, 10, 10, 10))
+        # Ki1 = 5*np.diag((5, 10, 10, 1))
+        # Ki2 = 2*np.diag((5, 10, 10, 2))
+        # Ki1 = np.diag((12.2466, 30.3456, 30.0370, 2.4681))
+        # Ki2 = np.diag((10.4880, 31.8773, 31.0347, 2.6501))
+        # Ki1 = np.diag((7.1316, 18.9480, 13.7329, 1.0922))
+        # Ki2 = np.diag((8.8696, 32.4368, 17.2115, 1.2728))
+        # Ki1 = np.diag((12.5438, 30.0579, 29.6045, 2.5659))
+        # Ki2 = np.diag((12.4131, 29.5971, 30.2616, 2.5839))
         g = np.zeros((4, 4))
         g[0, 0] = quat2dcm(quat).T[2, 2] / env.plant.m
         g[1:4, 1:4] = env.plant.Jinv
         nui = - self.Ki1 @ ei - self.Ki2 @ ei_dot
+        # nui = - Ki1 @ ei - Ki2 @ ei_dot
 
         """ control increment """
         xi_dot_f = self.lpf_dxi.state
