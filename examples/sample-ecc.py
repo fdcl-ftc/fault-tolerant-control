@@ -113,24 +113,24 @@ def parsim(N=1, seed=0):
         `gain` is merely the set of decision variables used for test.
         You may need `predicted_optimal_gain`.
     """
-    test_result = torch.load("test_result_last.pt")
-    dataset = test_result["dataset"]
-    initial_state = dataset["condition"]  # d x n
-    gain = dataset["decision"]  # d x m
-    predicted_optimal_gain = dataset["predicted_optimal_decision"]  # d x m
+    # test_result = torch.load("test_result_last.pt")
+    # dataset = test_result["dataset"]
+    # initial_state = dataset["condition"]  # d x n
+    # gain = dataset["decision"]  # d x m
+    # predicted_optimal_gain = dataset["predicted_optimal_decision"]  # d x m
 
-    pos = np.zeros((1000, 3, 1))
-    vel = np.zeros((1000, 3, 1))
-    angle = np.zeros((1000, 3, 1))
-    omega = np.zeros((1000, 3, 1))
-    pos[:, 2, 0] = initial_state[:, 0]
-    vel[:, 2, 0] = initial_state[:, 1]
-    angle[:, :, 0] = initial_state[:, 2:5]
-    omega[:, :, 0] = initial_state[:, 5:8]
-    # k1 = gain[:, :4]
-    # k2 = gain[:, 4:]
-    k1 = predicted_optimal_gain[:, :4]
-    k2 = predicted_optimal_gain[:, 4:]
+    # pos = np.zeros((1000, 3, 1))
+    # vel = np.zeros((1000, 3, 1))
+    # angle = np.zeros((1000, 3, 1))
+    # omega = np.zeros((1000, 3, 1))
+    # pos[:, 2, 0] = initial_state[:, 0]
+    # vel[:, 2, 0] = initial_state[:, 1]
+    # angle[:, :, 0] = initial_state[:, 2:5]
+    # omega[:, :, 0] = initial_state[:, 5:8]
+    # # k1 = gain[:, :4]
+    # # k2 = gain[:, 4:]
+    # k1 = predicted_optimal_gain[:, :4]
+    # k2 = predicted_optimal_gain[:, 4:]
 
     """
     Paraller simulation
@@ -142,7 +142,7 @@ def parsim(N=1, seed=0):
 
 if __name__ == "__main__":
     N = 1000
-    seed = 1
+    seed = 0
     parsim(N, seed)
 
     # data = fym.load("data/env_00000.h5")["env"]
