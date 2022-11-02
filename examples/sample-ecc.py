@@ -1,3 +1,4 @@
+import fire
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import animation
@@ -84,66 +85,71 @@ class Env(fym.BaseEnv):
         return Lambda * ctrls
 
 
-def parsim(N=1, seed=0):
-    """
-    Generate data
-    """
-    np.random.seed(seed)
-    pos = np.random.uniform(-0.5, 0.5, size=(N, 3, 1))
-    vel = np.random.uniform(-0.5, 0.5, size=(N, 3, 1))
-    angle = np.random.uniform(*np.deg2rad((-10, 10)), size=(N, 3, 1))
-    omega = np.random.uniform(*np.deg2rad((-10, 10)), size=(N, 3, 1))
-    k1v = np.random.uniform(20, 30, size=(N, 1))
-    k1a = np.random.uniform(40, 60, size=(N, 2))
-    k1a_psi = np.random.uniform(4, 6, size=(N, 1))
-    k2v = np.random.uniform(8, 12, size=(N, 1))
-    k2a = np.random.uniform(16, 24, size=(N, 2))
-    k2a_psi = np.random.uniform(3.2, 4.8, size=(N, 1))
-    k1 = np.hstack((k1v, k1a, k1a_psi))
-    k2 = np.hstack((k2v, k2a, k2a_psi))
+class Main:
+    def __init__(self):
+        pass
 
-    """
-    Evaluate data
+    def generate_raw(self, N, seed=1):
+        np.random.seed(seed)
+        pos = np.random.uniform(-0.5, 0.5, size=(N, 3, 1))
+        vel = np.random.uniform(-0.5, 0.5, size=(N, 3, 1))
+        angle = np.random.uniform(*np.deg2rad((-10, 10)), size=(N, 3, 1))
+        omega = np.random.uniform(*np.deg2rad((-10, 10)), size=(N, 3, 1))
+        k1v = np.random.uniform(20, 30, size=(N, 1))
+        k1a = np.random.uniform(40, 60, size=(N, 2))
+        k1a_psi = np.random.uniform(4, 6, size=(N, 1))
+        k2v = np.random.uniform(8, 12, size=(N, 1))
+        k2a = np.random.uniform(16, 24, size=(N, 2))
+        k2a_psi = np.random.uniform(3.2, 4.8, size=(N, 1))
+        k1 = np.hstack((k1v, k1a, k1a_psi))
+        k2 = np.hstack((k2v, k2a, k2a_psi))
 
-    Variables:
-        d: no. of data
-        n: dimension of the condition variable
-        m: dimension of the decision variable
-    Notes:
-        `gain` is merely the set of decision variables used for test.
-        You may need `predicted_optimal_gain`.
-    """
-    # test_result = torch.load("test_result_last.pt")
-    # dataset = test_result["dataset"]
-    # initial_state = dataset["condition"]  # d x n
-    # gain = dataset["decision"]  # d x m
-    # predicted_optimal_gain = dataset["predicted_optimal_decision"]  # d x m
+        initials = np.stack((pos, vel, angle, omega), axis=1)
+        gains = np.stack((k1, k2), axis=1)
+        sim_parallel(N, initials, gains, Env)
 
-    # pos = np.zeros((1000, 3, 1))
-    # vel = np.zeros((1000, 3, 1))
-    # angle = np.zeros((1000, 3, 1))
-    # omega = np.zeros((1000, 3, 1))
-    # pos[:, 2, 0] = initial_state[:, 0]
-    # vel[:, 2, 0] = initial_state[:, 1]
-    # angle[:, :, 0] = initial_state[:, 2:5]
-    # omega[:, :, 0] = initial_state[:, 5:8]
-    # # k1 = gain[:, :4]
-    # # k2 = gain[:, 4:]
-    # k1 = predicted_optimal_gain[:, :4]
-    # k2 = predicted_optimal_gain[:, 4:]
+    def evaluate_raw(self, file):
+        test_result = torch.load(file)
+        dataset = test_result["dataset"]
+        initial_state = dataset["condition"]  # N x n
+        # gain = dataset["decision"]  # N x m
+        predicted_optimal_gain = dataset["predicted_optimal_decision"]  # N x m
 
-    """
-    Paraller simulation
-    """
-    initials = np.stack((pos, vel, angle, omega), axis=1)
-    gains = np.stack((k1, k2), axis=1)
-    sim_parallel(N, initials, gains, Env)
+        N = initial_state.shape[0]
+
+        """
+        Evaluate data
+
+        Variables:
+            N: no. of data
+            n: dimension of the condition variable
+            m: dimension of the decision variable
+        Notes:
+            `gain` is merely the set of decision variables used for test.
+            You may need `predicted_optimal_gain`.
+        """
+
+        pos = np.zeros((N, 3, 1))
+        vel = np.zeros((N, 3, 1))
+        angle = np.zeros((N, 3, 1))
+        omega = np.zeros((N, 3, 1))
+        pos[:, 2, 0] = initial_state[:, 0]  # z
+        vel[:, 2, 0] = initial_state[:, 1]  # v_z
+        angle[:, :, 0] = initial_state[:, 2:5]
+        omega[:, :, 0] = initial_state[:, 5:8]
+        k1 = predicted_optimal_gain[:, :4]
+        k2 = predicted_optimal_gain[:, 4:]
+
+        initials = np.stack((pos, vel, angle, omega), axis=1)
+        gains = np.stack((k1, k2), axis=1)
+        sim_parallel(N, initials, gains, Env)
 
 
 if __name__ == "__main__":
-    N = 1000
-    seed = 0
-    parsim(N, seed)
+    # usage: python examples/sample-ecc.py {method} --{arg}={value} (--{kwarg}={kwvalue})
+    # example: python examples/sample-ecc.py generate_raw --N=10000 (--seed=1)
+    # example: python examples/sample-ecc.py evaluate_raw --file=test_result_best.pt
+    fire.Fire(Main)
 
     # data = fym.load("data/env_00000.h5")["env"]
     # # dataopt = fym.load("dataopt/env_0002.h5")["env"]  # plse
