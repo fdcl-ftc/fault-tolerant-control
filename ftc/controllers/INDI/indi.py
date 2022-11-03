@@ -35,8 +35,8 @@ class INDIController(fym.BaseEnv):
         Ko1 = 0.5*np.diag((2, 1))
         Ko2 = 0.5*np.diag((3, 2))
         nuo = (- Ko1 @ eo - Ko2 @ eo_dot) / env.plant.g
-        angd = np.vstack((nuo[1], - nuo[0], 0))
-        # angd = np.deg2rad(np.vstack((0, 0, 0)))
+        # angd = np.vstack((nuo[1], - nuo[0], 0))
+        angd = np.deg2rad(np.vstack((0, 0, 0)))
 
         """ inner-loop control """
         xi = np.vstack((pos[2], ang))
@@ -47,12 +47,6 @@ class INDIController(fym.BaseEnv):
         ei_dot = xi_dot - xid_dot
         # Ki1 = 5*np.diag((5, 10, 10, 1))
         # Ki2 = 2*np.diag((5, 10, 10, 2))
-        # Ki1 = np.diag((12.2466, 30.3456, 30.0370, 2.4681))
-        # Ki2 = np.diag((10.4880, 31.8773, 31.0347, 2.6501))
-        # Ki1 = np.diag((7.1316, 18.9480, 13.7329, 1.0922))
-        # Ki2 = np.diag((8.8696, 32.4368, 17.2115, 1.2728))
-        # Ki1 = np.diag((12.5438, 30.0579, 29.6045, 2.5659))
-        # Ki2 = np.diag((12.4131, 29.5971, 30.2616, 2.5839))
         g = np.zeros((4, 4))
         g[0, 0] = quat2dcm(quat).T[2, 2] / env.plant.m
         g[1:4, 1:4] = env.plant.Jinv
