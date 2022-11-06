@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib import animation
 import argparse
 import torch
+import yaml
 
 import fym
 from fym.utils.rot import angle2quat, quat2angle
@@ -91,7 +92,9 @@ class Main:
 
     def generate_raw(self, N, seed=1):
         np.random.seed(seed)
-        pos = np.random.uniform(0, 0, size=(N, 3, 1))
+        xy = np.random.uniform(0, 0, size=(N, 2, 1))
+        z = np.random.uniform(-1.0, 1.0, size=(N, 1, 1))
+        pos = np.hstack((xy, z))
         vxvy = np.random.uniform(0., 0., size=(N, 2, 1))
         vz = np.random.uniform(-1.0, 1.0, size=(N, 1, 1))
         vel = np.hstack((vxvy, vz))
@@ -114,15 +117,36 @@ class Main:
         gains = np.stack((k1, k2), axis=1)
         sim_parallel(N, initials, gains, Env)
 
-    def evaluate_raw(self, file):
-        test_result = torch.load(file)
-        dataset = test_result["dataset"]
+    def evaluate_raw(self, file, fixed_gain=None, test=False):
+        if test:
+           dataset = torch.load(file)
+        else:
+           test_result = torch.load(file)
+           dataset = test_result["dataset"]
         initial_state = dataset["condition"]  # N x n
-        # gain = dataset["decision"]  # N x m
-        predicted_optimal_gain = dataset["predicted_optimal_decision"]  # N x m
-
         N = initial_state.shape[0]
 
+        if fixed_gain is None:
+           print(f"Gains in file {file} used")
+           if test:
+              print(f"test is {test}; it probably indicates that you are running sim for test (random) gains")
+              predicted_optimal_gain = dataset["decision"]  # N x m
+           else:
+              predicted_optimal_gain = dataset["predicted_optimal_decision"]  # N x m
+           k1 = predicted_optimal_gain[:, :4]
+           k2 = predicted_optimal_gain[:, 4:]
+        else:
+           print(f"Gains in file {fixed_gain} used")
+           print(f"W: Gains in file {file} ignored")
+           with open(fixed_gain, 'r') as f:
+               _gain = yaml.safe_load(f)["gain"]
+           k1 = np.ones((N, 4)) * _gain[:4]  # broadcasting
+           k2 = np.ones((N, 4)) * _gain[4:]  # broadcastin
+        gains = np.stack((k1, k2), axis=1)
+        self._evaluate_raw(initial_state, gains)
+
+    def _evaluate_raw(self, initial_state, gains):
+        N = initial_state.shape[0]
         """
         Evaluate data
 
@@ -143,11 +167,8 @@ class Main:
         vel[:, 2, 0] = initial_state[:, 1]  # v_z
         angle[:, :, 0] = initial_state[:, 2:5]
         omega[:, :, 0] = initial_state[:, 5:8]
-        k1 = predicted_optimal_gain[:, :4]
-        k2 = predicted_optimal_gain[:, 4:]
 
         initials = np.stack((pos, vel, angle, omega), axis=1)
-        gains = np.stack((k1, k2), axis=1)
         sim_parallel(N, initials, gains, Env)
 
 
