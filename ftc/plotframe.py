@@ -25,7 +25,7 @@ class QUADFrame:
         self.ax.set(ylim3d=self.ylim, ylabel="Y")
         self.ax.set(zlim3d=self.zlim, zlabel="Z")
 
-        self.alp_list=[0.1, 0.5, 1]
+        self.alp_list = [0.1, 0.5, 1]
 
     def draw_at(self, x=np.zeros((3, 1)), q=np.vstack([1, 0, 0, 0]), lamb=np.ones((4, 1))):
         self.ax.clear()
@@ -90,7 +90,7 @@ class LC62Frame:
         self.ax.set(ylim3d=self.ylim, ylabel="Y")
         self.ax.set(zlim3d=self.zlim, zlabel="Z")
 
-        self.alp_list=[0.1, 0.5, 1]
+        self.alp_list = [0.1, 0.5, 1]
 
     def draw_at(self, x=np.zeros((3, 1)), q=np.vstack([1, 0, 0, 0]), lamb=np.ones((11, 1))):
         self.ax.clear()
