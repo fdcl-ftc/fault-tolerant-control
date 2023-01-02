@@ -2,7 +2,7 @@ from copy import deepcopy
 from functools import reduce
 
 from ftc.registration import registry
-
+import numpy as np
 
 def make(id, env=None):
     assert env is not None
@@ -38,3 +38,44 @@ def safeupdate(*configs):
         return out
 
     return reduce(_merge, configs)
+
+def linearization(statefunc, states, ctrls, ptrb):
+    """
+    Parameters
+    ------------
+    statefunc : callable function that returns nx1 states derivatives vector
+    states : nx1 vector
+    ctrls : mx1 vector
+    ptrb : numerical ptrb size
+
+    Return
+    -------------
+    linearized matrix A, B for peturbed states and ctrls
+    dxdot = Adx + Bdu
+    """
+
+    n = np.size(states)
+    m = np.size(ctrls)
+    A = np.zeros((n,n))
+    B = np.zeros((n,m))
+
+    for i in np.arange(n):
+        ptrbvec_x = np.zeros((n,1))
+        ptrbvec_x[i] = ptrb
+        x_ptrb = states + ptrbvec_x
+        
+        dfdx = (statefunc(x_ptrb, ctrls) - statefunc(states, ctrls)) / ptrb
+        for j in np.arange(n):
+            A[j,i] = dfdx[j]
+
+    for i in np.arange(m):
+        ptrbvec_u = np.zeros((m,1))
+        ptrbvec_u[i] = ptrb
+        u_ptrb = ctrls + ptrbvec_u
+        
+        dfdu = (statefunc(states, u_ptrb) - statefunc(states, ctrls)) / ptrb
+        for j in np.arange(n):
+            B[j,i] = dfdu[j]
+
+    return A, B
+

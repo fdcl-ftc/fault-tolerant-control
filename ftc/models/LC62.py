@@ -2,9 +2,9 @@ import fym
 import numpy as np
 import scipy
 from fym.utils.rot import angle2quat, dcm2quat, quat2angle, quat2dcm
-from numpy import cos, sin
+from numpy import cos, sin, tan
 
-from ftc.utils import safeupdate
+from ftc.utils import linearization, safeupdate
 
 
 class LC62(fym.BaseEnv):
@@ -145,14 +145,13 @@ class LC62(fym.BaseEnv):
 
     def __init__(self, env_config={}):
         env_config = safeupdate(self.ENV_CONFIG, env_config)
-        super().__init__()
+        super().__init__(max_t=10)
         self.pos = fym.BaseSystem(env_config["init"]["pos"])
         self.vel = fym.BaseSystem(env_config["init"]["vel"])
         self.quat = fym.BaseSystem(env_config["init"]["quat"])
         self.omega = fym.BaseSystem(env_config["init"]["omega"])
 
         self.e3 = np.vstack((0, 0, 1))
-        # if VT >=40, the initial guess, z0, should be changed from default to 2000
         self.x_trims, self.u_trims_fixed = self.get_trim_fixed(fixed={"h": 10, "VT": 0})
         self.u_trims_vtol = self.get_trim_vtol(
             fixed={"x_trims": self.x_trims, "u_trims_fixed": self.u_trims_fixed}
@@ -179,10 +178,31 @@ class LC62(fym.BaseEnv):
         domega = self.Jinv @ (M - np.cross(omega, self.J @ omega, axis=0)) + domega
         return dpos, dvel, dquat, domega
 
+    def deriv_lin(self, pos, vel, quat, ang, omega, FM):
+        F, M = FM[0:3], FM[3:]
+        dcm = quat2dcm(quat)
+        phi, theta, psi = np.ravel(ang)
+        p, q, r = np.ravel(omega)
+
+        """ disturbances """
+        dv = np.zeros((3, 1))
+        domega = self.Jinv @ np.zeros((3, 1))
+
+        """ dynamics """
+        dpos = dcm.T @ vel
+        dvel = F / self.m - np.cross(omega, vel, axis=0) + dv
+        dphi = p + sin(phi) * tan(theta) * q + cos(phi) * tan(theta) * r
+        dtheta = cos(phi) * q - sin(phi) * r
+        dpsi = (sin(phi) * q + cos(phi) * r) / cos(theta)
+        dang = np.vstack((dphi, dtheta, dpsi))
+        domega = self.Jinv @ (M - np.cross(omega, self.J @ omega, axis=0)) + domega
+        return dpos, dvel, dang, domega
+
     def set_dot(self, t, FM):
         states = self.observe_list()
         dots = self.deriv(*states, FM)
         self.pos.dot, self.vel.dot, self.quat.dot, self.omega.dot = dots
+        return {"t": t, "states": states, "dots": dots}
 
     def get_FM(
         self,
@@ -222,7 +242,7 @@ class LC62(fym.BaseEnv):
         R5: front right, [CCW]
         R6: rear left,   [CW]
         """
-        rcmds = self.pwm2cmd(pwms_rotor)
+        rcmds = (pwms_rotor - 1000) / 1000
         th = (-19281 * rcmds**3 + 36503 * rcmds**2 - 992.75 * rcmds) * self.g / 1000
         tq = -6.3961 * rcmds**3 + 12.092 * rcmds**2 - 0.3156 * rcmds
         # th = np.polyval(self.tables["th_r"], rcmds) * self.g / 1000
@@ -334,8 +354,8 @@ class LC62(fym.BaseEnv):
         z0={
             "alpha": 0.0,
             "beta": 0,
-            "pusher1": 1500,
-            "pusher2": 1500,
+            "pusher1": 1000,
+            "pusher2": 1000,
             "dela": 0,
             "dele": 0,
             "delr": 0,
@@ -483,13 +503,160 @@ class LC62(fym.BaseEnv):
         _ctrls[10] = np.clip(ctrls[10], delr_min, delr_max)
         return _ctrls
 
+    # Linearization at any state + small perturb
+    def perturb_deriv(self, x, u_FM):
+        pos, vel, quat, omega = x
+        px, py, pz = np.ravel(pos)
+        vx, vy, vz = np.ravel(vel)
+        q0, q1, q2, q3 = np.ravel(quat)
+        p, q, r = np.ravel(omega)
+        eps = 1 - (q0**2 + q1**2 + q2**2 + q3**2)
+        F, M = u_FM[0:3], u_FM[3:]
+
+        Adpos_v = quat2dcm(quat).T
+        Adpx_quat = 2 * np.array(
+            [
+                q0 * vx - q3 * vy + q2 * vz,
+                q1 * vx + q2 * vy + q3 * vz,
+                -q2 * vx + q1 * vy + q0 * vz,
+                -q3 * vx - q0 * vy + q1 * vz,
+            ]
+        )
+        Adpy_quat = 2 * np.array(
+            [
+                q3 * vx + q0 * vy - q1 * vz,
+                q2 * vx - q1 * vy - q0 * vz,
+                q1 * vx + q2 * vy + q3 * vz,
+                q0 * vx - q3 * vy + q2 * vz,
+            ]
+        )
+        Adpz_quat = 2 * np.array(
+            [
+                -q2 * vx + q1 * vy + q0 * vz,
+                q3 * vx + q0 * vy - q1 * vz,
+                -q0 * vx + q3 * vy - q2 * vz,
+                q1 * vx + q2 * vy + q3 * vz,
+            ]
+        )
+        Adpos_quat = np.vstack((Adpx_quat, Adpy_quat, Adpz_quat))
+
+        Adv_v = np.array([[0, r, -q], [-r, 0, p], [q, -p, 0]])
+        Adv_w = np.array([[0, -vz, vy], [vz, 0, -vx], [-vy, vx, 0]])
+
+        Adquat_quat = (
+            0.5
+            * np.array(
+                [[0.0, -p, -q, -r], [p, 0.0, r, -q], [q, -r, 0.0, p], [r, q, -p, 0.0]]
+            )
+            + np.diag(np.full((1, 4), eps))
+            - 2 * quat * quat.T
+        )
+        Adquat_w = 0.5 * np.array(
+            [[-q1, -q2, -q3], [q0, -q3, q2], [q3, q0, -q1], [-q2, q1, q0]]
+        )
+
+        J = self.J
+        Ixx, Iyy, Izz, Ixz = J[0, 0], J[1, 1], J[2, 2], J[0, 2]
+        m = self.m
+        det = Ixx * Izz - Ixz**2
+        Adp_w = -(1 / det) * np.array(
+            [
+                Ixz * (Ixx - Iyy + Izz) * q,
+                Ixz * (Ixx - Iyy + Izz) * p + (Ixz**2 + Izz**2 - Iyy * Izz) * r,
+                (Ixz**2 + Izz**2 - Iyy * Izz) * q,
+            ]
+        )
+        Adq_w = (1 / Iyy) * np.array(
+            [2 * Ixz * p - (Ixx - Izz) * r, 0, -2 * Ixz * r - (Ixx - Izz) * p]
+        )
+        Adr_w = (1 / det) * np.array(
+            [
+                (Ixz**2 + Ixx**2 - Ixx * Iyy) * q,
+                (Ixz**2 + Ixx**2 - Ixx * Iyy) * p + Ixz * (Ixx - Iyy + Izz) * r,
+                Ixz * (Ixx - Iyy + Izz) * q,
+            ]
+        )
+        Adw_w = np.vstack((Adp_w, Adq_w, Adr_w))
+
+        Bdv_F = np.array([[1 / m, 0, 0], [0, 1 / m, 0], [0, 0, 1 / m]])
+        Bdw_M = np.linalg.inv(J)
+
+        A = np.zeros((13, 13))
+        A[0:3, 3:6] = Adpos_v
+        A[0:3, 6:10] = Adpos_quat
+        A[3:6, 3:6] = Adv_v
+        A[3:6, 10:] = Adv_w
+        A[6:10, 6:10] = Adquat_quat
+        A[6:10, 10:] = Adquat_w
+        A[10:, 10:] = Adw_w
+
+        B = np.zeros((13, 6))
+        B[3:6, 0:3] = Bdv_F
+        B[10:, 3:] = Bdw_M
+
+        return A, B
+
+    # Linearization at trim + small perturb by derivatives
+    def lin_model_deriv(self, FM):
+        A_deriv, B_deriv = self.perturb_deriv(self.x_trims, FM)
+        return A_deriv, B_deriv
+
+    def statefunc(self, states, ctrls):
+        pos = states[0:3]
+        vel = states[3:6]
+        ang = states[6:9]
+        omega = states[9:12]
+        quat = np.vstack(angle2quat(ang[2], ang[1], ang[0]))
+
+        FM = self.get_FM(pos, vel, quat, omega, ctrls)
+        dots = self.deriv_lin(pos, vel, quat, ang, omega, FM)
+        return np.vstack((dots))
+
+    def statefunc_FM(self, states, FM):
+        pos = states[0:3]
+        vel = states[3:6]
+        ang = states[6:9]
+        omega = states[9:12]
+        quat = np.vstack(angle2quat(ang[2], ang[1], ang[0]))
+
+        dots = self.deriv_lin(pos, vel, quat, ang, omega, FM)
+        return np.vstack((dots))
+
+    # Linearization at trim + small perturb numerically
+    def lin_model(self, x, u, ptrb):
+        self.A, self.B = linearization(self.statefunc, x, u, ptrb)
+        return self.A, self.B
+
+    def lin_model_FM(self, x, FM, ptrb):
+        self.A_FM, self.B_FM = linearization(self.statefunc_FM, x, FM, ptrb)
+        return self.A_FM, self.B_FM
+
 
 if __name__ == "__main__":
     system = LC62()
     pos, vel, quat, omega = system.x_trims
+    ang = np.vstack(quat2angle(quat)[::-1])
+    states = np.vstack((pos, vel, ang, omega))
     pwms_pusher, dels = system.u_trims_fixed
     pwms_rotor = system.u_trims_vtol
     ctrls = np.vstack((pwms_rotor, pwms_pusher, dels))
     FM = system.get_FM(pos, vel, quat, omega, ctrls)
+
     system.set_dot(t=0, FM=FM)
     print(repr(system))
+
+    print(states)
+#    ptrb = 1e-9
+#    system.lin_model(states, ctrls, ptrb)
+#    A_deriv, B_deriv = system.lin_model_deriv(FM)
+#
+#    print("A = ",system.A, np.size(system.A))
+#    print("\nB = ",system.B,np.size(system.B))
+#
+#    n = np.size(states)
+#    compare = np.zeros((n,n))
+#    for i in np.arange(n):
+#        for j in np.arange(np.size(states)):
+#            if (A_deriv[i,j] - A[i,j] > ptrb):
+#                compare[i,j] = A_deriv[i,j] - A[i,j]
+#    print("\ncomparing = ", compare)
