@@ -113,6 +113,18 @@ class LQR_modeController(fym.BaseEnv):
             "angd": angd,
             "omegad": omegad,
             "ang": ang,
+=======
+
+        x = np.vstack((pos, vel, ang, omega))
+        x_ref = self.x_trims
+
+        ctrls = -self.K.dot(x - x_ref) + self.u_trims
+
+        controller_info = {
+            "posd": self.x_trims[0:3],
+            "veld": self.x_trims[3:6],
+            "angd": self.x_trims[6:9],
+>>>>>>> e9ee47d (add ws)
         }
 
         return ctrls, controller_info
@@ -158,7 +170,6 @@ class LQR_FMController(fym.BaseEnv):
         }
 
         return FM_ctrl, controller_info
-
 
 class LQR_FMCAController(fym.BaseEnv):
     def __init__(self, env):
@@ -294,3 +305,5 @@ class LQR_FMCAController(fym.BaseEnv):
         }
 
         return ctrls, controller_info
+=======
+>>>>>>> e9ee47d (add ws)

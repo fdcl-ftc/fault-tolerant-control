@@ -5,18 +5,15 @@ considering Flight mode
 VTOL mode: use only rotors
 FW   mode: use all actuators
 """
-
 import argparse
 
 import fym
 import matplotlib.pyplot as plt
 import numpy as np
 from fym.utils.rot import angle2quat
-from matplotlib import animation
 
 import ftc
 from ftc.models.LC62 import LC62
-from ftc.plotframe import LC62Frame, update_plot
 from ftc.utils import safeupdate
 
 np.seterr(all="raise")
@@ -27,12 +24,12 @@ class MyEnv(fym.BaseEnv):
     ENV_CONFIG = {
         "fkw": {
             "dt": 0.01,
-            "max_t": 50,
+            "max_t": 20,
         },
         "plant": {
             "init": {
-                "pos": np.vstack((0, 0, 0)),
-                "vel": np.vstack((0, 0, 0)),
+                "pos": np.random.uniform(-1, 1, size=(3, 1)) + np.vstack((0, 0, -10)),
+                "vel": np.zeros((3, 1)),
                 "quat": angle2quat(ang[2], ang[1], ang[0]),
                 "omega": np.zeros((3, 1)),
             },
@@ -101,6 +98,8 @@ class MyEnv(fym.BaseEnv):
 
     def set_dot(self, t):
         ctrls, controller_info = self.controller.get_control(t, self)
+        rotors0 = ctrls
+        rotors = rotors0
 
         pos, vel, quat, omega = self.plant.observe_list()
         FM = self.plant.get_FM(pos, vel, quat, omega, ctrls)
@@ -143,37 +142,15 @@ def plot():
     data = fym.load("data.h5")["env"]
 
     """ Figure 1 - States """
-    fig, axes = plt.subplots(3, 2, squeeze=False, sharex=True)
+    fig, axes = plt.subplots(3, 2, figsize=(18, 5), squeeze=False, sharex=True)
 
     """ Column 1 - States: Position """
     ax = axes[0, 0]
-    x = ax.plot(data["t"], data["plant"]["pos"][:, 0].squeeze(-1), "k-")
-    x_ref = ax.plot(data["t"], data["posd"][:, 0].squeeze(-1), "r--")
+    ax.plot(data["t"], data["plant"]["pos"][:, 0].squeeze(-1), "k-")
+    ax.plot(data["t"], data["posd"][:, 0].squeeze(-1), "r--")
     ax.set_ylabel(r"$x$, m")
-    ax.set_xlabel("Time, sec")
+    # ax.legend(["Response", "Ref"], loc="upper right")
     ax.set_xlim(data["t"][0], data["t"][-1])
-    m1 = ax.axvspan(0, 10, color="g", alpha=0.25)
-    m2 = ax.axvspan(10, 15, color="g", alpha=0.4)
-    m3 = ax.axvspan(15, 35, color="b", alpha=0.25)
-    m4 = ax.axvspan(35, 40, color="g", alpha=0.4)
-    m5 = ax.axvspan(40, 50, color="g", alpha=0.25)
-    # mission_labels = ["_", "_", "VTOL", "Hovering", "Cruising", "_", "_"]
-    # ref_labels = ["State", "Reference", "_", "_", "_", "_", "_"]
-    # ref_legend = ax.legend(
-    #     [x, x_ref, m1, m2, m3, m4, m5], labels=ref_labels, loc="lower right"
-    # )
-    # ax.add_artist(ref_legend)
-    # ax.legend(
-    #     [x, x_ref, m1, m2, m3, m4, m5],
-    #     labels=mission_labels,
-    #     ncol=3,
-    #     loc="lower center",
-    #     bbox_to_anchor=(0.5, 1.05),
-    #     title="Mission",
-    # )
-
-    ax.set_xticks(np.linspace(0, 50, 11))
-    ax.grid()
 
     ax = axes[1, 0]
     ax.plot(data["t"], data["plant"]["pos"][:, 1].squeeze(-1), "k-")
@@ -317,6 +294,22 @@ def plot():
     )
 
     ani.save("animation.gif", dpi=80, writer="imagemagick", fps=25)
+    ax.set_ylabel(r"$v_x$, m/s")
+    # ax.legend(["Response", "Ref"], loc="upper right")
+
+    ax = axes[1, 1]
+    ax.plot(data["t"], data["plant"]["vel"][:, 1].squeeze(-1), "k-")
+    ax.set_ylabel(r"$v_y$, m/s")
+
+    ax = axes[2, 1]
+    ax.plot(data["t"], data["plant"]["vel"][:, 2].squeeze(-1), "k-")
+    ax.set_ylabel(r"$v_z$, m/s")
+
+    ax.set_xlabel("Time, sec")
+
+    fig.tight_layout()
+    fig.subplots_adjust(wspace=0.3)
+    fig.align_ylabels(axes)
 
     plt.show()
 
@@ -326,9 +319,9 @@ def main(args):
         plot()
         return
     else:
-        run()
-        if args.plot:
-            plot()
+       run()
+       if args.plot:
+           plot()
 
 
 if __name__ == "__main__":
