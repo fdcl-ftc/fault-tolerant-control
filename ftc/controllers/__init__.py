@@ -10,11 +10,11 @@ register(
 )
 register(
     id="LQR-LC62",
-    entry_point="ftc.controllers.LQR.lqr_LC62:LQR_LC62Controller",
+    entry_point="ftc.controllers.LQR.lqr_LC62:LQRController",
 )
 register(
     id="LQR-LC62-FM",
-    entry_point="ftc.controllers.LQR.lqr_LC62:LQR_LC62_FMController",
+    entry_point="ftc.controllers.LQR.lqr_LC62:LQR_FMController",
 )
 register(
     id="BLF",
