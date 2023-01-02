@@ -1,41 +1,40 @@
-""" This is main file.
-Should be placed in fault-tolerant-control/examples/
-"""
-
-import numpy as np
-import matplotlib.pyplot as plt
 import argparse
 
 import fym
+import matplotlib.pyplot as plt
+import numpy as np
 from fym.utils.rot import angle2quat
+
 import ftc
 from ftc.models.LC62 import LC62
 from ftc.utils import safeupdate
 
 np.seterr(all="raise")
 
+
 class MyEnv(fym.BaseEnv):
-    ang = np.vstack((0,0,0))
+    ang = np.random.uniform(-np.deg2rad(0), np.deg2rad(0), size=(3, 1))
     ENV_CONFIG = {
         "fkw": {
             "dt": 0.01,
-            "max_t": 100,
+            "max_t": 20,
         },
         "plant": {
             "init": {
-                "pos": np.vstack((1, 1, -5)),
-                "vel": np.vstack((0,0,0)),
+                "pos": np.random.uniform(-1, 1, size=(3, 1)) + np.vstack((0, 0, -10)),
+                "vel": np.zeros((3, 1)),
                 "quat": angle2quat(ang[2], ang[1], ang[0]),
-                "omega": np.vstack((0,0,0)),
+                "omega": np.zeros((3, 1)),
             },
         },
     }
+
 
     def __init__(self, env_config={}):
         env_config = safeupdate(self.ENV_CONFIG, env_config)
         super().__init__(**env_config["fkw"])
         self.plant = LC62(env_config["plant"])
-        self.Q = np.diag([100, 100, 100, 0, 0, 0, 1000, 1000, 1000, 0, 0, 0])
+        self.Q = 10 * np.diag([1, 1, 1, 0, 0, 0, 100, 100, 100, 0, 0, 0])
         self.R = np.diag([1, 1, 1, 1, 1, 1])
         self.controller = ftc.make("LQR-LC62-FM", self)
 
@@ -47,12 +46,10 @@ class MyEnv(fym.BaseEnv):
         return self.observe_flat()
 
     def get_ref(self, t):
-        posd = self.controller.x_trims[0:3]
-        veld = self.controller.x_trims[3:6]
-        angd = self.controller.x_trims[6:9]
-        omegad = self.controller.x_trims[9:12]
-        return posd, veld, angd, omegad
-            
+        posd = np.vstack((0, 0, 0))
+        posd_dot = np.vstack((0, 0, 0))
+        refs = {"posd": posd, "posd_dot": posd_dot}
+        return [refs[key] for key in args]
 
     def set_dot(self, t):
         FM_ctrl, controller_info = self.controller.get_control(t, self)
@@ -67,6 +64,8 @@ class MyEnv(fym.BaseEnv):
             "t": t,
             **self.observe_dict(),
             **controller_info,
+            "forces": Force_ctrl,
+            "moments": Moment_ctrl,
         }
 
         return env_info
@@ -92,7 +91,6 @@ def run():
 
 
 def plot():
-    data = fym.load("data.h5")["env"]
     data = fym.load("data.h5")["env"]
 
     """ Figure 1 - States """
