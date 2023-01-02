@@ -63,7 +63,7 @@ def linearization(statefunc, states, ctrls, ptrb):
         ptrbvec_x = np.zeros((n,1))
         ptrbvec_x[i] = ptrb
         x_ptrb = states + ptrbvec_x
-        
+
         dfdx = (statefunc(x_ptrb, ctrls) - statefunc(states, ctrls)) / ptrb
         for j in np.arange(n):
             A[j,i] = dfdx[j]
@@ -72,7 +72,7 @@ def linearization(statefunc, states, ctrls, ptrb):
         ptrbvec_u = np.zeros((m,1))
         ptrbvec_u[i] = ptrb
         u_ptrb = ctrls + ptrbvec_u
-        
+ 
         dfdu = (statefunc(states, u_ptrb) - statefunc(states, ctrls)) / ptrb
         for j in np.arange(n):
             B[j,i] = dfdu[j]
