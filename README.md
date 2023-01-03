@@ -123,3 +123,7 @@ class Env(fym.BaseEnv):
     def get_Lambda(self, t):
         return self.plant.get_Lambda(t - 0.02)
 ```
+
+## Acknowledgment
+- This research was supported by Unmanned Vehicles Core Technology Research and Development Program through the National Research Foundation of Korea (NRF) and Unmanned Vehicle Advanced Research Center (UVARC) funded by the Ministry of Science and ICT, the Republic of Korea (2020M3C1C1A01083162).
+- 본 연구는 과학기술정보통신부의 재원으로 한국연구재단, 무인이동체원천기술개발사업단의 지원을 받아 무인이동체 원천기술개발사업을 통해 수행되었음 (2020M3C1C1A01083162).

@@ -9,9 +9,9 @@ from fym.utils.rot import quat2dcm
 
 
 class QUADFrame:
-    def __init__(self, ax, lim=(-2, 2)):
+    def __init__(self, ax, xlim=(-2, 2), ylim=(-2, 2), zlim=(-2, 2)):
         self.ax = ax
-        self.lim = lim
+        self.xlim, self.ylim, self.zlim = xlim, ylim, zlim
 
         self.d = 0.315
         self.rr = 0.1  # radius of rotor
@@ -21,11 +21,13 @@ class QUADFrame:
         self.b2 = np.vstack([0.0, 1.0, 0.0])
         self.b3 = np.vstack([0.0, 0.0, 1.0])
 
-        self.ax.set(xlim3d=self.lim, xlabel="X")
-        self.ax.set(ylim3d=self.lim, ylabel="Y")
-        self.ax.set(zlim3d=self.lim, zlabel="Z")
+        self.ax.set(xlim3d=self.xlim, xlabel="X")
+        self.ax.set(ylim3d=self.ylim, ylabel="Y")
+        self.ax.set(zlim3d=self.zlim, zlabel="Z")
 
-    def draw_at(self, x=np.vstack([0, 0, 0]), q=np.vstack([1, 0, 0, 0])):
+        self.alp_list = [0.1, 0.5, 1]
+
+    def draw_at(self, x=np.zeros((3, 1)), q=np.vstack([1, 0, 0, 0]), lamb=np.ones((4, 1))):
         self.ax.clear()
         R = quat2dcm(q)
 
@@ -38,11 +40,21 @@ class QUADFrame:
         body = self.ax.add_patch(Circle((x[0], x[1]), self.rc, color='y'))
         art3d.pathpatch_2d_to_3d(body, z=x[2])
 
+        # Fault
+        alps = np.ones(4,)
+        for i in range(len(alps)):
+            if lamb[i] == 0:
+                alps[i] = self.alp_list[0]
+            elif lamb[i] == 1:
+                alps[i] = self.alp_list[2]
+            else:
+                alps[i] = self.alp_list[1]
+
         # Rotor
-        r1 = self.ax.add_patch(Circle((x1[0], x1[1]), self.rr, color='r'))
-        r2 = self.ax.add_patch(Circle((x2[0], x2[1]), self.rr, color='b'))
-        r3 = self.ax.add_patch(Circle((x3[0], x3[1]), self.rr, color='r'))
-        r4 = self.ax.add_patch(Circle((x4[0], x4[1]), self.rr, color='b'))
+        r1 = self.ax.add_patch(Circle((x1[0], x1[1]), self.rr, color='r', alpha=alps[0]))
+        r2 = self.ax.add_patch(Circle((x2[0], x2[1]), self.rr, color='b', alpha=alps[1]))
+        r3 = self.ax.add_patch(Circle((x3[0], x3[1]), self.rr, color='r', alpha=alps[2]))
+        r4 = self.ax.add_patch(Circle((x4[0], x4[1]), self.rr, color='b', alpha=alps[3]))
         art3d.pathpatch_2d_to_3d(r1, z=x1[2])
         art3d.pathpatch_2d_to_3d(r2, z=x2[2])
         art3d.pathpatch_2d_to_3d(r3, z=x3[2])
@@ -57,9 +69,9 @@ class QUADFrame:
 
 
 class LC62Frame:
-    def __init__(self, ax, lim=(-5, 5)):
+    def __init__(self, ax, xlim=(-5, 5), ylim=(-5, 5), zlim=(-5, 5)):
         self.ax = ax
-        self.lim = lim
+        self.xlim, self.ylim, self.zlim = xlim, ylim, zlim
 
         self.dx1 = 0.9815
         self.dx2 = 0.0235
@@ -74,11 +86,13 @@ class LC62Frame:
         self.wf = 2.025  # width of fuselage
         self.hf = 0.350  # height of fuselage
 
-        self.ax.set(xlim3d=self.lim, xlabel="X")
-        self.ax.set(ylim3d=self.lim, ylabel="Y")
-        self.ax.set(zlim3d=self.lim, zlabel="Z")
+        self.ax.set(xlim3d=self.xlim, xlabel="X")
+        self.ax.set(ylim3d=self.ylim, ylabel="Y")
+        self.ax.set(zlim3d=self.zlim, zlabel="Z")
 
-    def draw_at(self, x=np.vstack([0, 0, 0]), q=np.vstack([1, 0, 0, 0])):
+        self.alp_list = [0.1, 0.5, 1]
+
+    def draw_at(self, x=np.zeros((3, 1)), q=np.vstack([1, 0, 0, 0]), lamb=np.ones((11, 1))):
         self.ax.clear()
         R = quat2dcm(q)
 
@@ -120,13 +134,23 @@ class LC62Frame:
         art3d.pathpatch_2d_to_3d(fw, z=(xfw1[2]+xfw4[2])/2)
         art3d.pathpatch_2d_to_3d(rw, z=(xrw1[2]+xrw4[2])/2)
 
+        # Fault
+        alps = np.ones(11,)
+        for i in range(len(alps)):
+            if lamb[i] == 0:
+                alps[i] = self.alp_list[0]
+            elif lamb[i] == 1:
+                alps[i] = self.alp_list[2]
+            else:
+                alps[i] = self.alp_list[1]
+
         # Rotor
-        r1 = self.ax.add_patch(Circle((xr1[0], xr1[1]), self.rr, fc="tab:pink", ec="0.3"))
-        r2 = self.ax.add_patch(Circle((xr2[0], xr2[1]), self.rr, fc="tab:pink", ec="0.3"))
-        r3 = self.ax.add_patch(Circle((xr3[0], xr3[1]), self.rr, fc="tab:pink", ec="0.3"))
-        r4 = self.ax.add_patch(Circle((xr4[0], xr4[1]), self.rr, fc="tab:pink", ec="0.3"))
-        r5 = self.ax.add_patch(Circle((xr5[0], xr5[1]), self.rr, fc="tab:pink", ec="0.3"))
-        r6 = self.ax.add_patch(Circle((xr6[0], xr6[1]), self.rr, fc="tab:pink", ec="0.3"))
+        r1 = self.ax.add_patch(Circle((xr1[0], xr1[1]), self.rr, fc="tab:pink", ec="0.3", alpha=alps[2]))
+        r2 = self.ax.add_patch(Circle((xr2[0], xr2[1]), self.rr, fc="tab:pink", ec="0.3", alpha=alps[1]))
+        r3 = self.ax.add_patch(Circle((xr3[0], xr3[1]), self.rr, fc="tab:pink", ec="0.3", alpha=alps[5]))
+        r4 = self.ax.add_patch(Circle((xr4[0], xr4[1]), self.rr, fc="tab:pink", ec="0.3", alpha=alps[4]))
+        r5 = self.ax.add_patch(Circle((xr5[0], xr5[1]), self.rr, fc="tab:pink", ec="0.3", alpha=alps[0]))
+        r6 = self.ax.add_patch(Circle((xr6[0], xr6[1]), self.rr, fc="tab:pink", ec="0.3", alpha=alps[3]))
         art3d.pathpatch_2d_to_3d(r1, z=xr1[2])
         art3d.pathpatch_2d_to_3d(r2, z=xr2[2])
         art3d.pathpatch_2d_to_3d(r3, z=xr3[2])
@@ -139,18 +163,18 @@ class LC62Frame:
         self.ax.plot([xr4[0], xr6[0]], [xr4[1], xr6[1]], [xr4[2], xr6[2]], "k")
 
         # Pusher
-        p1 = self.ax.add_patch(Circle((xp1[1], xp1[2]), self.rp, fc="tab:purple", ec="0.3"))
-        p2 = self.ax.add_patch(Circle((xp2[1], xp2[2]), self.rp, fc="tab:purple", ec="0.3"))
+        p1 = self.ax.add_patch(Circle((xp1[1], xp1[2]), self.rp, fc="tab:purple", ec="0.3", alpha=alps[6]))
+        p2 = self.ax.add_patch(Circle((xp2[1], xp2[2]), self.rp, fc="tab:purple", ec="0.3", alpha=alps[7]))
         art3d.pathpatch_2d_to_3d(p1, z=xp1[0], zdir="x")
         art3d.pathpatch_2d_to_3d(p2, z=xp2[0], zdir="x")
 
 
-def update_plot(i, uav, t, x, q, numFrames=1):
-    uav.draw_at(np.vstack(x[:, i*numFrames]), np.vstack(q[:, i*numFrames]))
+def update_plot(i, uav, t, x, q, lamb, numFrames=1):
+    uav.draw_at(np.vstack(x[:, i*numFrames]), np.vstack(q[:, i*numFrames]), lamb[:, i*numFrames])
 
-    uav.ax.set(xlim3d=uav.lim, xlabel="X")
-    uav.ax.set(ylim3d=uav.lim, ylabel="Y")
-    uav.ax.set(zlim3d=uav.lim, zlabel="Z")
+    uav.ax.set(xlim3d=uav.xlim, xlabel="X")
+    uav.ax.set(ylim3d=uav.ylim, ylabel="Y")
+    uav.ax.set(zlim3d=uav.zlim, zlabel="Z")
 
     titleTime = uav.ax.text2D(0.05, 0.95, "", transform=uav.ax.transAxes)
     titleTime.set_text(u"Time = {:.2f} s".format(t[i*numFrames]))
@@ -161,6 +185,7 @@ if __name__ == '__main__':
     t = data["t"]
     x = data["plant"]["pos"].squeeze(-1).T
     q = data["plant"]["quat"].squeeze(-1).T
+    lamb = data["Lambda"].squeeze(-1).T
 
     numFrames = 10
 
@@ -171,7 +196,8 @@ if __name__ == '__main__':
     uav = LC62Frame(ax)
     ani = animation.FuncAnimation(
         fig, update_plot, frames=len(t[::numFrames]),
-        fargs=(uav, t, x, q, numFrames), interval=1
+        fargs=(uav, t, x, q, lamb, numFrames), interval=1
     )
+    # ani.save("animation.gif", dpi=80, writer="imagemagick", fps=25)
 
     plt.show()
