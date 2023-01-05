@@ -73,7 +73,6 @@ class LQR_FMController(fym.BaseEnv):
         x = np.vstack((pos, vel, ang, omega))
         x_ref = self.x_trims
 
-
         FM_ctrl = -self.K.dot(x - x_ref) + self.FM_trim
 
         controller_info = {
