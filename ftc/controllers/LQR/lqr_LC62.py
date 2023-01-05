@@ -33,7 +33,6 @@ class LQRController(fym.BaseEnv):
         x = np.vstack((pos, vel, ang, omega))
         x_ref = self.x_trims
 
-
         ctrls = -self.K.dot(x - x_ref) + self.u_trims
 
         controller_info = {
