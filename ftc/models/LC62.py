@@ -145,7 +145,7 @@ class LC62(fym.BaseEnv):
 
     def __init__(self, env_config={}):
         env_config = safeupdate(self.ENV_CONFIG, env_config)
-        super().__init__(max_t=10)
+        super().__init__()
         self.pos = fym.BaseSystem(env_config["init"]["pos"])
         self.vel = fym.BaseSystem(env_config["init"]["vel"])
         self.quat = fym.BaseSystem(env_config["init"]["quat"])
