@@ -70,6 +70,7 @@ class MyEnv(fym.BaseEnv):
 
         return env_info
 
+
 def run():
     env = MyEnv()
     flogger = fym.Logger("data.h5")
