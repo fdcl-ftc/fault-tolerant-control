@@ -63,7 +63,6 @@ class LQR_FMController(fym.BaseEnv):
 
         ptrb = 1e-9
 
-
         A, B = env.plant.lin_model_FM(self.x_trims, self.FM_trim, ptrb)
         self.K, *_ = fym.agents.LQR.clqr(A,B, env.Q, env.R)
 
