@@ -18,5 +18,5 @@ register(
 )
 register(
     id="Adaptive",
-    entry_point="ftc.controllers.adaptive.adaptive:Adaptive",
+    entry_point="ftc.controllers.Adaptive.adaptive:Adaptive",
 )
