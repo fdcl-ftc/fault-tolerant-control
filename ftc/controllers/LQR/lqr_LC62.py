@@ -22,7 +22,6 @@ class LQRController(fym.BaseEnv):
 
         ptrb = 1e-9
 
-
         A, B = env.plant.lin_model(self.x_trims, self.u_trims, ptrb)
         self.K, *_ = fym.agents.LQR.clqr(A, B, env.Q, env.R)
 
