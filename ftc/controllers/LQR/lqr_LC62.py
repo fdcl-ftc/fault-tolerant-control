@@ -25,7 +25,6 @@ class LQRController(fym.BaseEnv):
         A, B = env.plant.lin_model(self.x_trims, self.u_trims, ptrb)
         self.K, *_ = fym.agents.LQR.clqr(A, B, env.Q, env.R)
 
-
     def get_control(self, t, env):
         pos, vel, quat, omega = env.plant.observe_list()
         ang = np.vstack(quat2angle(quat)[::-1])
