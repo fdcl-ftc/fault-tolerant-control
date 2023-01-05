@@ -138,6 +138,7 @@ def plot():
 
     plt.show()
 
+
 def main(args):
     if args.only_plot:
         plot()
