@@ -39,6 +39,7 @@ def safeupdate(*configs):
 
     return reduce(_merge, configs)
 
+
 def linearization(statefunc, states, ctrls, ptrb):
     """
     Parameters
