@@ -70,7 +70,6 @@ class LQR_FMController(fym.BaseEnv):
         pos, vel, quat, omega = env.plant.observe_list()
         ang = np.vstack(quat2angle(quat)[::-1])
 
-
         x = np.vstack((pos, vel, ang, omega))
         x_ref = self.x_trims
 
