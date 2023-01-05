@@ -79,4 +79,3 @@ def linearization(statefunc, states, ctrls, ptrb):
             B[j,i] = dfdu[j]
 
     return A, B
-
