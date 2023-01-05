@@ -81,5 +81,4 @@ class LQR_FMController(fym.BaseEnv):
             "angd": self.x_trims[6:9],
         }
 
-
         return FM_ctrl, controller_info
