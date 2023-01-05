@@ -178,26 +178,6 @@ class LC62(fym.BaseEnv):
         domega = self.Jinv @ (M - np.cross(omega, self.J @ omega, axis=0)) + domega
         return dpos, dvel, dquat, domega
 
-    def deriv_lin(self, pos, vel, quat, ang, omega, FM):
-        F, M = FM[0:3], FM[3:]
-        dcm = quat2dcm(quat)
-        phi, theta, psi = np.ravel(ang)
-        p, q, r = np.ravel(omega)
-
-        """ disturbances """
-        dv = np.zeros((3, 1))
-        domega = self.Jinv @ np.zeros((3, 1))
-
-        """ dynamics """
-        dpos = dcm.T @ vel
-        dvel = F / self.m - np.cross(omega, vel, axis=0) + dv
-        dphi = p + sin(phi) * tan(theta) * q + cos(phi) * tan(theta) * r
-        dtheta = cos(phi) * q - sin(phi) * r
-        dpsi = (sin(phi) * q + cos(phi) * r) / cos(theta)
-        dang = np.vstack((dphi, dtheta, dpsi))
-        domega = self.Jinv @ (M - np.cross(omega, self.J @ omega, axis=0)) + domega
-        return dpos, dvel, dang, domega
-
     def set_dot(self, t, FM):
         states = self.observe_list()
         dots = self.deriv(*states, FM)
@@ -583,7 +563,28 @@ class LC62(fym.BaseEnv):
         A_deriv, B_deriv = self.perturb_deriv(self.x_trims, FM)
         return A_deriv, B_deriv
 
-    # Linearization numerically 
+
+    def deriv_lin(self, pos, vel, quat, ang, omega, FM):
+        F, M = FM[0:3], FM[3:]
+        dcm = quat2dcm(quat)
+        phi, theta, psi = np.ravel(ang)
+        p, q, r = np.ravel(omega)
+
+        """ disturbances """
+        dv = np.zeros((3, 1))
+        domega = self.Jinv @ np.zeros((3, 1))
+
+        """ dynamics """
+        dpos = dcm.T @ vel
+        dvel = F / self.m - np.cross(omega, vel, axis=0) + dv
+        dphi = p + sin(phi) * tan(theta) * q + cos(phi) * tan(theta) * r
+        dtheta = cos(phi) * q - sin(phi) * r
+        dpsi = (sin(phi) * q + cos(phi) * r) / cos(theta)
+        dang = np.vstack((dphi, dtheta, dpsi))
+        domega = self.Jinv @ (M - np.cross(omega, self.J @ omega, axis=0)) + domega
+        return dpos, dvel, dang, domega
+
+        # Linearization numerically 
     def statefunc(self, states, ctrls):
         pos = states[0:3]
         vel = states[3:6]
