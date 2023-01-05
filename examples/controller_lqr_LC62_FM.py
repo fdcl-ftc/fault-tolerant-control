@@ -56,7 +56,6 @@ class MyEnv(fym.BaseEnv):
         pos, vel, quat, omega = self.plant.observe_list()
         self.plant.set_dot(t, FM_ctrl)
 
-
         Force_ctrl = FM_ctrl[0:3]
         Moment_ctrl = FM_ctrl[3:6]
 
