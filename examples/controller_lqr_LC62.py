@@ -148,6 +148,7 @@ def main(args):
        if args.plot:
            plot()
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-p", "--plot", action="store_true")
