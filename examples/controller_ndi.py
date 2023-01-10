@@ -1,12 +1,12 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import argparse
 
 import fym
+import matplotlib.pyplot as plt
+import numpy as np
 
 import ftc
-from ftc.utils import safeupdate
 from ftc.models.LC62 import LC62
+from ftc.utils import safeupdate
 
 np.seterr(all="raise")
 
@@ -238,18 +238,20 @@ def plot():
 
     """ Figure 3 - Rotor thrusts """
     fig, axs = plt.subplots(3, 2, sharex=True)
-    ylabels = np.array((["Rotor 1", "Rotor 2"],
-                        ["Rotor 3", "Rotor 4"],
-                        ["Rotor 5", "Rotor 6"]))
+    ylabels = np.array(
+        (["Rotor 1", "Rotor 2"], ["Rotor 3", "Rotor 4"], ["Rotor 5", "Rotor 6"])
+    )
     for i, _ylabel in np.ndenumerate(ylabels):
         ax = axs[i]
         ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, sum(i)], "k-", label="Response")
-        ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, sum(i)], "r--", label="Command")
+        ax.plot(
+            data["t"], data["ctrls0"].squeeze(-1)[:, sum(i)], "r--", label="Command"
+        )
         ax.grid()
         if i == (0, 1):
             ax.legend(loc="upper right")
         plt.setp(ax, ylabel=_ylabel)
-        ax.set_ylim([1000-5, 2000+5])
+        ax.set_ylim([1000 - 5, 2000 + 5])
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Rotor Thrusts")
 
@@ -259,12 +261,13 @@ def plot():
 
     """ Figure 4 - Pusher and Control surfaces """
     fig, axs = plt.subplots(5, 1, sharex=True)
-    ylabels = np.array(("Pusher 1", "Pusher 2",
-                        r"$\delta_a$", r"$\delta_e$", r"$\delta_r$"))
+    ylabels = np.array(
+        ("Pusher 1", "Pusher 2", r"$\delta_a$", r"$\delta_e$", r"$\delta_r$")
+    )
     for i, _ylabel in enumerate(ylabels):
         ax = axs[i]
-        ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, i+6], "k-", label="Response")
-        ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, i+6], "r--", label="Command")
+        ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, i + 6], "k-", label="Response")
+        ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, i + 6], "r--", label="Command")
         ax.grid()
         plt.setp(ax, ylabel=_ylabel)
         # if i < 2:
