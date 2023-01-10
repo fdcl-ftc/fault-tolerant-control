@@ -1,11 +1,11 @@
-from pathlib import Path
-import numpy as np
+import itertools
 import os
 from concurrent.futures import ProcessPoolExecutor
-import itertools
-import tqdm
+from pathlib import Path
 
 import fym
+import numpy as np
+import tqdm
 
 
 def sim(i, initial, Env):
@@ -42,14 +42,10 @@ def sim(i, initial, Env):
 def sim_parallel(N, initials, Env, workers=None):
     cpu_workers = os.cpu_count()
     workers = int(workers or cpu_workers)
-    assert workers <= os.cpu_count(), \
-        f"workers should be less than {cpu_workers}"
+    assert workers <= os.cpu_count(), f"workers should be less than {cpu_workers}"
     print(f"Sample with {workers} workers ...")
     with ProcessPoolExecutor(workers) as p:
-        list(tqdm.tqdm(
-            p.map(sim, range(N), initials, itertools.repeat(Env)),
-            total=N
-        ))
+        list(tqdm.tqdm(p.map(sim, range(N), initials, itertools.repeat(Env)), total=N))
 
 
 def calculate_recovery_rate(errors, threshold=0.5):
