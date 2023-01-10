@@ -152,6 +152,7 @@ class LC62(fym.BaseEnv):
         self.omega = fym.BaseSystem(env_config["init"]["omega"])
 
         self.e3 = np.vstack((0, 0, 1))
+        # if VT >=40, the initial guess, z0, should be changed from default to 2000
         self.x_trims, self.u_trims_fixed = self.get_trim_fixed(fixed={"h": 10, "VT": 0})
         self.u_trims_vtol = self.get_trim_vtol(
             fixed={"x_trims": self.x_trims, "u_trims_fixed": self.u_trims_fixed}
@@ -221,7 +222,7 @@ class LC62(fym.BaseEnv):
         R5: front right, [CCW]
         R6: rear left,   [CW]
         """
-        rcmds = (pwms_rotor - 1000) / 1000
+        rcmds = self.pwm2cmd(pwms_rotor)
         th = (-19281 * rcmds**3 + 36503 * rcmds**2 - 992.75 * rcmds) * self.g / 1000
         tq = -6.3961 * rcmds**3 + 12.092 * rcmds**2 - 0.3156 * rcmds
         # th = np.polyval(self.tables["th_r"], rcmds) * self.g / 1000
@@ -314,6 +315,20 @@ class LC62(fym.BaseEnv):
         Cm = np.interp(alp, self.tables["alp"], self.tables["Cm"])
         return np.vstack((CL, CD, Cm))
 
+    def pwm2cmd(self, pwm):
+        """
+        pwm: 1000 ~ 2000
+        cmd: 0 ~ 1
+        """
+        return (pwm - 1000) / 1000
+
+    def cmd2pwm(self, cmd):
+        """
+        cmd: 0 ~ 1
+        pwm: 1000 ~ 2000
+        """
+        return cmd * 1000 + 1000
+
     def get_trim_fixed(
         self,
         z0={
@@ -351,7 +366,10 @@ class LC62(fym.BaseEnv):
         )
 
         h, VT = fixed
-        alp, beta, pusher1, pusher2, dela, dele, delr = result.x
+        if np.isclose(VT, 0):
+            alp, beta, pusher1, pusher2, dela, dele, delr = 0, 0, 1000, 1000, 0, 0, 0
+        else:
+            alp, beta, pusher1, pusher2, dela, dele, delr = result.x
         pos_trim = np.vstack((0, 0, -h))
         vel_trim = np.vstack(
             (VT * cos(alp) * cos(beta), VT * sin(beta), VT * sin(alp) * cos(beta))

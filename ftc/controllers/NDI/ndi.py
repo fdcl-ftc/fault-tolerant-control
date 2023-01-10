@@ -78,7 +78,7 @@ class NDIController(fym.BaseEnv):
         # control input
         th = np.linalg.pinv(self.B_r2f) @ nui
         # transform to pwms
-        pwms_rotor = (th / self.c_th) * 1000 + 1000
+        pwms_rotor = env.plant.cmd2pwm(th / self.c_th)
         ctrls = np.vstack((pwms_rotor, np.vstack(env.plant.u_trims_fixed)))
 
         controller_info = {
