@@ -319,8 +319,8 @@ class LC62(fym.BaseEnv):
         z0={
             "alpha": 0.0,
             "beta": 0,
-            "pusher1": 1000,
-            "pusher2": 1000,
+            "pusher1": 1500,
+            "pusher2": 1500,
             "dela": 0,
             "dele": 0,
             "delr": 0,
@@ -384,7 +384,7 @@ class LC62(fym.BaseEnv):
 
         dots = self.deriv(pos_trim, vel_trim, quat_trim, omega_trim, FM_Fixed)
         dxs = np.append(dots[1], dots[3])
-        weight = np.diag([1, 1, 1, 1000, 1000, 1000])
+        weight = np.diag([10, 1, 1, 1000, 1000, 1000])
         return dxs.dot(weight).dot(dxs)
 
     def get_trim_vtol(
