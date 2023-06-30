@@ -45,7 +45,7 @@ class PolytopePredictor:
         are_in = [self.determine_is_in(nu, lmbd, scaling_factor) for (nu, lmbd) in zip(nus, lmbds)]
         return are_in
 
-    def predict(self, *args, **kwargs):
+    def determine(self, *args, **kwargs):
         """
         Is the mission success? (by considering all points along a trajectory imply that corresponding contrl inputs are in the input space.)
         """
