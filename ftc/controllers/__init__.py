@@ -32,3 +32,7 @@ register(
     id="NDI",
     entry_point="ftc.controllers.NDI.ndi:NDIController",
 )
+register(
+    id="Flat",
+    entry_point="ftc.controllers.Flat.flat:FlatController",
+)
