@@ -30,14 +30,13 @@ class MFA:
         plant = self.env.plant
         pos, vel, quat, omega = plant.observe_list()
 
-        FM = np.vstack((0, 0, nu))
+        FM = np.vstack((0, 0, -nu[0], nu[1:]))
 
         pwms_pusher, dels = plant.u_trims_fixed
         FM_Pusher = plant.B_Pusher(pwms_pusher)
         FM_Fuselage = plant.B_Fuselage(dels, pos, vel - vel_wind, omega + omega_wind)
-        FM_Gravity = plant.B_Gravity(quat)
 
-        FM_VTOL = FM - FM_Fuselage - FM_Pusher - FM_Gravity
+        FM_VTOL = FM - FM_Fuselage - FM_Pusher
 
         nu_f = FM_VTOL[2:]
         th = self.B_f2r @ nu_f

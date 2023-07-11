@@ -27,7 +27,7 @@ class MyEnv(fym.BaseEnv):
     ENV_CONFIG = {
         "fkw": {
             "dt": 0.01,
-            "max_t": 20,
+            "max_t": 10,
         },
         "plant": {
             "init": {
@@ -58,8 +58,19 @@ class MyEnv(fym.BaseEnv):
         self.u0 = self.controller.get_u0(self)
 
     def step(self):
+        t = self.clock.get()
+
+        if np.isclose(t, 3):
+            tspan = self.clock.tspan
+            tspan = tspan[tspan >= t][::20]
+            lmbd = self.get_Lambda(t)
+            mfa_predict = self.mfa.predict(tspan, lmbd[:6].ravel())
+        else:
+            mfa_predict = True
+
         env_info, done = self.update()
-        return done, env_info
+
+        return done, env_info | {"mfa": mfa_predict}
 
     def observation(self):
         return self.observe_flat()
@@ -84,15 +95,11 @@ class MyEnv(fym.BaseEnv):
         bctrls = self.plant.saturate(ctrls0)
 
         """ set faults """
-        lmbd = self.get_Lambda(t)
         lctrls = self.set_Lambda(t, bctrls)  # lambda * bctrls
         ctrls = self.plant.saturate(lctrls)
 
         FM = self.plant.get_FM(*self.plant.observe_list(), ctrls)
         self.plant.set_dot(t, FM)
-
-        tspan = self.clock.tspan
-        tspan = tspan[tspan >= t]
 
         env_info = {
             "t": t,
@@ -101,8 +108,7 @@ class MyEnv(fym.BaseEnv):
             "ctrls0": ctrls0,
             "ctrls": ctrls,
             "FM": FM,
-            "Lambda": lmbd,
-            "mfa": self.mfa.predict(tspan, lmbd[:6].ravel()),
+            "Lambda": self.get_Lambda(t),
         }
 
         return env_info
@@ -111,6 +117,8 @@ class MyEnv(fym.BaseEnv):
         """Lambda function"""
 
         Lambda = np.ones((11, 1))
+        if t >= 3:
+            Lambda[0, 0] = 0.1
         return Lambda
 
     def set_Lambda(self, t, ctrls):
