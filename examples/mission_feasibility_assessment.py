@@ -91,7 +91,6 @@ class MyEnv(fym.BaseEnv):
 
     def set_dot(self, t):
         ctrls0, controller_info = self.controller.get_control(t, self)
-        ctrls = ctrls0
         bctrls = self.plant.saturate(ctrls0)
 
         """ set faults """
@@ -118,7 +117,7 @@ class MyEnv(fym.BaseEnv):
 
         Lambda = np.ones((11, 1))
         if t >= 3:
-            Lambda[0, 0] = 0.1
+            Lambda[0, 0] = 0.3
         return Lambda
 
     def set_Lambda(self, t, ctrls):
