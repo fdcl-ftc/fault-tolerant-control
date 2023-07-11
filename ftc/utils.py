@@ -1,8 +1,10 @@
 from copy import deepcopy
 from functools import reduce
 
-from ftc.registration import registry
 import numpy as np
+
+from ftc.registration import registry
+
 
 def make(id, env=None):
     assert env is not None
@@ -39,6 +41,7 @@ def safeupdate(*configs):
 
     return reduce(_merge, configs)
 
+
 def linearization(statefunc, states, ctrls, ptrb):
     """
     Parameters
@@ -56,25 +59,25 @@ def linearization(statefunc, states, ctrls, ptrb):
 
     n = np.size(states)
     m = np.size(ctrls)
-    A = np.zeros((n,n))
-    B = np.zeros((n,m))
+    A = np.zeros((n, n))
+    B = np.zeros((n, m))
 
     for i in np.arange(n):
-        ptrbvec_x = np.zeros((n,1))
+        ptrbvec_x = np.zeros((n, 1))
         ptrbvec_x[i] = ptrb
         x_ptrb = states + ptrbvec_x
 
         dfdx = (statefunc(x_ptrb, ctrls) - statefunc(states, ctrls)) / ptrb
         for j in np.arange(n):
-            A[j,i] = dfdx[j]
+            A[j, i] = dfdx[j]
 
     for i in np.arange(m):
-        ptrbvec_u = np.zeros((m,1))
+        ptrbvec_u = np.zeros((m, 1))
         ptrbvec_u[i] = ptrb
         u_ptrb = ctrls + ptrbvec_u
- 
+
         dfdu = (statefunc(states, u_ptrb) - statefunc(states, ctrls)) / ptrb
         for j in np.arange(n):
-            B[j,i] = dfdu[j]
+            B[j, i] = dfdu[j]
 
     return A, B

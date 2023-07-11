@@ -13,18 +13,18 @@ import numpy as np
 from fym.utils.rot import angle2quat
 
 import ftc
-from ftc.models.LC62 import LC62
+from ftc.models.LinearLC62 import LinearLC62
 from ftc.utils import safeupdate
 
 np.seterr(all="raise")
 
 
 class MyEnv(fym.BaseEnv):
-    ang = np.random.uniform(-np.deg2rad(0), np.deg2rad(0), size=(3, 1))
+    ang = np.deg2rad(np.random.uniform(-0, 0, size=(3, 1)))
     ENV_CONFIG = {
         "fkw": {
             "dt": 0.01,
-            "max_t": 20,
+            "max_t": 50,
         },
         "plant": {
             "init": {
@@ -39,7 +39,7 @@ class MyEnv(fym.BaseEnv):
     def __init__(self, env_config={}):
         env_config = safeupdate(self.ENV_CONFIG, env_config)
         super().__init__(**env_config["fkw"])
-        self.plant = LC62(env_config["plant"])
+        self.plant = LinearLC62(env_config["plant"])
 
         # Hovering
         self.x_trims_HV, self.u_trims_fixed_HV = self.plant.get_trim_fixed(
@@ -61,7 +61,8 @@ class MyEnv(fym.BaseEnv):
         )
         self.Q_FW = 10 * np.diag([100, 1, 2000, 2000, 1, 200, 100, 100, 100, 0, 0, 0])
         self.R_FW = np.diag([1, 1, 10, 1000, 10])
-        self.controller = ftc.make("LQR-LC62-mode", self)
+
+        self.controller = ftc.make("LQR-LC62", self)
 
     def step(self):
         env_info, done = self.update()
@@ -97,9 +98,8 @@ class MyEnv(fym.BaseEnv):
         return [refs[key] for key in args]
 
     def set_dot(self, t):
-        ctrls, controller_info = self.controller.get_control(t, self)
-        rotors0 = ctrls
-        rotors = rotors0
+        ctrls0, controller_info = self.controller.get_control(t, self)
+        ctrls = ctrls0
 
         pos, vel, quat, omega = self.plant.observe_list()
         FM = self.plant.get_FM(pos, vel, quat, omega, ctrls)
@@ -111,7 +111,7 @@ class MyEnv(fym.BaseEnv):
             **controller_info,
             "FM": FM,
             "ctrls": ctrls,
-            "ctrls0": ctrls,
+            "ctrls0": ctrls0,
             "Lambda": np.ones((11, 1)),
         }
 
@@ -149,8 +149,16 @@ def plot():
     ax.plot(data["t"], data["plant"]["pos"][:, 0].squeeze(-1), "k-")
     ax.plot(data["t"], data["posd"][:, 0].squeeze(-1), "r--")
     ax.set_ylabel(r"$x$, m")
+    ax.set_xlabel("Time, sec")
     # ax.legend(["Response", "Ref"], loc="upper right")
     ax.set_xlim(data["t"][0], data["t"][-1])
+    ax.axvspan(0, 10, color="g", alpha=0.25)
+    ax.axvspan(10, 15, color="g", alpha=0.4)
+    ax.axvspan(15, 35, color="b", alpha=0.25)
+    ax.axvspan(35, 40, color="g", alpha=0.4)
+    ax.axvspan(40, 50, color="g", alpha=0.25)
+    ax.set_xticks(np.linspace(0, 50, 11))
+    ax.grid()
 
     ax = axes[1, 0]
     ax.plot(data["t"], data["plant"]["pos"][:, 1].squeeze(-1), "k-")
@@ -273,44 +281,6 @@ def plot():
     fig.tight_layout()
     fig.align_ylabels(axs)
 
-    """ Figure 4 - Visualization """
-    t = data["t"]
-    x = data["plant"]["pos"].squeeze(-1).T
-    q = data["plant"]["quat"].squeeze(-1).T
-    lamb = data["Lambda"].squeeze(-1).T
-
-    numFrames = 10
-
-    fig = plt.figure()
-    ax = fig.add_subplot(projection="3d")
-
-    uav = LC62Frame(ax)
-    ani = animation.FuncAnimation(
-        fig,
-        update_plot,
-        frames=len(t[::numFrames]),
-        fargs=(uav, t, x, q, lamb, numFrames),
-        interval=1,
-    )
-
-    ani.save("animation.gif", dpi=80, writer="imagemagick", fps=25)
-    ax.set_ylabel(r"$v_x$, m/s")
-    # ax.legend(["Response", "Ref"], loc="upper right")
-
-    ax = axes[1, 1]
-    ax.plot(data["t"], data["plant"]["vel"][:, 1].squeeze(-1), "k-")
-    ax.set_ylabel(r"$v_y$, m/s")
-
-    ax = axes[2, 1]
-    ax.plot(data["t"], data["plant"]["vel"][:, 2].squeeze(-1), "k-")
-    ax.set_ylabel(r"$v_z$, m/s")
-
-    ax.set_xlabel("Time, sec")
-
-    fig.tight_layout()
-    fig.subplots_adjust(wspace=0.3)
-    fig.align_ylabels(axes)
-
     plt.show()
 
 
@@ -319,9 +289,9 @@ def main(args):
         plot()
         return
     else:
-       run()
-       if args.plot:
-           plot()
+        run()
+        if args.plot:
+            plot()
 
 
 if __name__ == "__main__":
