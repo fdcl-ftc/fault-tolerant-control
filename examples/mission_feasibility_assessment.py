@@ -91,6 +91,9 @@ class MyEnv(fym.BaseEnv):
         FM = self.plant.get_FM(*self.plant.observe_list(), ctrls)
         self.plant.set_dot(t, FM)
 
+        tspan = self.clock.tspan
+        tspan = tspan[tspan >= t]
+
         env_info = {
             "t": t,
             **self.observe_dict(),
@@ -99,7 +102,7 @@ class MyEnv(fym.BaseEnv):
             "ctrls": ctrls,
             "FM": FM,
             "Lambda": lmbd,
-            "mfa": self.mfa.predict(t, lmbd[:6].ravel()),
+            "mfa": self.mfa.predict(tspan, lmbd[:6].ravel()),
         }
 
         return env_info

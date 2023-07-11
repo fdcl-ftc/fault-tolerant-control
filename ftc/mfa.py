@@ -26,8 +26,6 @@ class MFA:
         )
         self.B_f2r = np.linalg.pinv(B_r2f)
 
-        self.T = 20
-
     def allocator(self, nu, vel_wind=np.zeros((3, 1)), omega_wind=np.zeros((3, 1))):
         plant = self.env.plant
         pos, vel, quat, omega = plant.observe_list()
@@ -46,8 +44,7 @@ class MFA:
         pwms_rotor = (th / self.c_th) * 1000 + 1000
         return pwms_rotor
 
-    def predict(self, t0, lmbd, scaling_factor=1.0):
-        tspan = np.linspace(t0, t0 + self.T, 100)
+    def predict(self, tspan, lmbd, scaling_factor=1.0):
         for t in tspan:
             FM_traj, _ = self.controller.get_control(t, self.env)
             nu = FM_traj[2:]
