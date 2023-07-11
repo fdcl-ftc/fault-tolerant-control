@@ -66,8 +66,7 @@ class INDIController(fym.BaseEnv):
         self.lpf_nu.dot = -(nu_f - nu) / self.tau
 
         """ active FTC with FDI """
-        _B = self.B_r2f.copy()
-        _B = np.hstack((env.get_Lambda(t)[:6])) * _B
+        _B = np.hstack((env.get_Lambda(t)[:6])) * self.B_r2f
         th = np.linalg.pinv(_B) @ nu_f
         pwms_rotor = (th / self.c_th) * 1000 + 1000
 
