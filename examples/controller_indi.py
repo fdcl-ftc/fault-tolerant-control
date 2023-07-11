@@ -1,26 +1,14 @@
-import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib import animation
 import argparse
 
 import fym
-from fym.utils.rot import angle2quat
+import matplotlib.pyplot as plt
+import numpy as np
 
 import ftc
-from ftc.utils import safeupdate
 from ftc.models.LC62 import LC62
-from ftc.plotframe import LC62Frame, update_plot
+from ftc.utils import safeupdate
 
 np.seterr(all="raise")
-
-
-class ActuatorDynamics(fym.BaseSystem):
-    def __init__(self, tau, **kwargs):
-        super().__init__(**kwargs)
-        self.tau = tau
-
-    def set_dot(self, ctrls, ctrls_cmd):
-        self.dot = -1 / self.tau * (ctrls - ctrls_cmd)
 
 
 class MyEnv(fym.BaseEnv):
@@ -50,7 +38,6 @@ class MyEnv(fym.BaseEnv):
         self.plant = LC62(env_config["plant"])
         self.controller = ftc.make("INDI", self)
         self.u0 = self.controller.get_u0(self)
-        # self.rotor_dyn = ActuatorDynamics(tau=0.01, shape=(11, 1))
 
     def step(self):
         env_info, done = self.update()
@@ -67,7 +54,7 @@ class MyEnv(fym.BaseEnv):
 
     def set_dot(self, t):
         ctrls0, controller_info = self.controller.get_control(t, self)
-        ctrls = ctrls0
+        # ctrls = ctrls0
         bctrls = self.plant.saturate(ctrls0)
 
         """ set faults """
@@ -97,7 +84,7 @@ class MyEnv(fym.BaseEnv):
 
     def set_Lambda(self, t, ctrls):
         Lambda = self.get_Lambda(t)
-        ctrls[:6] = Lambda[:6,:] * ((ctrls[:6] - 1000) / 1000) * 1000 + 1000
+        ctrls[:6] = Lambda[:6, :] * ((ctrls[:6] - 1000) / 1000) * 1000 + 1000
         return ctrls
 
 
@@ -247,19 +234,23 @@ def plot():
 
     """ Figure 3 - Rotor thrusts """
     fig, axs = plt.subplots(3, 2, sharex=True)
-    ylabels = np.array((["Rotor 1", "Rotor 2"],
-                        ["Rotor 3", "Rotor 4"],
-                        ["Rotor 5", "Rotor 6"]))
+    ylabels = np.array(
+        (["Rotor 1", "Rotor 2"], ["Rotor 3", "Rotor 4"], ["Rotor 5", "Rotor 6"])
+    )
     for i, _ylabel in np.ndenumerate(ylabels):
         x, y = i
         ax = axs[i]
-        ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, 2*x+y], "k-", label="Response")
-        ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, 2*x+y], "r--", label="Command")
+        ax.plot(
+            data["t"], data["ctrls"].squeeze(-1)[:, 2 * x + y], "k-", label="Response"
+        )
+        ax.plot(
+            data["t"], data["ctrls0"].squeeze(-1)[:, 2 * x + y], "r--", label="Command"
+        )
         ax.grid()
         if i == (0, 1):
             ax.legend(loc="upper right")
         plt.setp(ax, ylabel=_ylabel)
-        ax.set_ylim([1000-5, 2000+5])
+        ax.set_ylim([1000 - 5, 2000 + 5])
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Rotor Thrusts")
 
@@ -269,16 +260,15 @@ def plot():
 
     """ Figure 4 - Pusher and Control surfaces """
     fig, axs = plt.subplots(5, 1, sharex=True)
-    ylabels = np.array(("Pusher 1", "Pusher 2",
-                        r"$\delta_a$", r"$\delta_e$", r"$\delta_r$"))
+    ylabels = np.array(
+        ("Pusher 1", "Pusher 2", r"$\delta_a$", r"$\delta_e$", r"$\delta_r$")
+    )
     for i, _ylabel in enumerate(ylabels):
         ax = axs[i]
-        ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, i+6], "k-", label="Response")
-        ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, i+6], "r--", label="Command")
+        ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, i + 6], "k-", label="Response")
+        ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, i + 6], "r--", label="Command")
         ax.grid()
         plt.setp(ax, ylabel=_ylabel)
-        # if i < 2:
-        #     ax.set_ylim([1000-5, 2000+5])
         if i == 0:
             ax.legend(loc="upper right")
     plt.gcf().supxlabel("Time, sec")
@@ -306,26 +296,7 @@ def plot():
     fig.subplots_adjust(wspace=0.5)
     fig.align_ylabels(axs)
 
-    # """ Figure 6 - Animation """
-    # t = data["t"]
-    # x = data["plant"]["pos"].squeeze(-1).T
-    # q = data["plant"]["quat"].squeeze(-1).T
-    # lamb = data["Lambda"].squeeze(-1).T
-
-    # numFrames = 10
-
-    # fig = plt.figure()
-    # ax = fig.add_subplot(projection='3d')
-
-    # uav = LC62Frame(ax)
-    # ani = animation.FuncAnimation(
-    #     fig, update_plot, frames=len(t[::numFrames]),
-    #     fargs=(uav, t, x, q, lamb, numFrames), interval=1
-    # )
-    # # ani.save("animation.gif", dpi=80, writer="imagemagick", fps=25)
-
     plt.show()
-    # return ani
 
 
 def main(args):
