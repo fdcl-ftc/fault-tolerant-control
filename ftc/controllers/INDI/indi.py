@@ -65,6 +65,7 @@ class INDIController(fym.BaseEnv):
         self.lpf_dxi.dot = -(xi_dot_f - xi_dot) / self.tau
         self.lpf_nu.dot = -(nu_f - nu) / self.tau
 
+        """ active FTC with FDI """
         _B = self.B_r2f.copy()
         _B = np.hstack((env.get_Lambda(t)[:6])) * _B
         th = np.linalg.pinv(_B) @ nu_f
