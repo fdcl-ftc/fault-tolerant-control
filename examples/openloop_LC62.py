@@ -10,6 +10,7 @@ from ftc.utils import safeupdate
 
 np.seterr(all="raise")
 
+
 class MyEnv(fym.BaseEnv):
     ENV_CONFIG = {
         "fkw": {
@@ -48,7 +49,13 @@ class MyEnv(fym.BaseEnv):
         posd_2dot = np.vstack([-np.sin(t), -np.cos(t), 0])
         posd_3dot = np.vstack([-np.cos(t), np.sin(t), 0])
         posd_4dot = np.stack([np.sin(t), np.cos(t), 0])
-        refs = {"posd": posd, "posd_1dot": posd_1dot, "posd_2dot": posd_2dot, "posd_3dot": posd_3dot, "posd_4dot": posd_4dot}
+        refs = {
+            "posd": posd,
+            "posd_1dot": posd_1dot,
+            "posd_2dot": posd_2dot,
+            "posd_3dot": posd_3dot,
+            "posd_4dot": posd_4dot,
+        }
         return [refs[key] for key in args]
 
     def set_dot(self, t):
@@ -84,6 +91,7 @@ class MyEnv(fym.BaseEnv):
 
         return Lambda
 
+
 def run():
     env = MyEnv()
     flogger = fym.Logger("data.h5")
@@ -102,6 +110,7 @@ def run():
     finally:
         flogger.close()
         plot()
+
 
 def plot():
     data = fym.load("data.h5")["env"]
@@ -165,4 +174,3 @@ if __name__ == "__main__":
     parser.add_argument("-P", "--only-plot", action="store_true")
     args = parser.parse_args()
     main(args)
-
