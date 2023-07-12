@@ -36,11 +36,6 @@ class MyEnv(fym.BaseEnv):
         self.controller = ftc.make("INDI", self)
         self.mfa = MFA(self)
 
-        self.posd_1dot = nd.Derivative(self.posd, n=1)
-        self.posd_2dot = nd.Derivative(self.posd, n=2)
-        self.posd_3dot = nd.Derivative(self.posd, n=3)
-        self.posd_4dot = nd.Derivative(self.posd, n=4)
-
         self.u0 = self.controller.get_u0(self)
 
     def step(self):
@@ -62,7 +57,9 @@ class MyEnv(fym.BaseEnv):
         return self.observe_flat()
 
     def posd(self, t):
-        return np.vstack([0, 0, 0])
+        # posd = np.vstack([0, 0, 0])
+        posd = np.vstack((np.sin(t), np.cos(t), t))
+        return posd
 
     def psid(self, t):
         return 0
@@ -70,7 +67,7 @@ class MyEnv(fym.BaseEnv):
     def get_ref(self, t, *args):
         refs = {
             "posd": self.posd(t),
-            "posd_dot": self.posd_1dot(t),
+            "posd_dot": np.vstack((np.cos(t), -np.sin(t), 1)),
         }
         return [refs[key] for key in args]
 
@@ -203,7 +200,7 @@ def plot():
 
     ax.set_xlabel("Time, sec")
 
-    fig.tight_layout()
+    plt.tight_layout()
     fig.subplots_adjust(wspace=0.3)
     fig.align_ylabels(axes)
 
@@ -249,7 +246,7 @@ def plot():
 
     ax.set_xlabel("Time, sec")
 
-    fig.tight_layout()
+    plt.tight_layout()
     fig.subplots_adjust(wspace=0.5)
     fig.align_ylabels(axes)
 
@@ -275,7 +272,7 @@ def plot():
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Rotor Thrusts")
 
-    fig.tight_layout()
+    plt.tight_layout()
     fig.subplots_adjust(wspace=0.5)
     fig.align_ylabels(axs)
 
@@ -297,7 +294,7 @@ def plot():
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Pusher and Control Surfaces")
 
-    fig.tight_layout()
+    plt.tight_layout()
     fig.subplots_adjust(wspace=0.5)
     fig.align_ylabels(axs)
 
@@ -328,7 +325,7 @@ def plot():
     plt.xlabel("Time, sec")
     plt.ylabel("MFA")
 
-    fig.tight_layout()
+    plt.tight_layout()
 
     plt.show()
 
