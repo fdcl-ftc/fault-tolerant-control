@@ -23,7 +23,6 @@ class ActuatorDynamics(fym.BaseSystem):
 
 
 class MyEnv(fym.BaseEnv):
-    # euler = np.random.uniform(-np.deg2rad(10), np.deg2rad(10), size=(3, 1))
     ENV_CONFIG = {
         "fkw": {
             "dt": 0.01,
@@ -35,10 +34,6 @@ class MyEnv(fym.BaseEnv):
                 "vel": np.zeros((3, 1)),
                 "quat": np.vstack((1, 0, 0, 0)),
                 "omega": np.zeros((3, 1)),
-                # "pos": np.random.uniform(-1, 1, size=(3, 1)),
-                # "vel": np.random.uniform(-2, 2, size=(3, 1)),
-                # "quat": angle2quat(0, euler[1], euler[0]),
-                # "omega": np.random.uniform(-np.deg2rad(5), np.deg2rad(5), size=(3, 1)),
             },
         },
     }
@@ -82,10 +77,6 @@ class MyEnv(fym.BaseEnv):
         refs = {
             "posd": self.posd(t),
             "posd_dot": self.posd_1dot(t),
-            "posd_1dot": self.posd_1dot(t),
-            "posd_2dot": self.posd_2dot(t),
-            "posd_3dot": self.posd_3dot(t),
-            "posd_4dot": self.posd_4dot(t),
         }
         return [refs[key] for key in args]
 
