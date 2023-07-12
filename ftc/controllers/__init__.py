@@ -28,7 +28,3 @@ register(
     id="INDI",
     entry_point="ftc.controllers.INDI.indi:INDIController",
 )
-register(
-    id="Flat",
-    entry_point="ftc.controllers.Flat.flat:FlatController",
-)
