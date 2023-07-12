@@ -363,7 +363,9 @@ class LC62R(fym.BaseEnv):
 
         h, VT = fixed
         if np.isclose(VT, 0):
-            alp, beta, pusher1, pusher2, dela, dele, delr = np.zeros(7,)
+            alp, beta, pusher1, pusher2, dela, dele, delr = np.zeros(
+                7,
+            )
         else:
             alp, beta, pusher1, pusher2, dela, dele, delr = result.x
         pos_trim = np.vstack((0, 0, -h))

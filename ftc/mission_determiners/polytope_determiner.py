@@ -7,8 +7,12 @@ class PolytopeDeterminer:
 
     A mission-success determiner using polytope.
     """
+
     def __init__(
-            self, u_min, u_max, allocator,
+        self,
+        u_min,
+        u_max,
+        allocator,
     ):
         """
         u_min: (m,) array; minimum input (element-wise)
@@ -42,7 +46,10 @@ class PolytopeDeterminer:
         """
         Apply `determine_is_in` for multiple pairs of (nu, lmbd)'s.
         """
-        are_in = [self.determine_is_in(nu, lmbd, scaling_factor) for (nu, lmbd) in zip(nus, lmbds)]
+        are_in = [
+            self.determine_is_in(nu, lmbd, scaling_factor)
+            for (nu, lmbd) in zip(nus, lmbds)
+        ]
         return are_in
 
     def determine(self, *args, **kwargs):

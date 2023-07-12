@@ -1,15 +1,14 @@
+import numpy as np
 from fym.core import BaseEnv, BaseSystem
 from fym.utils.rot import quat2angle
-
-import numpy as np
 
 
 def func_g(x, theta):
     delta = 1
     if abs(x) < delta:
-        return x / delta**(1-theta)
+        return x / delta ** (1 - theta)
     else:
-        return np.sign(x) * abs(x)**theta
+        return np.sign(x) * abs(x) ** theta
 
 
 def q(x):
@@ -28,64 +27,95 @@ class BLFController(BaseEnv):
         rho_k = 0.5
         theta = 0.7
         env_config = env.env_config
-        self.Cx = outerLoop(alp, env_config["eps1"], rho, rho_k, theta,
-                            np.array([env_config["k11"], env_config["k12"],
-                                      env_config["k13"]]))
-        self.Cy = outerLoop(alp, env_config["eps1"], rho, rho_k, theta,
-                            np.array([env_config["k11"], env_config["k12"],
-                                      env_config["k13"]]))
-        self.Cz = outerLoop(alp, env_config["eps1"], rho, rho_k, theta,
-                            np.array([env_config["k11"], env_config["k12"],
-                                      env_config["k13"]]))
+        self.Cx = outerLoop(
+            alp,
+            env_config["eps1"],
+            rho,
+            rho_k,
+            theta,
+            np.array([env_config["k11"], env_config["k12"], env_config["k13"]]),
+        )
+        self.Cy = outerLoop(
+            alp,
+            env_config["eps1"],
+            rho,
+            rho_k,
+            theta,
+            np.array([env_config["k11"], env_config["k12"], env_config["k13"]]),
+        )
+        self.Cz = outerLoop(
+            alp,
+            env_config["eps1"],
+            rho,
+            rho_k,
+            theta,
+            np.array([env_config["k11"], env_config["k12"], env_config["k13"]]),
+        )
         rho = np.deg2rad([45, 130])
         c = np.array([20, 20])
         xi = np.array([-1, 1]) * 0.23 * 0.000313 * 1e6
-        self.Cphi = innerLoop(alp, env_config["eps2"], xi, rho, c, theta,
-                              np.array([env_config["k21"], env_config["k22"],
-                                        env_config["k23"]]))
-        self.Ctheta = innerLoop(alp, env_config["eps2"], xi, rho, c, theta,
-                                np.array([env_config["k21"], env_config["k22"],
-                                          env_config["k23"]]))
-        self.Cpsi = innerLoop(alp, env_config["eps2"], xi, rho, c, theta,
-                              np.array([env_config["k21"], env_config["k22"],
-                                        env_config["k23"]]))
+        self.Cphi = innerLoop(
+            alp,
+            env_config["eps2"],
+            xi,
+            rho,
+            c,
+            theta,
+            np.array([env_config["k21"], env_config["k22"], env_config["k23"]]),
+        )
+        self.Ctheta = innerLoop(
+            alp,
+            env_config["eps2"],
+            xi,
+            rho,
+            c,
+            theta,
+            np.array([env_config["k21"], env_config["k22"], env_config["k23"]]),
+        )
+        self.Cpsi = innerLoop(
+            alp,
+            env_config["eps2"],
+            xi,
+            rho,
+            c,
+            theta,
+            np.array([env_config["k21"], env_config["k22"], env_config["k23"]]),
+        )
 
     def get_control(self, t, env):
-        ''' quad state '''
+        """quad state"""
         pos, vel, quat, omega = env.plant.observe_list()
         euler = np.vstack(quat2angle(quat)[::-1])
 
-        ''' plant parameters '''
+        """ plant parameters """
         m = env.plant.m
         g = env.plant.g
         J = np.diag(env.plant.J)
-        b = np.array([1/J[0], 1/J[1], 1/J[2]])
+        b = np.array([1 / J[0], 1 / J[1], 1 / J[2]])
 
-        ''' external signals '''
+        """ external signals """
         posd = env.get_ref(t, "posd")
 
-        ''' outer loop control '''
+        """ outer loop control """
         q = np.zeros((3, 1))
         q[0] = self.Cx.get_virtual(t)
         q[1] = self.Cy.get_virtual(t)
         q[2] = self.Cz.get_virtual(t)
         # Inverse solution
-        u1 = m * (q[0]**2 + q[1]**2 + (q[2]-g)**2)**(1/2)
-        phid = np.clip(np.arcsin(q[1] * m / u1),
-                       - np.deg2rad(45), np.deg2rad(45))
-        thetad = np.clip(np.arctan(q[0] / (q[2] - g)),
-                         - np.deg2rad(45), np.deg2rad(45))
+        u1 = m * (q[0] ** 2 + q[1] ** 2 + (q[2] - g) ** 2) ** (1 / 2)
+        phid = np.clip(np.arcsin(q[1] * m / u1), -np.deg2rad(45), np.deg2rad(45))
+        thetad = np.clip(np.arctan(q[0] / (q[2] - g)), -np.deg2rad(45), np.deg2rad(45))
         psid = 0
         eulerd = np.vstack([phid, thetad, psid])
 
-        ''' inner loop control '''
+        """ inner loop control """
         u2 = self.Cphi.get_u(t, phid, b[0])
         u3 = self.Ctheta.get_u(t, thetad, b[1])
         u4 = self.Cpsi.get_u(t, psid, b[2])
         # rotors
         forces = np.vstack([u1, u2, u3, u4])
 
-        ''' set derivatives '''
+        """ set derivatives """
         x, y, z = env.plant.pos.state.ravel()
         self.Cx.set_dot(t, x, posd[0][0])
         self.Cy.set_dot(t, y, posd[0][1])
@@ -141,7 +171,7 @@ class outerLoop(BaseEnv):
         self.alp, self.eps = alp, eps
         self.rho_0, self.rho_inf = rho.ravel()
         self.k = rho_k
-        self.theta = np.array([theta, 2*theta-1, 3*theta-2])
+        self.theta = np.array([theta, 2 * theta - 1, 3 * theta - 2])
         self.K = K
 
     def deriv(self, e, integ_e, y, ref, t):
@@ -153,7 +183,9 @@ class outerLoop(BaseEnv):
 
         q = self.get_virtual(t)
         edot = np.zeros((3, 1))
-        edot[0, :] = e[1] + (alp[0]/eps) * func_g(eps**2 * (e_real - e[0]), theta[0])
+        edot[0, :] = e[1] + (alp[0] / eps) * func_g(
+            eps**2 * (e_real - e[0]), theta[0]
+        )
         edot[1, :] = e[2] + q + alp[1] * func_g(eps**2 * (e_real - e[0]), theta[1])
         edot[2, :] = alp[2] * eps * func_g(eps**2 * (e_real - e[0]), theta[2])
         integ_edot = y - ref
@@ -163,18 +195,23 @@ class outerLoop(BaseEnv):
         rho_0, rho_inf, k, K = self.rho_0, self.rho_inf, self.k, self.K
         e = self.e.state
         integ_e = self.integ_e.state
-        rho = (rho_0-rho_inf) * np.exp(-k*t) + rho_inf
-        drho = - k * (rho_0-rho_inf) * np.exp(-k*t)
-        ddrho = k**2 * (rho_0-rho_inf) * np.exp(-k*t)
+        rho = (rho_0 - rho_inf) * np.exp(-k * t) + rho_inf
+        drho = -k * (rho_0 - rho_inf) * np.exp(-k * t)
+        ddrho = k**2 * (rho_0 - rho_inf) * np.exp(-k * t)
 
         z1 = e[0] / rho
-        dz1 = e[1]/rho - e[0]*drho/rho**2
-        alpha = - rho*K[0]*z1 + drho*z1 - K[2]*(1-z1**2)*rho**2*integ_e
+        dz1 = e[1] / rho - e[0] * drho / rho**2
+        alpha = -rho * K[0] * z1 + drho * z1 - K[2] * (1 - z1**2) * rho**2 * integ_e
         z2 = e[1] - alpha
-        dalpha = ddrho*z1 + drho*dz1 - drho*K[0]*z1 - rho*K[0]*dz1 \
-            - K[2]*(1-z1**2)*(rho**2*e[0]+2*rho*drho*integ_e) \
-            + K[2]*2*z1*dz1*rho**2*integ_e
-        q = - e[2] + dalpha - K[1]*z2 - z1/(1-z1**2)/rho
+        dalpha = (
+            ddrho * z1
+            + drho * dz1
+            - drho * K[0] * z1
+            - rho * K[0] * dz1
+            - K[2] * (1 - z1**2) * (rho**2 * e[0] + 2 * rho * drho * integ_e)
+            + K[2] * 2 * z1 * dz1 * rho**2 * integ_e
+        )
+        q = -e[2] + dalpha - K[1] * z2 - z1 / (1 - z1**2) / rho
         return q
 
     def set_dot(self, t, y, ref):
@@ -189,16 +226,17 @@ class outerLoop(BaseEnv):
 
     def get_rho(self, t):
         rho_0, rho_inf, k = self.rho_0, self.rho_inf, self.k
-        rho = (rho_0-rho_inf) * np.exp(-k*t) + rho_inf
+        rho = (rho_0 - rho_inf) * np.exp(-k * t) + rho_inf
         return rho
 
 
 class innerLoop(BaseEnv):
-    '''
+    """
     xi: lower and upper bound of u (moments for my case), [lower, upper]
     rho: bound of state x, dx
     virtual input nu = f + b*u
-    '''
+    """
+
     def __init__(self, alp, eps, xi, rho, c, theta, K):
         super().__init__()
         self.x = BaseSystem(np.zeros((3, 1)))
@@ -208,21 +246,21 @@ class innerLoop(BaseEnv):
         self.alp, self.eps = alp, eps
         self.xi, self.rho, self.c = xi, rho, c
         self.K = K
-        self.theta = np.array([theta, 2*theta-1, 3*theta-2])
+        self.theta = np.array([theta, 2 * theta - 1, 3 * theta - 2])
 
     def deriv(self, x, lamb, integ_e, t, y, ref, b):
         alp, eps, theta = self.alp, self.eps, self.theta
         nu = self.get_virtual(t, ref)
-        bound = b*self.xi
+        bound = b * self.xi
         nu_sat = np.clip(nu, bound[0], bound[1])
 
         xdot = np.zeros((3, 1))
-        xdot[0, :] = x[1] + (alp[0]/eps) * func_g(eps**2 * (y - x[0]), theta[0])
+        xdot[0, :] = x[1] + (alp[0] / eps) * func_g(eps**2 * (y - x[0]), theta[0])
         xdot[1, :] = x[2] + nu_sat + alp[1] * func_g(eps**2 * (y - x[0]), theta[1])
         xdot[2, :] = alp[2] * eps * func_g(eps**2 * (y - x[0]), theta[2])
         lambdot = np.zeros((2, 1))
-        lambdot[0] = - self.c[0]*lamb[0] + lamb[1]
-        lambdot[1] = - self.c[1]*lamb[1] + (nu_sat - nu)
+        lambdot[0] = -self.c[0] * lamb[0] + lamb[1]
+        lambdot[1] = -self.c[1] * lamb[1] + (nu_sat - nu)
         integ_edot = y - ref
         return xdot, lambdot, integ_edot
 
@@ -240,47 +278,56 @@ class innerLoop(BaseEnv):
         rho1a = ref + lamb[0] + rho[0]
         rho1b = rho[0] - ref - lamb[0]
         drho1a = dlamb[0]
-        drho1b = - dlamb[0]
-        ddrho1a = - c[0]*dlamb[0] + dlamb[1]
-        ddrho1b = c[0]*dlamb[0] - dlamb[1]
+        drho1b = -dlamb[0]
+        ddrho1a = -c[0] * dlamb[0] + dlamb[1]
+        ddrho1b = c[0] * dlamb[0] - dlamb[1]
 
         z1 = x[0] - ref - lamb[0]
         dz1 = x[1] - dref - dlamb[0]
 
         xi_1a = z1 / rho1a
-        dxi_1a = (dz1*rho1a-z1*drho1a) / (rho1a**2)
+        dxi_1a = (dz1 * rho1a - z1 * drho1a) / (rho1a**2)
         xi_1b = z1 / rho1b
-        dxi_1b = (dz1*rho1b-z1*drho1b) / (rho1b**2)
-        xi1 = q(z1)*xi_1b + (1-q(z1))*xi_1a
-        dxi1 = q(z1)*dxi_1b + (1-q(z1))*dxi_1a
+        dxi_1b = (dz1 * rho1b - z1 * drho1b) / (rho1b**2)
+        xi1 = q(z1) * xi_1b + (1 - q(z1)) * xi_1a
+        dxi1 = q(z1) * dxi_1b + (1 - q(z1)) * dxi_1a
 
-        bar_k1 = ((drho1a/rho1a)**2 + (drho1b/rho1b)**2 + 0.1) ** (1/2)
-        alpha = - (K[0] + bar_k1)*z1 - c[0]*lamb[0] - K[2]*integ_e*(1-xi1**2)
+        bar_k1 = ((drho1a / rho1a) ** 2 + (drho1b / rho1b) ** 2 + 0.1) ** (1 / 2)
+        alpha = -(K[0] + bar_k1) * z1 - c[0] * lamb[0] - K[2] * integ_e * (1 - xi1**2)
 
-        dbar_k1 = 1 / 2 / bar_k1 * (
-            2*drho1a*(ddrho1a*rho1a-drho1a**2)/(rho1a**3)
-            + 2*drho1b*(ddrho1b*rho1b-drho1b**2)/(rho1b**3)
+        dbar_k1 = (
+            1
+            / 2
+            / bar_k1
+            * (
+                2 * drho1a * (ddrho1a * rho1a - drho1a**2) / (rho1a**3)
+                + 2 * drho1b * (ddrho1b * rho1b - drho1b**2) / (rho1b**3)
+            )
         )
-        dalpha = (- dbar_k1*z1 - bar_k1*dz1 - c[0]*dlamb[0]
-                  - K[2]*(x[0]-ref)*(1-xi1**2)
-                  - K[2]*integ_e*(-2*xi1*dxi1))
+        dalpha = (
+            -dbar_k1 * z1
+            - bar_k1 * dz1
+            - c[0] * dlamb[0]
+            - K[2] * (x[0] - ref) * (1 - xi1**2)
+            - K[2] * integ_e * (-2 * xi1 * dxi1)
+        )
 
         rho2a = alpha + lamb[1] + rho[1]
         rho2b = rho[1] - alpha - lamb[1]
         drho2a = dalpha + dlamb[1]
-        drho2b = - dalpha - dlamb[1]
+        drho2b = -dalpha - dlamb[1]
 
         z2 = x[1] - alpha - lamb[1]
 
-        mu1 = q(z1)/(rho1b**2-z1**2) + (1-q(z1))/(rho1a**2-z1**2)
-        bar_k2 = ((drho2a/rho2a)**2 + (drho2b/rho2b)**2 + 0.1) ** (1/2)
-        nu = - (K[1] + bar_k2)*z2 + dalpha - x[2] - c[1]*lamb[1] - mu1*z1
+        mu1 = q(z1) / (rho1b**2 - z1**2) + (1 - q(z1)) / (rho1a**2 - z1**2)
+        bar_k2 = ((drho2a / rho2a) ** 2 + (drho2b / rho2b) ** 2 + 0.1) ** (1 / 2)
+        nu = -(K[1] + bar_k2) * z2 + dalpha - x[2] - c[1] * lamb[1] - mu1 * z1
 
         return nu
 
     def get_u(self, t, ref, b):
         nu = self.get_virtual(t, ref)
-        bound = b*self.xi
+        bound = b * self.xi
         nu_sat = np.clip(nu, bound[0], bound[1])
         u = nu_sat / b
         return u

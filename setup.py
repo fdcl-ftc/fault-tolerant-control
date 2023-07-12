@@ -19,7 +19,5 @@ setup(
     include_package_data=True,
     packages=find_packages(),
     python_requires=">=3.8",
-    install_requires=[
-        "matplotlib"
-    ]
+    install_requires=["matplotlib"],
 )

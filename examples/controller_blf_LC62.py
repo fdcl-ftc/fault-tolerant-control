@@ -1,20 +1,19 @@
-from ray import tune
-import os
-import json
-from ray.air import CheckpointConfig, RunConfig
-from ray.tune.search.hyperopt import HyperOptSearch
-from ray.tune import CLIReporter
-
-import numpy as np
-import matplotlib.pyplot as plt
 import argparse
+import json
+import os
 
 import fym
+import matplotlib.pyplot as plt
+import numpy as np
 from fym.utils.rot import angle2quat, quat2angle
+from ray import tune
+from ray.air import CheckpointConfig, RunConfig
+from ray.tune import CLIReporter
+from ray.tune.search.hyperopt import HyperOptSearch
 
 import ftc
-from ftc.utils import safeupdate
 from ftc.models.LC62 import LC62
+from ftc.utils import safeupdate
 
 
 class ActuatorDynamics(fym.BaseSystem):
@@ -75,10 +74,9 @@ class MyEnv(fym.BaseEnv):
 
         """ set faults """
         Lambda = self.get_Lambda(t)
-        lctrls = np.vstack([
-            (Lambda[:, None] * (ctrls[0:6] - 1000) / 1000) * 1000 + 1000,
-            ctrls[6:11]
-        ])
+        lctrls = np.vstack(
+            [(Lambda[:, None] * (ctrls[0:6] - 1000) / 1000) * 1000 + 1000, ctrls[6:11]]
+        )
 
         FM = self.plant.get_FM(*self.plant.observe_list(), lctrls)
         self.plant.set_dot(t, FM)
@@ -139,7 +137,11 @@ def plot():
 
     """ Column 1 - States: Position """
     ax = axes[0, 0]
-    ax.plot(data["t"], data["plant"]["pos"][:, 0].squeeze(-1)-data["posd"][:, 0].squeeze(-1), "k-")
+    ax.plot(
+        data["t"],
+        data["plant"]["pos"][:, 0].squeeze(-1) - data["posd"][:, 0].squeeze(-1),
+        "k-",
+    )
     ax.plot(data["t"], data["obs_pos"][:, 0].squeeze(-1), "b--")
     ax.plot(data["t"], data["bound_err"], "r:")
     ax.plot(data["t"], -data["bound_err"], "r:")
@@ -151,7 +153,11 @@ def plot():
     ax.set_xlim(data["t"][0], data["t"][-1])
 
     ax = axes[1, 0]
-    ax.plot(data["t"], data["plant"]["pos"][:, 1].squeeze(-1)-data["posd"][:, 1].squeeze(-1), "k-")
+    ax.plot(
+        data["t"],
+        data["plant"]["pos"][:, 1].squeeze(-1) - data["posd"][:, 1].squeeze(-1),
+        "k-",
+    )
     ax.plot(data["t"], data["obs_pos"][:, 1].squeeze(-1), "b--")
     ax.plot(data["t"], data["bound_err"], "r:")
     ax.plot(data["t"], -data["bound_err"], "r:")
@@ -161,7 +167,11 @@ def plot():
     ax.set_ylabel(r"$y$, m")
 
     ax = axes[2, 0]
-    ax.plot(data["t"], data["plant"]["pos"][:, 2].squeeze(-1)-data["posd"][:, 2].squeeze(-1), "k-")
+    ax.plot(
+        data["t"],
+        data["plant"]["pos"][:, 2].squeeze(-1) - data["posd"][:, 2].squeeze(-1),
+        "k-",
+    )
     ax.plot(data["t"], data["obs_pos"][:, 2].squeeze(-1), "b--")
     ax.plot(data["t"], data["bound_err"], "r:")
     ax.plot(data["t"], -data["bound_err"], "r:")
@@ -293,24 +303,25 @@ def plot():
     ax = plt.subplot(321)
     for i in range(6):
         if i != 0:
-            plt.subplot(321+i, sharex=ax)
-        plt.ylim([1000-5, 2000+5])
+            plt.subplot(321 + i, sharex=ax)
+        plt.ylim([1000 - 5, 2000 + 5])
         plt.plot(data["t"], data["lctrls"].squeeze(-1)[:, i], "k-", label="Response")
         plt.plot(data["t"], data["ctrls"].squeeze(-1)[:, i], "r--", label="Command")
         if i == 0:
-            plt.legend(loc='upper right')
+            plt.legend(loc="upper right")
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Rotor Thrusts")
     plt.tight_layout()
 
     """ Figure 4 - Pusher and Control surfaces """
     fig, axs = plt.subplots(5, 1, sharex=True)
-    ylabels = np.array(("Pusher 1", "Pusher 2",
-                        r"$\delta_a$", r"$\delta_e$", r"$\delta_r$"))
+    ylabels = np.array(
+        ("Pusher 1", "Pusher 2", r"$\delta_a$", r"$\delta_e$", r"$\delta_r$")
+    )
     for i, _ylabel in enumerate(ylabels):
         ax = axs[i]
-        ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, i+6], "k-", label="Response")
-        ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, i+6], "r--", label="Command")
+        ax.plot(data["t"], data["ctrls"].squeeze(-1)[:, i + 6], "k-", label="Response")
+        ax.plot(data["t"], data["ctrls0"].squeeze(-1)[:, i + 6], "r--", label="Command")
         ax.grid()
         plt.setp(ax, ylabel=_ylabel)
         # if i < 2:
@@ -324,14 +335,15 @@ def plot():
     plt.figure()
 
     ax = plt.subplot(611)
-    for i, _label in enumerate([r"$d_x$", r"$d_y$", r"$d_z$",
-                                r"$d_\phi$", r"$d_\theta$", r"$d_\psi$"]):
+    for i, _label in enumerate(
+        [r"$d_x$", r"$d_y$", r"$d_z$", r"$d_\phi$", r"$d_\theta$", r"$d_\psi$"]
+    ):
         if i != 0:
-            plt.subplot(611+i, sharex=ax)
+            plt.subplot(611 + i, sharex=ax)
         plt.plot(data["t"], data["dist"][:, i, 0], "k", label=" distarbance")
         plt.ylabel(_label)
         if i == 0:
-            plt.legend(loc='upper right')
+            plt.legend(loc="upper right")
     plt.gcf().supylabel("dist")
     plt.gcf().supxlabel("Time, sec")
     plt.tight_layout()
@@ -344,6 +356,7 @@ def main(args):
         plot()
         return
     elif args.with_ray:
+
         def objective(config):
             np.seterr(all="raise")
 
@@ -363,7 +376,7 @@ def main(args):
                 return {"tf": tf}
 
         config = {
-            "k11": 2/300,
+            "k11": 2 / 300,
             "k12": 0.1,
             "k13": 0,
             "k21": tune.uniform(0.000001, 100),
@@ -372,7 +385,7 @@ def main(args):
             "k31": tune.uniform(0.1, 100),
             "k32": tune.uniform(0.1, 100),
             "k33": 0,
-            "k41": 500/40,
+            "k41": 500 / 40,
             "k42": 40,
             "k43": 0,
             "eps11": 2,
@@ -382,26 +395,28 @@ def main(args):
             "eps22": 25,
             "eps23": 25,
         }
-        current_best_params = [{
-            "k11": 2/300,
-            "k12": 0.1,
-            "k13": 0,
-            "k21": 0,
-            "k22": 0,
-            "k23": 0,
-            "k31": 0.8,
-            "k32": 10,
-            "k33": 0,
-            "k41": 500/40,
-            "k42": 40,
-            "k43": 0,
-            "eps11": 1,
-            "eps12": 1,
-            "eps13": 25,
-            "eps21": 25,
-            "eps22": 25,
-            "eps23": 25,
-        }]
+        current_best_params = [
+            {
+                "k11": 2 / 300,
+                "k12": 0.1,
+                "k13": 0,
+                "k21": 0,
+                "k22": 0,
+                "k23": 0,
+                "k31": 0.8,
+                "k32": 10,
+                "k33": 0,
+                "k41": 500 / 40,
+                "k42": 40,
+                "k43": 0,
+                "eps11": 1,
+                "eps12": 1,
+                "eps13": 25,
+                "eps21": 25,
+                "eps22": 25,
+                "eps23": 25,
+            }
+        ]
         search = HyperOptSearch(
             metric="tf",
             mode="max",
@@ -451,13 +466,13 @@ def main(args):
             "k51": 1,
             "k52": 0.05,
             "k53": 0,
-            "k21": 500/40,
+            "k21": 500 / 40,
             "k22": 40,
             "k23": 0,
-            "k31": 500/40,
+            "k31": 500 / 40,
             "k32": 40,
             "k33": 0,
-            "k41": 500/40,
+            "k41": 500 / 40,
             "k42": 40,
             "k43": 0,
             "eps11": 5,

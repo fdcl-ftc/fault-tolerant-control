@@ -1,8 +1,8 @@
-import numpy as np
-import matplotlib.pyplot as plt
 import argparse
 
 import fym
+import matplotlib.pyplot as plt
+import numpy as np
 
 import ftc
 from ftc.models.multicopter import Multicopter
@@ -189,8 +189,12 @@ def plot():
     ylabels = np.array((["R1", "R2"], ["R3", "R4"], ["R5", "R6"]))
     for i, _ylabel in np.ndenumerate(ylabels):
         ax = axs[i]
-        ax.plot(data["t"], data["rotors"].squeeze(-1)[:, sum(i)], "k-", label="Response")
-        ax.plot(data["t"], data["rotors0"].squeeze(-1)[:, sum(i)], "r--", label="Command")
+        ax.plot(
+            data["t"], data["rotors"].squeeze(-1)[:, sum(i)], "k-", label="Response"
+        )
+        ax.plot(
+            data["t"], data["rotors0"].squeeze(-1)[:, sum(i)], "r--", label="Command"
+        )
         ax.grid()
         plt.setp(ax, ylabel=_ylabel)
         if i == (0, 1):
