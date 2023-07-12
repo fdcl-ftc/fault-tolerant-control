@@ -1,7 +1,6 @@
 import numpy as np
 
 import ftc
-from ftc.controllers.Flat.flat import FlatController
 from ftc.mission_determiners.polytope_determiner import PolytopeDeterminer
 
 
@@ -11,7 +10,7 @@ class MFA:
         self.determiner = PolytopeDeterminer(
             pwm_min * np.ones(6), pwm_max * np.ones(6), self.allocator
         )
-        self.controller = FlatController(env.plant.m, env.plant.g, env.plant.J)
+        self.controller = ftc.make("Flat", env)
 
         dx1, dx2, dx3 = env.plant.dx1, env.plant.dx2, env.plant.dx3
         dy1, dy2 = env.plant.dy1, env.plant.dy2

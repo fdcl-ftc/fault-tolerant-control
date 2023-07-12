@@ -13,15 +13,6 @@ from ftc.utils import safeupdate
 np.seterr(all="raise")
 
 
-class ActuatorDynamics(fym.BaseSystem):
-    def __init__(self, tau, **kwargs):
-        super().__init__(**kwargs)
-        self.tau = tau
-
-    def set_dot(self, ctrls, ctrls_cmd):
-        self.dot = -1 / self.tau * (ctrls - ctrls_cmd)
-
-
 class MyEnv(fym.BaseEnv):
     ENV_CONFIG = {
         "fkw": {
@@ -72,6 +63,9 @@ class MyEnv(fym.BaseEnv):
 
     def posd(self, t):
         return np.vstack([0, 0, 0])
+
+    def psid(self, t):
+        return 0
 
     def get_ref(self, t, *args):
         refs = {

@@ -6,22 +6,24 @@ import numdifftools as nd
 import numpy as np
 from numpy import cos, sin
 
+from ftc.models.LC62 import LC62
+
 
 class FlatController:
-    def __init__(self, m, g, J, posd, psid):
+    def __init__(self, env):
         super().__init__()
-        self.m = m
-        self.g = g
-        self.J = J
+        self.m = env.plant.m
+        self.g = env.plant.g
+        self.J = env.plant.J
         self.e3 = np.vstack((0, 0, 1))
 
-        self.posd = posd
+        self.posd = env.posd
         self.posd_1dot = nd.Derivative(self.posd, n=1)
         self.posd_2dot = nd.Derivative(self.posd, n=2)
         self.posd_3dot = nd.Derivative(self.posd, n=3)
         self.posd_4dot = nd.Derivative(self.posd, n=4)
 
-        self.psid = psid
+        self.psid = env.psid
         self.psid_1dot = nd.Derivative(self.psid, n=1)
         self.psid_2dot = nd.Derivative(self.psid, n=2)
 
@@ -80,19 +82,21 @@ class FlatController:
 
 if __name__ == "__main__":
 
-    def posd(t):  # desired trajectories
-        posd = np.vstack((np.sin(t), np.cos(t), -t))
-        return posd
+    class Env:
+        def __init__(self):
+            super().__init__()
+            self.plant = LC62()
 
-    def psid(t):
-        return 0
+        def posd(self, t):
+            posd = np.vstack((np.sin(t), np.cos(t), -t))
+            return posd
 
-    m, g = 1, 9.81
-    J = np.diag([1, 1, 1])
+        def psid(self, t):
+            return 0
 
+    env = Env()
     tspan = np.linspace(0, 20, 200)
-
-    ctrl = FlatController(m, g, J, posd, psid)
+    ctrl = FlatController(env)
     FM_traj = np.empty((6, 0))
     for t in tspan:
         FM = ctrl.get_control(t)
