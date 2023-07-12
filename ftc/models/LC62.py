@@ -222,7 +222,7 @@ class LC62(fym.BaseEnv):
         R5: front right, [CCW]
         R6: rear left,   [CW]
         """
-        rcmds = (pwms_rotor - 1000) / 1000
+        rcmds = self.pwm2cmd(pwms_rotor)
         th = (-19281 * rcmds**3 + 36503 * rcmds**2 - 992.75 * rcmds) * self.g / 1000
         tq = -6.3961 * rcmds**3 + 12.092 * rcmds**2 - 0.3156 * rcmds
         # th = np.polyval(self.tables["th_r"], rcmds) * self.g / 1000
@@ -334,8 +334,8 @@ class LC62(fym.BaseEnv):
         z0={
             "alpha": 0.0,
             "beta": 0,
-            "pusher1": 1000,
-            "pusher2": 1000,
+            "pusher1": 1500,
+            "pusher2": 1500,
             "dela": 0,
             "dele": 0,
             "delr": 0,
