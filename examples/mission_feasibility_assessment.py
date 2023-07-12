@@ -34,6 +34,11 @@ class MyEnv(fym.BaseEnv):
         super().__init__(**env_config["fkw"])
         self.plant = LC62(env_config["plant"])
         self.controller = ftc.make("INDI", self)
+
+        self.posd_1dot = nd.Derivative(self.posd, n=1)
+        self.posd_2dot = nd.Derivative(self.posd, n=2)
+        self.posd_3dot = nd.Derivative(self.posd, n=3)
+        self.posd_4dot = nd.Derivative(self.posd, n=4)
         self.mfa = MFA(self)
 
         self.u0 = self.controller.get_u0(self)
@@ -57,8 +62,8 @@ class MyEnv(fym.BaseEnv):
         return self.observe_flat()
 
     def posd(self, t):
-        # posd = np.vstack([0, 0, 0])
-        posd = np.vstack((np.sin(t), np.cos(t), t))
+        posd = np.vstack((0, 0, 0))
+        # posd = np.vstack((np.sin(t), np.cos(t), -t))
         return posd
 
     def psid(self, t):
@@ -67,7 +72,7 @@ class MyEnv(fym.BaseEnv):
     def get_ref(self, t, *args):
         refs = {
             "posd": self.posd(t),
-            "posd_dot": np.vstack((np.cos(t), -np.sin(t), 1)),
+            "posd_dot": self.posd_1dot(t),
         }
         return [refs[key] for key in args]
 

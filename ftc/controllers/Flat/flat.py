@@ -18,10 +18,10 @@ class FlatController:
         self.e3 = np.vstack((0, 0, 1))
 
         self.posd = env.posd
-        self.posd_1dot = nd.Derivative(self.posd, n=1)
-        self.posd_2dot = nd.Derivative(self.posd, n=2)
-        self.posd_3dot = nd.Derivative(self.posd, n=3)
-        self.posd_4dot = nd.Derivative(self.posd, n=4)
+        self.posd_1dot = env.posd_1dot
+        self.posd_2dot = env.posd_2dot
+        self.posd_3dot = env.posd_3dot
+        self.posd_4dot = env.posd_4dot
 
         self.psid = env.psid
         self.psid_1dot = nd.Derivative(self.psid, n=1)
