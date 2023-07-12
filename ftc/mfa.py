@@ -7,7 +7,6 @@ from ftc.mission_determiners.polytope_determiner import PolytopeDeterminer
 
 class MFA:
     def __init__(self, env):
-        self.env = env
         pwm_min, pwm_max = env.plant.control_limits["pwm"]
         self.determiner = PolytopeDeterminer(
             pwm_min * np.ones(6), pwm_max * np.ones(6), self.allocator
@@ -27,19 +26,8 @@ class MFA:
         )
         self.B_f2r = np.linalg.pinv(B_r2f)
 
-    def allocator(self, nu, vel_wind=np.zeros((3, 1)), omega_wind=np.zeros((3, 1))):
-        plant = self.env.plant
-        pos, vel, quat, omega = plant.observe_list()
-
-        FM = np.vstack((0, 0, -nu[0], nu[1:]))
-
-        pwms_pusher, dels = plant.u_trims_fixed
-        FM_Pusher = plant.B_Pusher(pwms_pusher)
-        FM_Fuselage = plant.B_Fuselage(dels, pos, vel - vel_wind, omega + omega_wind)
-
-        FM_VTOL = FM - FM_Fuselage - FM_Pusher
-
-        nu_f = FM_VTOL[2:]
+    def allocator(self, nu):
+        nu_f = np.vstack((-nu[0], nu[1:]))
         th = self.B_f2r @ nu_f
         pwms_rotor = (th / self.c_th) * 1000 + 1000
         return pwms_rotor
