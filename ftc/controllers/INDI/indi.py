@@ -56,23 +56,23 @@ class INDIController(fym.BaseEnv):
         ddxi = (xi_dot - xi_dot_f) / self.tau
         du = np.linalg.inv(g) @ (nui - ddxi)
 
-        """ controls """
-        u0 = env.u0
-        nu0 = self.B_r2f @ ((u0[:6] - 1000) / 1000 * self.c_th)
-        nu = nu0 + du
-
-        """ set derivatives """
-        self.lpf_dxi.dot = -(xi_dot_f - xi_dot) / self.tau
-        self.lpf_nu.dot = -(nu_f - nu) / self.tau
-
         """ active FTC with FDI """
         _B = np.hstack((env.get_Lambda(t)[:6])) * self.B_r2f
+
+        u0 = env.u0
+        nu0 = _B @ ((u0[:6] - 1000) / 1000 * self.c_th)
+        nu = nu0 + du
+
         th = np.linalg.pinv(_B) @ nu_f
         pwms_rotor = (th / self.c_th) * 1000 + 1000
 
         ctrls = np.vstack((pwms_rotor, np.vstack(env.plant.u_trims_fixed)))
 
         env.u0 = ctrls
+
+        """ set derivatives """
+        self.lpf_dxi.dot = -(xi_dot_f - xi_dot) / self.tau
+        self.lpf_nu.dot = -(nu_f - nu) / self.tau
 
         controller_info = {
             "posd": posd,
