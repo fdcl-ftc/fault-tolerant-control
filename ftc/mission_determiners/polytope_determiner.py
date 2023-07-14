@@ -39,10 +39,10 @@ class PolytopeDeterminer:
         self.scaling_factor = scaling_factor
 
     def get_lower_bound(self, lmbd):
-        return self.scaling_factor * np.diag(lmbd) @ self.u_min
+        return self.scaling_factor * np.diag(lmbd) @ (self.u_min - 1000) + 1000
 
     def get_upper_bound(self, lmbd):
-        return self.scaling_factor * np.diag(lmbd) @ self.u_max
+        return self.scaling_factor * np.diag(lmbd) @ (self.u_max - 1000) + 1000
 
     def determine_is_in(self, nu, lmbd):
         """
@@ -54,9 +54,10 @@ class PolytopeDeterminer:
         B: (4 x m) array; control effectiveness matrix
         lmbd: (m,) array containing actuator fault information, ranging from 0 to 1 (effectiveness).
         """
-        u = self.allocator(nu)
-        is_larger_than_min = u >= self.get_lower_bound(lmbd)
-        is_smaller_than_max = u <= self.get_upper_bound(lmbd)
+        u = self.allocator(nu, lmbd)
+        lu = np.diag(lmbd) @ (u - 1000) + 1000
+        is_larger_than_min = lu.ravel() >= self.get_lower_bound(lmbd).ravel()
+        is_smaller_than_max = lu.ravel() <= self.get_upper_bound(lmbd).ravel()
         is_in = np.all(is_larger_than_min & is_smaller_than_max)
         return is_in
 
