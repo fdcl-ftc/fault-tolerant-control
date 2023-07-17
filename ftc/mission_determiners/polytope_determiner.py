@@ -25,6 +25,7 @@ class PolytopeDeterminer:
         u_max,
         allocator,
         scaling_factor=1.0,
+        is_pwm=False,
     ):
         """
         u_min: (m,) array; minimum input (element-wise)
@@ -37,12 +38,19 @@ class PolytopeDeterminer:
         self.u_max = u_max
         self.allocator = allocator
         self.scaling_factor = scaling_factor
+        self.is_pwm = is_pwm
 
     def get_lower_bound(self, lmbd):
-        return self.scaling_factor * np.diag(lmbd) @ (self.u_min - 1000) + 1000
+        if self.is_pwm:
+            return self.scaling_factor * np.diag(lmbd) @ (self.u_min - 1000) + 1000
+        else:
+            return self.scaling_factor * np.diag(lmbd) @ self.u_min
 
     def get_upper_bound(self, lmbd):
-        return self.scaling_factor * np.diag(lmbd) @ (self.u_max - 1000) + 1000
+        if self.is_pwm:
+            return self.scaling_factor * np.diag(lmbd) @ (self.u_max - 1000) + 1000
+        else:
+            return self.scaling_factor * np.diag(lmbd) @ self.u_max
 
     def determine_is_in(self, nu, lmbd):
         """
@@ -55,7 +63,10 @@ class PolytopeDeterminer:
         lmbd: (m,) array containing actuator fault information, ranging from 0 to 1 (effectiveness).
         """
         u = self.allocator(nu, lmbd)
-        lu = np.diag(lmbd) @ (u - 1000) + 1000
+        if self.is_pwm:
+            lu = np.diag(lmbd) @ (u - 1000) + 1000
+        else:
+            lu = np.diag(lmbd) @ u
         is_larger_than_min = lu.ravel() >= self.get_lower_bound(lmbd).ravel()
         is_smaller_than_max = lu.ravel() <= self.get_upper_bound(lmbd).ravel()
         is_in = np.all(is_larger_than_min & is_smaller_than_max)
@@ -78,23 +89,23 @@ class PolytopeDeterminer:
     def create_palette(self):
         fig, axs = plt.subplots(3, 2)
         ax = axs[0, 0]
-        ax.set_xlabel("u_1")
-        ax.set_ylabel("u_2")
+        ax.set_xlabel(r"$u_1$")
+        ax.set_ylabel(r"$u_2$")
         ax = axs[0, 1]
-        ax.set_xlabel("u_1")
-        ax.set_ylabel("u_3")
+        ax.set_xlabel(r"$u_1$")
+        ax.set_ylabel(r"$u_3$")
         ax = axs[1, 0]
-        ax.set_xlabel("u_1")
-        ax.set_ylabel("u_4")
+        ax.set_xlabel(r"$u_1$")
+        ax.set_ylabel(r"$u_4$")
         ax = axs[1, 1]
-        ax.set_xlabel("u_2")
-        ax.set_ylabel("u_3")
+        ax.set_xlabel(r"$u_2$")
+        ax.set_ylabel(r"$u_3$")
         ax = axs[2, 0]
-        ax.set_xlabel("u_2")
-        ax.set_ylabel("u_4")
+        ax.set_xlabel(r"$u_2$")
+        ax.set_ylabel(r"$u_4$")
         ax = axs[2, 1]
-        ax.set_xlabel("u_3")
-        ax.set_ylabel("u_4")
+        ax.set_xlabel(r"$u_3$")
+        ax.set_ylabel(r"$u_4$")
         return fig, axs
 
     def visualize(self, *args, **kwargs):
@@ -125,8 +136,8 @@ class PolytopeDeterminer:
         fig, axs = self._draw_inputs(fig, axs, nus, lmbds, colors)
         return fig, axs
 
-    def _draw_input(self, fig, axs, nu, color, marker):
-        u = self.allocator(nu)
+    def _draw_input(self, fig, axs, nu, lmbd, color, marker):
+        u = self.allocator(nu, lmbd)
         u1, u2, u3, u4 = u
         axs[0, 0].scatter(
             u1,
@@ -171,7 +182,7 @@ class PolytopeDeterminer:
         markers[0] = "o"
         markers[-1] = "o"
         for nu, lmbd, color, marker in zip(nus, lmbds, colors, markers):
-            fig, axs = self._draw_input(fig, axs, nu, color, marker)
+            fig, axs = self._draw_input(fig, axs, nu, lmbd, color, marker)
         return fig, axs
 
     def _draw_bounds(self, fig, axs, lmbds, colors, alpha=0.5):

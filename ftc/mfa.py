@@ -30,13 +30,11 @@ class MFA:
         pwms_rotor = (th / self.c_th) * 1000 + 1000
         return pwms_rotor
 
-    def predict(self, tspan, lmbd, scaling_factor=1.0):
+    def predict(self, tspan, lmbd):
         for t in tspan:
             FM_traj = self.controller.get_control(t)
             nu = FM_traj[2:]
-            is_in = self.determiner.determine_is_in(
-                nu, lmbd, scaling_factor=scaling_factor
-            )
+            is_in = self.determiner.determine_is_in(nu, lmbd)
             if not is_in:
                 return False
         return True
