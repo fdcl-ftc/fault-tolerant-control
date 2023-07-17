@@ -66,9 +66,12 @@ def evaluate(N, threshold=0.5):
     print(f"Recovery rate is {recovery_rate:.3f}.")
 
 
-def evaluate_pos(threshold=np.ones(3)):
+def evaluate_pos(threshold=np.ones(3), cuttime=5):
     data = fym.load("data.h5")["env"]
-    errors = (data["posd"] - data["plant"]["pos"]).squeeze()
+    time_index = data["t"] > max(data["t"]) - cuttime
+    errors = (
+        data["posd"][time_index, :, 0] - data["plant"]["pos"][time_index, :, 0]
+    ).squeeze()
     error_norms = np.linalg.norm(errors, axis=0)
     print(f"Position trajectory error norms are {error_norms}.")
     return np.all(error_norms <= threshold)
