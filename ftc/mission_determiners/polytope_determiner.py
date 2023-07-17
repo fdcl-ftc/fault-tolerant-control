@@ -100,58 +100,73 @@ class PolytopeDeterminer:
         fig, axs = self.create_palette()
         return self._visualize(fig, axs, *args, **kwargs)
 
-    def _visualize(self, fig, axs, nus, lmbds, color1="#00ff00", color2="#3575D5"):
+    def _visualize(
+        self,
+        fig,
+        axs,
+        nus,
+        lmbds,
+        color1="#00ff00",
+        color2="#3575D5",
+        color3="#ffa500",
+        color4="#FF0000",
+    ):
         colors = color_fader(color1, color2, len(lmbds))
+        colors_bad = color_fader(color3, color4, len(lmbds))
         fig, axs = self._draw_bounds(fig, axs, lmbds, colors)
-        fig, axs = self._draw_inputs(fig, axs, nus, lmbds, colors)
+        fig, axs = self._draw_inputs(fig, axs, nus, lmbds, colors, colors_bad)
         return fig, axs
 
-    def _draw_inputs(self, fig, axs, nus, lmbds, colors):
-        us = [self.allocator(nu) for nu in nus]
-        color = [
-            color if self.determine_is_in(nu, lmbd) else "red"
-            for (nu, lmbd, color) in zip(nus, lmbds, colors)
-        ]
-        u1 = [u[0] for u in us]
-        u2 = [u[1] for u in us]
-        u3 = [u[2] for u in us]
-        u4 = [u[3] for u in us]
+    def _draw_input(self, fig, axs, nu, color, marker):
+        u = self.allocator(nu)
+        u1, u2, u3, u4 = u
         axs[0, 0].scatter(
             u1,
             u2,
             color=color,
-            marker="_",
+            marker=marker,
         )
         axs[0, 1].scatter(
             u1,
             u3,
             color=color,
-            marker="_",
+            marker=marker,
         )
         axs[1, 0].scatter(
             u1,
             u4,
             color=color,
-            marker="_",
+            marker=marker,
         )
         axs[1, 1].scatter(
             u2,
             u3,
             color=color,
-            marker="_",
+            marker=marker,
         )
         axs[2, 0].scatter(
             u2,
             u4,
             color=color,
-            marker="_",
+            marker=marker,
         )
         axs[2, 1].scatter(
             u3,
             u4,
             color=color,
-            marker="_",
+            marker=marker,
         )
+        return fig, axs
+
+    def _draw_inputs(self, fig, axs, nus, lmbds, colors, colors_bad):
+        markers = ["_" for _ in range(len(nus))]
+        markers[0] = "o"
+        markers[-1] = "o"
+        for nu, lmbd, color, color_bad, marker in zip(
+            nus, lmbds, colors, colors_bad, markers
+        ):
+            color = color if self.determine_is_in(nu, lmbd) else color_bad
+            fig, axs = self._draw_input(fig, axs, nu, color, marker)
         return fig, axs
 
     def _draw_bounds(self, fig, axs, lmbds, colors, alpha=0.5):
