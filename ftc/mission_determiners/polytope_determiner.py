@@ -138,7 +138,7 @@ class PolytopeDeterminer:
 
     def _draw_input(self, fig, axs, nu, lmbd, color, marker):
         u = self.allocator(nu, lmbd)
-        u1, u2, u3, u4 = u
+        u1, u2, u3, u4 = u[:4]
         axs[0, 0].scatter(
             u1,
             u2,

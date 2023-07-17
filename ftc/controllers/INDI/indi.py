@@ -57,7 +57,7 @@ class INDIController(fym.BaseEnv):
         du = np.linalg.inv(g) @ (nui - ddxi)
 
         """ active FTC with FDI """
-        _B = np.hstack((env.get_Lambda(t)[:6])) * self.B_r2f
+        _B = env.get_Lambda(t)[:6] * self.B_r2f
 
         u0 = env.u0
         nu0 = _B @ ((u0[:6] - 1000) / 1000 * self.c_th)
