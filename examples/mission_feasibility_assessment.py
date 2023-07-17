@@ -8,7 +8,7 @@ import numpy as np
 import ftc
 from ftc.mfa import MFA
 from ftc.models.LC62 import LC62
-from ftc.utils import safeupdate
+from ftc.utils import safeupdate, evaluate_pos, evaluate_mfa
 
 np.seterr(all="raise")
 
@@ -118,17 +118,20 @@ def run():
     flogger = fym.Logger("data.h5")
 
     env.reset()
-    while True:
-        env.render()
+    try:
+        while True:
+            env.render()
 
-        done, env_info = env.step()
-        flogger.record(env=env_info)
+            done, env_info = env.step()
+            flogger.record(env=env_info)
 
-        if done:
-            break
+            if done:
+                break
 
-    flogger.close()
-    plot()
+    finally:
+        flogger.close()
+        evaluate_mfa(evaluate_pos(), verbose=True)
+        plot()
 
 
 def plot():

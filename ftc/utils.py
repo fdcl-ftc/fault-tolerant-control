@@ -3,6 +3,7 @@ from functools import reduce
 
 import numpy as np
 
+import fym
 from ftc.registration import registry
 
 
@@ -81,3 +82,22 @@ def linearization(statefunc, states, ctrls, ptrb):
             B[j, i] = dfdu[j]
 
     return A, B
+
+
+def evaluate_pos(threshold=np.ones(3)):
+    data = fym.load("data.h5")["env"]
+    errors = (data["posd"] - data["plant"]["pos"]).squeeze()
+    error_norms = np.linalg.norm(errors, axis=0)
+    print(f"Position trajectory error norms are {error_norms}.")
+    return np.all(error_norms <= threshold)
+
+
+def evaluate_mfa(eval, verbose=False):
+    data = fym.load("data.h5")["env"]
+    mfa = np.all(data["mfa"])
+    if mfa == eval:
+        if verbose:
+            print("MFA Success")
+    else:
+        if verbose:
+            print("MFA Fails")
