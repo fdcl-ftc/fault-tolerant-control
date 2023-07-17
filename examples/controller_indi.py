@@ -79,12 +79,12 @@ class MyEnv(fym.BaseEnv):
     def get_Lambda(self, t):
         """Lambda function"""
 
-        Lambda = np.ones((11, 1))
+        Lambda = np.ones(11)
         return Lambda
 
     def set_Lambda(self, t, ctrls):
         Lambda = self.get_Lambda(t)
-        ctrls[:6] = Lambda[:6, :] * ((ctrls[:6] - 1000) / 1000) * 1000 + 1000
+        ctrls[:6] = np.diag(Lambda[:6]) @ ((ctrls[:6] - 1000) / 1000) * 1000 + 1000
         return ctrls
 
 
