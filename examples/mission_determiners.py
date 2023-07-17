@@ -9,7 +9,6 @@ def test_polytope_determiner():
     print("Testing polytope_determiner...")
     multicopter = Multicopter(rtype="quad")
     B = multicopter.mixer.B
-    lmbd = np.ones(B.shape[-1])
     u_min = multicopter.rotor_min * np.ones(B.shape[-1])
     u_max = multicopter.rotor_max * np.ones(B.shape[-1])
     #

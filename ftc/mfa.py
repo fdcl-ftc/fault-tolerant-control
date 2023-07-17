@@ -5,10 +5,14 @@ from ftc.mission_determiners.polytope_determiner import PolytopeDeterminer
 
 
 class MFA:
-    def __init__(self, env):
+    def __init__(self, env, scaling_factor):
         pwm_min, pwm_max = env.plant.control_limits["pwm"]
         self.determiner = PolytopeDeterminer(
-            pwm_min * np.ones(6), pwm_max * np.ones(6), self.allocator
+            pwm_min * np.ones(6),
+            pwm_max * np.ones(6),
+            self.allocator,
+            scaling_factor=scaling_factor,
+            is_pwm=True,
         )
         self.controller = ftc.make("Flat", env)
 

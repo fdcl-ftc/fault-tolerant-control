@@ -40,7 +40,8 @@ class MyEnv(fym.BaseEnv):
         self.posd_2dot = nd.Derivative(self.posd, n=2)
         self.posd_3dot = nd.Derivative(self.posd, n=3)
         self.posd_4dot = nd.Derivative(self.posd, n=4)
-        self.mfa = MFA(self)
+        self.mfa_scaling_factor = 1.0
+        self.mfa = MFA(self, self.mfa_scaling_factor)
 
         self.u0 = self.controller.get_u0(self)
 
