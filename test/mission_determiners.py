@@ -1,7 +1,8 @@
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 
-from ftc.mission_determiners.polytope_determiner import PolytopeDeterminer, color_fader
+from ftc.mission_determiners.polytope_determiner import (PolytopeDeterminer,
+                                                         color_fader)
 from ftc.models.multicopter import Multicopter
 
 
@@ -39,11 +40,13 @@ def test_draw():
     u_max = multicopter.rotor_max * np.ones(B.shape[-1])
     #
     determiner = PolytopeDeterminer(u_min, u_max, lambda nu: np.linalg.pinv(B) @ nu)
-    us = [u_max[0] * (i+1)/N * np.ones(4) for i in range(N)]
-    nus = [B@u for u in us]
+    us = [u_max[0] * (i + 1) / N * np.ones(4) for i in range(N)]
+    nus = [B @ u for u in us]
     # fig = determiner.draw(us)
     lmbd = np.array([1, 1, 1, 1])
-    lmbds = [((N-(i+1))/N + (1/2))*lmbd if i > N/2 else lmbd for i in range(N)]
+    lmbds = [
+        ((N - (i + 1)) / N + (1 / 2)) * lmbd if i > N / 2 else lmbd for i in range(N)
+    ]
 
     fig, axs = determiner.visualize(nus, lmbds)
     plt.tight_layout()

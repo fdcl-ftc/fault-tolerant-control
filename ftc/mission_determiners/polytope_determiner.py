@@ -1,13 +1,15 @@
-import numpy as np
 import matplotlib.colors as mpl_colors
-import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 def color_fader(c1, c2, N):
     c1 = np.array(mpl_colors.to_rgb(c1))
     c2 = np.array(mpl_colors.to_rgb(c2))
-    return [mpl_colors.to_hex((1-i/(N-1))*c1 + i/(N-1)*c2) for i in range(N)]
+    return [
+        mpl_colors.to_hex((1 - i / (N - 1)) * c1 + i / (N - 1) * c2) for i in range(N)
+    ]
 
 
 class PolytopeDeterminer:
@@ -62,10 +64,7 @@ class PolytopeDeterminer:
         """
         Apply `determine_is_in` for multiple pairs of (nu, lmbd)'s.
         """
-        are_in = [
-            self.determine_is_in(nu, lmbd)
-            for (nu, lmbd) in zip(nus, lmbds)
-        ]
+        are_in = [self.determine_is_in(nu, lmbd) for (nu, lmbd) in zip(nus, lmbds)]
         return are_in
 
     def determine(self, *args, **kwargs):
@@ -109,51 +108,62 @@ class PolytopeDeterminer:
 
     def _draw_inputs(self, fig, axs, nus, lmbds, colors):
         us = [self.allocator(nu) for nu in nus]
-        color = [color if self.determine_is_in(nu, lmbd) else "red" for (nu, lmbd, color) in zip(nus, lmbds, colors)]
+        color = [
+            color if self.determine_is_in(nu, lmbd) else "red"
+            for (nu, lmbd, color) in zip(nus, lmbds, colors)
+        ]
         u1 = [u[0] for u in us]
         u2 = [u[1] for u in us]
         u3 = [u[2] for u in us]
         u4 = [u[3] for u in us]
         axs[0, 0].scatter(
-            u1, u2,
+            u1,
+            u2,
             color=color,
             marker="_",
         )
         axs[0, 1].scatter(
-            u1, u3,
+            u1,
+            u3,
             color=color,
             marker="_",
         )
         axs[1, 0].scatter(
-            u1, u4,
+            u1,
+            u4,
             color=color,
             marker="_",
         )
         axs[1, 1].scatter(
-            u2, u3,
+            u2,
+            u3,
             color=color,
             marker="_",
         )
         axs[2, 0].scatter(
-            u2, u4,
+            u2,
+            u4,
             color=color,
             marker="_",
         )
         axs[2, 1].scatter(
-            u3, u4,
+            u3,
+            u4,
             color=color,
             marker="_",
         )
         return fig, axs
 
     def _draw_bounds(self, fig, axs, lmbds, colors, alpha=0.5):
-        for (lmbd, color) in zip(lmbds, colors):
+        for lmbd, color in zip(lmbds, colors):
             u_min = self.get_lower_bound(lmbd)
             u_max = self.get_upper_bound(lmbd)
             ax = axs[0, 0]
             ax.add_patch(
                 patches.Rectangle(
-                    (u_min[0], u_min[1]), u_max[0], u_max[1],
+                    (u_min[0], u_min[1]),
+                    u_max[0],
+                    u_max[1],
                     alpha=alpha,
                     edgecolor=color,
                     facecolor="none",
@@ -163,7 +173,9 @@ class PolytopeDeterminer:
             ax = axs[0, 1]
             ax.add_patch(
                 patches.Rectangle(
-                    (u_min[0], u_min[2]), u_max[0], u_max[2],
+                    (u_min[0], u_min[2]),
+                    u_max[0],
+                    u_max[2],
                     alpha=alpha,
                     edgecolor=color,
                     facecolor="none",
@@ -173,7 +185,9 @@ class PolytopeDeterminer:
             ax = axs[1, 0]
             ax.add_patch(
                 patches.Rectangle(
-                    (u_min[0], u_min[3]), u_max[0], u_max[3],
+                    (u_min[0], u_min[3]),
+                    u_max[0],
+                    u_max[3],
                     alpha=alpha,
                     edgecolor=color,
                     facecolor="none",
@@ -183,7 +197,9 @@ class PolytopeDeterminer:
             ax = axs[1, 1]
             ax.add_patch(
                 patches.Rectangle(
-                    (u_min[1], u_min[2]), u_max[1], u_max[2],
+                    (u_min[1], u_min[2]),
+                    u_max[1],
+                    u_max[2],
                     alpha=alpha,
                     edgecolor=color,
                     facecolor="none",
@@ -193,7 +209,9 @@ class PolytopeDeterminer:
             ax = axs[2, 0]
             ax.add_patch(
                 patches.Rectangle(
-                    (u_min[1], u_min[3]), u_max[1], u_max[3],
+                    (u_min[1], u_min[3]),
+                    u_max[1],
+                    u_max[3],
                     alpha=alpha,
                     edgecolor=color,
                     facecolor="none",
@@ -203,7 +221,9 @@ class PolytopeDeterminer:
             ax = axs[2, 1]
             ax.add_patch(
                 patches.Rectangle(
-                    (u_min[2], u_min[3]), u_max[2], u_max[3],
+                    (u_min[2], u_min[3]),
+                    u_max[2],
+                    u_max[3],
                     alpha=alpha,
                     edgecolor=color,
                     facecolor="none",

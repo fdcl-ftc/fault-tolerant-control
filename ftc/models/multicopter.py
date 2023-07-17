@@ -7,9 +7,8 @@
 [6] M. Faessler, A. Franchi, and D. Scaramuzza, “Differential Flatness of Quadrotor Dynamics Subject to Rotor Drag for Accurate Tracking of High-Speed Trajectories,” IEEE Robot. Autom. Lett., vol. 3, no. 2, pp. 620–626, Apr. 2018, doi: 10.1109/LRA.2017.2776353.
 """
 
-import numpy as np
-
 import fym
+import numpy as np
 from fym.utils.rot import quat2dcm
 
 from ftc.utils import safeupdate
@@ -22,16 +21,8 @@ class Mixer:
     """
 
     def __init__(self, d, c, b, rtype):
-
         if rtype == "quad":
-            B = np.array(
-                [
-                    [1, 1, 1, 1],
-                    [0, -d, 0, d],
-                    [d, 0, -d, 0],
-                    [-c, c, -c, c]
-                ]
-            )
+            B = np.array([[1, 1, 1, 1], [0, -d, 0, d], [d, 0, -d, 0], [-c, c, -c, c]])
 
         elif rtype == "hexa-x":
             B = np.array(
