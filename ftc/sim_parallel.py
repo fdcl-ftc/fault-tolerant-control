@@ -75,6 +75,9 @@ def evaluate_pos(threshold=np.ones(3)):
 
 
 def evaluate_mfa(eval, verbose=False):
+    """
+    Is the mission feasibility assessment success?
+    """
     data = fym.load("data.h5")["env"]
     mfa = np.all(data["mfa"])
     if mfa == eval:
