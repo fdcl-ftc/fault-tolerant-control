@@ -8,7 +8,8 @@ import numpy as np
 import ftc
 from ftc.mfa import MFA
 from ftc.models.LC62 import LC62
-from ftc.utils import safeupdate, evaluate_pos, evaluate_mfa
+from ftc.sim_parallel import evaluate_mfa, evaluate_pos
+from ftc.utils import safeupdate
 
 np.seterr(all="raise")
 
