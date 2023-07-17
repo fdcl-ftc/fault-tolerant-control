@@ -37,10 +37,8 @@ class MyEnv(fym.BaseEnv):
         self.plant = LC62(env_config["plant"])
         self.controller = ftc.make("INDI", self)
 
-        self.posd_1dot = nd.Derivative(self.posd, n=1)
-        self.posd_2dot = nd.Derivative(self.posd, n=2)
-        self.posd_3dot = nd.Derivative(self.posd, n=3)
-        self.posd_4dot = nd.Derivative(self.posd, n=4)
+        self.posd = lambda t: np.vstack((0, 0, 0))
+        self.posd_dot = nd.Derivative(self.posd, n=1)
         pwm_min, pwm_max = self.plant.control_limits["pwm"]
         self.determiner = PolytopeDeterminer(
             pwm_min * np.ones(6),
@@ -77,18 +75,13 @@ class MyEnv(fym.BaseEnv):
     def observation(self):
         return self.observe_flat()
 
-    def posd(self, t):
-        posd = np.vstack((0, 0, 0))
-        # posd = np.vstack((np.sin(t), np.cos(t), -t))
-        return posd
-
     def psid(self, t):
         return 0
 
     def get_ref(self, t, *args):
         refs = {
             "posd": self.posd(t),
-            "posd_dot": self.posd_1dot(t),
+            "posd_dot": self.posd_dot(t),
         }
         return [refs[key] for key in args]
 
@@ -142,10 +135,10 @@ def run():
             flogger.record(env=env_info)
 
             if done:
-                env.determiner.visualize(
-                    env.mfa.get_nus(env.clock.tspan),
-                    [env.get_Lambda(t)[:6] for t in env.clock.tspan],
-                )
+                ts = env.clock.tspan[::10]
+                nus = env.mfa.get_nus(ts)
+                lmbds = [env.get_Lambda(t)[:6] for t in ts]
+                env.determiner.visualize(nus, lmbds)
                 break
 
     finally:
