@@ -36,8 +36,8 @@ def test_draw():
     N = 50
     multicopter = Multicopter(rtype="quad")
     B = multicopter.mixer.B
-    u_min = multicopter.rotor_min * np.ones(B.shape[-1])
-    u_max = multicopter.rotor_max * np.ones(B.shape[-1])
+    u_min = np.ones(4)
+    u_max = 2 * np.ones(4)
     #
     determiner = PolytopeDeterminer(u_min, u_max, lambda nu: np.linalg.pinv(B) @ nu)
     us = [u_max[0] * (i + 1) / N * np.ones(4) for i in range(N)]
