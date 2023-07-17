@@ -1,6 +1,13 @@
 import numpy as np
+import matplotlib.colors as mpl_colors
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+
+
+def color_fader(c1, c2, N):
+    c1 = np.array(mpl_colors.to_rgb(c1))
+    c2 = np.array(mpl_colors.to_rgb(c2))
+    return [mpl_colors.to_hex((1-i/(N-1))*c1 + i/(N-1)*c2) for i in range(N)]
 
 
 class PolytopeDeterminer:
@@ -15,6 +22,7 @@ class PolytopeDeterminer:
         u_min,
         u_max,
         allocator,
+        scaling_factor=1.0,
     ):
         """
         u_min: (m,) array; minimum input (element-wise)
@@ -26,8 +34,15 @@ class PolytopeDeterminer:
         self.u_min = u_min
         self.u_max = u_max
         self.allocator = allocator
+        self.scaling_factor = scaling_factor
 
-    def determine_is_in(self, nu, lmbd, scaling_factor: float):
+    def get_lower_bound(self, lmbd):
+        return self.scaling_factor * np.diag(lmbd) @ self.u_min
+
+    def get_upper_bound(self, lmbd):
+        return self.scaling_factor * np.diag(lmbd) @ self.u_max
+
+    def determine_is_in(self, nu, lmbd):
         """
             determine_is_in
 
@@ -37,19 +52,18 @@ class PolytopeDeterminer:
         B: (4 x m) array; control effectiveness matrix
         lmbd: (m,) array containing actuator fault information, ranging from 0 to 1 (effectiveness).
         """
-        assert scaling_factor >= 0.0
         u = self.allocator(nu)
-        is_larger_than_min = u >= scaling_factor * np.diag(lmbd) @ self.u_min
-        is_smaller_than_max = u <= scaling_factor * np.diag(lmbd) @ self.u_max
+        is_larger_than_min = u >= self.get_lower_bound(lmbd)
+        is_smaller_than_max = u <= self.get_upper_bound(lmbd)
         is_in = np.all(is_larger_than_min & is_smaller_than_max)
         return is_in
 
-    def determine_are_in(self, nus, lmbds, scaling_factor=1.0):
+    def determine_are_in(self, nus, lmbds):
         """
         Apply `determine_is_in` for multiple pairs of (nu, lmbd)'s.
         """
         are_in = [
-            self.determine_is_in(nu, lmbd, scaling_factor)
+            self.determine_is_in(nu, lmbd)
             for (nu, lmbd) in zip(nus, lmbds)
         ]
         return are_in
@@ -61,47 +75,138 @@ class PolytopeDeterminer:
         are_in = self.determine_are_in(*args, **kwargs)
         return np.all(are_in)
 
-    def draw(self, us):
-        u_min, u_max = self.u_min, self.u_max
+    def create_palette(self):
+        fig, axs = plt.subplots(3, 2)
+        ax = axs[0, 0]
+        ax.set_xlabel("u_1")
+        ax.set_ylabel("u_2")
+        ax = axs[0, 1]
+        ax.set_xlabel("u_1")
+        ax.set_ylabel("u_3")
+        ax = axs[1, 0]
+        ax.set_xlabel("u_1")
+        ax.set_ylabel("u_4")
+        ax = axs[1, 1]
+        ax.set_xlabel("u_2")
+        ax.set_ylabel("u_3")
+        ax = axs[2, 0]
+        ax.set_xlabel("u_2")
+        ax.set_ylabel("u_4")
+        ax = axs[2, 1]
+        ax.set_xlabel("u_3")
+        ax.set_ylabel("u_4")
+        return fig, axs
+
+    def visualize(self, *args, **kwargs):
+        fig, axs = self.create_palette()
+        return self._visualize(fig, axs, *args, **kwargs)
+
+    def _visualize(self, fig, axs, nus, lmbds, color1="#00ff00", color2="#3575D5"):
+        colors = color_fader(color1, color2, len(lmbds))
+        fig, axs = self._draw_bounds(fig, axs, lmbds, colors)
+        fig, axs = self._draw_inputs(fig, axs, nus, lmbds, colors)
+        return fig, axs
+
+    def _draw_inputs(self, fig, axs, nus, lmbds, colors):
+        us = [self.allocator(nu) for nu in nus]
+        color = [color if self.determine_is_in(nu, lmbd) else "red" for (nu, lmbd, color) in zip(nus, lmbds, colors)]
         u1 = [u[0] for u in us]
         u2 = [u[1] for u in us]
         u3 = [u[2] for u in us]
         u4 = [u[3] for u in us]
+        axs[0, 0].scatter(
+            u1, u2,
+            color=color,
+            marker="_",
+        )
+        axs[0, 1].scatter(
+            u1, u3,
+            color=color,
+            marker="_",
+        )
+        axs[1, 0].scatter(
+            u1, u4,
+            color=color,
+            marker="_",
+        )
+        axs[1, 1].scatter(
+            u2, u3,
+            color=color,
+            marker="_",
+        )
+        axs[2, 0].scatter(
+            u2, u4,
+            color=color,
+            marker="_",
+        )
+        axs[2, 1].scatter(
+            u3, u4,
+            color=color,
+            marker="_",
+        )
+        return fig, axs
 
-        fig = plt.figure()
-        ax = fig.add_subplot(3, 2, 1)
-        ax.add_patch(patches.Rectangle((u_min[0], u_min[1]), u_max[0], u_max[1], color="gray"))
-        ax.plot(u1, u2)
-        ax.set_xlabel("u_1")
-        ax.set_ylabel("u_2")
+    def _draw_bounds(self, fig, axs, lmbds, colors, alpha=0.5):
+        for (lmbd, color) in zip(lmbds, colors):
+            u_min = self.get_lower_bound(lmbd)
+            u_max = self.get_upper_bound(lmbd)
+            ax = axs[0, 0]
+            ax.add_patch(
+                patches.Rectangle(
+                    (u_min[0], u_min[1]), u_max[0], u_max[1],
+                    alpha=alpha,
+                    edgecolor=color,
+                    facecolor="none",
+                ),
+            )
 
-        ax = fig.add_subplot(3, 2, 2)
-        ax.add_patch(patches.Rectangle((u_min[0], u_min[2]), u_max[0], u_max[2], color="gray"))
-        ax.plot(u1, u3)
-        ax.set_xlabel("u_1")
-        ax.set_ylabel("u_3")
+            ax = axs[0, 1]
+            ax.add_patch(
+                patches.Rectangle(
+                    (u_min[0], u_min[2]), u_max[0], u_max[2],
+                    alpha=alpha,
+                    edgecolor=color,
+                    facecolor="none",
+                ),
+            )
 
-        ax = fig.add_subplot(3, 2, 3)
-        ax.add_patch(patches.Rectangle((u_min[0], u_min[3]), u_max[0], u_max[3], color="gray"))
-        ax.plot(u1, u4)
-        ax.set_xlabel("u_1")
-        ax.set_ylabel("u_4")
+            ax = axs[1, 0]
+            ax.add_patch(
+                patches.Rectangle(
+                    (u_min[0], u_min[3]), u_max[0], u_max[3],
+                    alpha=alpha,
+                    edgecolor=color,
+                    facecolor="none",
+                ),
+            )
 
-        ax = fig.add_subplot(3, 2, 4)
-        ax.add_patch(patches.Rectangle((u_min[1], u_min[2]), u_max[1], u_max[2], color="gray"))
-        ax.plot(u2, u3)
-        ax.set_xlabel("u_2")
-        ax.set_ylabel("u_3")
+            ax = axs[1, 1]
+            ax.add_patch(
+                patches.Rectangle(
+                    (u_min[1], u_min[2]), u_max[1], u_max[2],
+                    alpha=alpha,
+                    edgecolor=color,
+                    facecolor="none",
+                ),
+            )
 
-        ax = fig.add_subplot(3, 2, 5)
-        ax.add_patch(patches.Rectangle((u_min[1], u_min[3]), u_max[1], u_max[3], color="gray"))
-        ax.plot(u2, u4)
-        ax.set_xlabel("u_2")
-        ax.set_ylabel("u_4")
+            ax = axs[2, 0]
+            ax.add_patch(
+                patches.Rectangle(
+                    (u_min[1], u_min[3]), u_max[1], u_max[3],
+                    alpha=alpha,
+                    edgecolor=color,
+                    facecolor="none",
+                ),
+            )
 
-        ax = fig.add_subplot(3, 2, 6)
-        ax.add_patch(patches.Rectangle((u_min[2], u_min[3]), u_max[2], u_max[3], color="gray"))
-        ax.plot(u3, u4)
-        ax.set_xlabel("u_3")
-        ax.set_ylabel("u_4")
-        return fig
+            ax = axs[2, 1]
+            ax.add_patch(
+                patches.Rectangle(
+                    (u_min[2], u_min[3]), u_max[2], u_max[3],
+                    alpha=alpha,
+                    edgecolor=color,
+                    facecolor="none",
+                ),
+            )
+        return fig, axs
