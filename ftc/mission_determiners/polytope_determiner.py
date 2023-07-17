@@ -111,10 +111,17 @@ class PolytopeDeterminer:
         color3="#ffa500",
         color4="#FF0000",
     ):
-        colors = color_fader(color1, color2, len(lmbds))
+        colors_good = color_fader(color1, color2, len(lmbds))
         colors_bad = color_fader(color3, color4, len(lmbds))
+
+        colors = [
+            color_good if self.determine_is_in(nu, lmbd) else color_bad
+            for (color_good, color_bad, nu, lmbd) in zip(
+                colors_good, colors_bad, nus, lmbds
+            )
+        ]
         fig, axs = self._draw_bounds(fig, axs, lmbds, colors)
-        fig, axs = self._draw_inputs(fig, axs, nus, lmbds, colors, colors_bad)
+        fig, axs = self._draw_inputs(fig, axs, nus, lmbds, colors)
         return fig, axs
 
     def _draw_input(self, fig, axs, nu, color, marker):
@@ -158,19 +165,19 @@ class PolytopeDeterminer:
         )
         return fig, axs
 
-    def _draw_inputs(self, fig, axs, nus, lmbds, colors, colors_bad):
+    def _draw_inputs(self, fig, axs, nus, lmbds, colors):
         markers = ["_" for _ in range(len(nus))]
         markers[0] = "o"
         markers[-1] = "o"
-        for nu, lmbd, color, color_bad, marker in zip(
-            nus, lmbds, colors, colors_bad, markers
-        ):
-            color = color if self.determine_is_in(nu, lmbd) else color_bad
+        for nu, lmbd, color, marker in zip(nus, lmbds, colors, markers):
             fig, axs = self._draw_input(fig, axs, nu, color, marker)
         return fig, axs
 
     def _draw_bounds(self, fig, axs, lmbds, colors, alpha=0.5):
-        for lmbd, color in zip(lmbds, colors):
+        linewidths = [0.5 for _ in range(len(lmbds))]
+        linewidths[0] = 2.0
+        linewidths[-1] = 2.0
+        for lmbd, color, lw in zip(lmbds, colors, linewidths):
             u_min = self.get_lower_bound(lmbd)
             u_max = self.get_upper_bound(lmbd)
             ax = axs[0, 0]
@@ -182,6 +189,7 @@ class PolytopeDeterminer:
                     alpha=alpha,
                     edgecolor=color,
                     facecolor="none",
+                    linewidth=lw,
                 ),
             )
 
@@ -194,6 +202,7 @@ class PolytopeDeterminer:
                     alpha=alpha,
                     edgecolor=color,
                     facecolor="none",
+                    linewidth=lw,
                 ),
             )
 
@@ -206,6 +215,7 @@ class PolytopeDeterminer:
                     alpha=alpha,
                     edgecolor=color,
                     facecolor="none",
+                    linewidth=lw,
                 ),
             )
 
@@ -218,6 +228,7 @@ class PolytopeDeterminer:
                     alpha=alpha,
                     edgecolor=color,
                     facecolor="none",
+                    linewidth=lw,
                 ),
             )
 
@@ -230,6 +241,7 @@ class PolytopeDeterminer:
                     alpha=alpha,
                     edgecolor=color,
                     facecolor="none",
+                    linewidth=lw,
                 ),
             )
 
@@ -242,6 +254,7 @@ class PolytopeDeterminer:
                     alpha=alpha,
                     edgecolor=color,
                     facecolor="none",
+                    linewidth=lw,
                 ),
             )
         return fig, axs

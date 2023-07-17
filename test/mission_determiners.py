@@ -42,7 +42,6 @@ def test_draw():
     determiner = PolytopeDeterminer(u_min, u_max, lambda nu: np.linalg.pinv(B) @ nu)
     us = [u_max[0] * (i + 1) / N * np.ones(4) for i in range(N)]
     nus = [B @ u for u in us]
-    # fig = determiner.draw(us)
     lmbd = np.array([1, 1, 1, 1])
     lmbds = [
         ((N - (i + 1)) / N + (1 / 2)) * lmbd if i > N / 2 else lmbd for i in range(N)
