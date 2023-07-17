@@ -1,4 +1,6 @@
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
 
 class PolytopeDeterminer:
@@ -58,3 +60,48 @@ class PolytopeDeterminer:
         """
         are_in = self.determine_are_in(*args, **kwargs)
         return np.all(are_in)
+
+    def draw(self, us):
+        u_min, u_max = self.u_min, self.u_max
+        u1 = [u[0] for u in us]
+        u2 = [u[1] for u in us]
+        u3 = [u[2] for u in us]
+        u4 = [u[3] for u in us]
+
+        fig = plt.figure()
+        ax = fig.add_subplot(3, 2, 1)
+        ax.add_patch(patches.Rectangle((u_min[0], u_min[1]), u_max[0], u_max[1], color="gray"))
+        ax.plot(u1, u2)
+        ax.set_xlabel("u_1")
+        ax.set_ylabel("u_2")
+
+        ax = fig.add_subplot(3, 2, 2)
+        ax.add_patch(patches.Rectangle((u_min[0], u_min[2]), u_max[0], u_max[2], color="gray"))
+        ax.plot(u1, u3)
+        ax.set_xlabel("u_1")
+        ax.set_ylabel("u_3")
+
+        ax = fig.add_subplot(3, 2, 3)
+        ax.add_patch(patches.Rectangle((u_min[0], u_min[3]), u_max[0], u_max[3], color="gray"))
+        ax.plot(u1, u4)
+        ax.set_xlabel("u_1")
+        ax.set_ylabel("u_4")
+
+        ax = fig.add_subplot(3, 2, 4)
+        ax.add_patch(patches.Rectangle((u_min[1], u_min[2]), u_max[1], u_max[2], color="gray"))
+        ax.plot(u2, u3)
+        ax.set_xlabel("u_2")
+        ax.set_ylabel("u_3")
+
+        ax = fig.add_subplot(3, 2, 5)
+        ax.add_patch(patches.Rectangle((u_min[1], u_min[3]), u_max[1], u_max[3], color="gray"))
+        ax.plot(u2, u4)
+        ax.set_xlabel("u_2")
+        ax.set_ylabel("u_4")
+
+        ax = fig.add_subplot(3, 2, 6)
+        ax.add_patch(patches.Rectangle((u_min[2], u_min[3]), u_max[2], u_max[3], color="gray"))
+        ax.plot(u3, u4)
+        ax.set_xlabel("u_3")
+        ax.set_ylabel("u_4")
+        return fig

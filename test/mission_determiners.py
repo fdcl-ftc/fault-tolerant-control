@@ -1,9 +1,11 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 from ftc.mission_determiners.polytope_determiner import PolytopeDeterminer
 from ftc.models.multicopter import Multicopter
 
-if __name__ == "__main__":
+
+def test_polytope_determiner():
     multicopter = Multicopter(rtype="quad")
     B = multicopter.mixer.B
     u_min = multicopter.rotor_min * np.ones(B.shape[-1])
@@ -25,3 +27,28 @@ if __name__ == "__main__":
     lmbds = [lmbd for _ in range(N)]
     are_in = determiner.determine_are_in(nus, lmbds)
     print(are_in)
+
+
+def test_draw():
+    N = 100
+    multicopter = Multicopter(rtype="quad")
+    B = multicopter.mixer.B
+    u_min = multicopter.rotor_min * np.ones(B.shape[-1])
+    u_max = multicopter.rotor_max * np.ones(B.shape[-1])
+    #
+    determiner = PolytopeDeterminer(u_min, u_max, lambda nu: np.linalg.pinv(B) @ nu)
+    us = [u_max[0] * np.random.rand(4) * [0.5, 1, 1.5, 2] for _ in range(N)]
+    fig = determiner.draw(us)
+    # u_min = np.zeros(4)
+    # u_max = np.array([0.5, 1, 1.5, 2])
+    # u1 = [u[0] for u in us]
+    # u2 = [u[1] for u in us]
+    # u3 = [u[2] for u in us]
+    # u4 = [u[3] for u in us]
+
+    plt.tight_layout()
+    plt.show()
+
+if __name__ == "__main__":
+    # test_polytope_determiner()  # TODO
+    test_draw()
