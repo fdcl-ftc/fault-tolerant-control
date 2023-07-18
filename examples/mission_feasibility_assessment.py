@@ -139,6 +139,7 @@ def run():
                 nus = env.mfa.get_nus(ts)
                 lmbds = [env.get_Lambda(t)[:6] for t in ts]
                 env.determiner.visualize(nus, lmbds)
+                plt.tight_layout()
                 break
 
     finally:
