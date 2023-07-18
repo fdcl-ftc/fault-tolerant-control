@@ -200,8 +200,8 @@ class PolytopeDeterminer:
             ax.add_patch(
                 patches.Rectangle(
                     (u_min[0], u_min[1]),
-                    u_max[0]-u_min[0],
-                    u_max[1]-u_min[1],
+                    u_max[0] - u_min[0],
+                    u_max[1] - u_min[1],
                     alpha=alpha,
                     edgecolor=color,
                     facecolor="none",
@@ -213,8 +213,8 @@ class PolytopeDeterminer:
             ax.add_patch(
                 patches.Rectangle(
                     (u_min[0], u_min[2]),
-                    u_max[0]-u_min[0],
-                    u_max[2]-u_min[2],
+                    u_max[0] - u_min[0],
+                    u_max[2] - u_min[2],
                     alpha=alpha,
                     edgecolor=color,
                     facecolor="none",
@@ -226,8 +226,8 @@ class PolytopeDeterminer:
             ax.add_patch(
                 patches.Rectangle(
                     (u_min[0], u_min[3]),
-                    u_max[0]-u_min[0],
-                    u_max[3]-u_min[3],
+                    u_max[0] - u_min[0],
+                    u_max[3] - u_min[3],
                     alpha=alpha,
                     edgecolor=color,
                     facecolor="none",
@@ -239,8 +239,8 @@ class PolytopeDeterminer:
             ax.add_patch(
                 patches.Rectangle(
                     (u_min[1], u_min[2]),
-                    u_max[1]-u_min[1],
-                    u_max[2]-u_min[2],
+                    u_max[1] - u_min[1],
+                    u_max[2] - u_min[2],
                     alpha=alpha,
                     edgecolor=color,
                     facecolor="none",
@@ -252,8 +252,8 @@ class PolytopeDeterminer:
             ax.add_patch(
                 patches.Rectangle(
                     (u_min[1], u_min[3]),
-                    u_max[1]-u_min[1],
-                    u_max[3]-u_min[3],
+                    u_max[1] - u_min[1],
+                    u_max[3] - u_min[3],
                     alpha=alpha,
                     edgecolor=color,
                     facecolor="none",
@@ -265,8 +265,8 @@ class PolytopeDeterminer:
             ax.add_patch(
                 patches.Rectangle(
                     (u_min[2], u_min[3]),
-                    u_max[2]-u_min[2],
-                    u_max[3]-u_min[3],
+                    u_max[2] - u_min[2],
+                    u_max[3] - u_min[3],
                     alpha=alpha,
                     edgecolor=color,
                     facecolor="none",
