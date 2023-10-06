@@ -209,33 +209,35 @@ class LC62Frame:
         R = quat2dcm(q)
         ang = quat2angle(q)[::-1]
 
+        Rc = np.array([[0, 1, 0], [1, 0, 0], [0, 0, -1]])  # NED to ENU
+        x = Rc @ x
         _x = x.ravel()
-        e1 = tuple(R @ np.array([1, 0, 0]))
-        e3 = tuple(R @ np.array([0, 0, 1]))
+        e1 = tuple(Rc @ R @ np.array([1, 0, 0]))
+        e3 = tuple(Rc @ R @ np.array([0, 0, 1]))
 
-        xr1 = _x + R @ np.array([self.dx1, self.dy, 0.0])
-        xr2 = _x + R @ np.array([self.dx2, self.dy, 0.0])
-        xr3 = _x + R @ np.array([-self.dx3, self.dy, 0.0])
-        xr4 = _x + R @ np.array([self.dx1, -self.dy, 0.0])
-        xr5 = _x + R @ np.array([self.dx2, -self.dy, 0.0])
-        xr6 = _x + R @ np.array([-self.dx3, -self.dy, 0.0])
+        xr1 = _x + Rc @ R @ np.array([self.dx1, self.dy, 0.0])
+        xr2 = _x + Rc @ R @ np.array([self.dx2, self.dy, 0.0])
+        xr3 = _x + Rc @ R @ np.array([-self.dx3, self.dy, 0.0])
+        xr4 = _x + Rc @ R @ np.array([self.dx1, -self.dy, 0.0])
+        xr5 = _x + Rc @ R @ np.array([self.dx2, -self.dy, 0.0])
+        xr6 = _x + Rc @ R @ np.array([-self.dx3, -self.dy, 0.0])
 
-        xp1 = _x + R @ np.array([-self.dx3 / 2, self.b2 / 2, 0.0])
-        xp2 = _x + R @ np.array([-self.dx3 / 2, -self.b2 / 2, 0.0])
+        xp1 = _x + Rc @ R @ np.array([-self.dx3 / 2, self.b2 / 2, 0.0])
+        xp2 = _x + Rc @ R @ np.array([-self.dx3 / 2, -self.b2 / 2, 0.0])
 
-        xfw1 = _x + R @ np.array([self.dx1 / 2 + self.c1 / 2 + 0.01, 0, 0])
-        xfw2 = _x + R @ np.array([self.dx1 / 2 + self.c1 / 2, self.b1 / 2, 0])
-        xfw3 = _x + R @ np.array([self.dx1 / 2 - self.c1 / 2, self.b1 / 2, 0])
-        xfw4 = _x + R @ np.array([self.dx1 / 2 - self.c1 / 2 - 0.01, 0, 0])
-        xfw5 = _x + R @ np.array([self.dx1 / 2 - self.c1 / 2, -self.b1 / 2, 0])
-        xfw6 = _x + R @ np.array([self.dx1 / 2 + self.c1 / 2, -self.b1 / 2, 0])
+        xfw1 = _x + Rc @ R @ np.array([self.dx1 / 2 + self.c1 / 2 + 0.01, 0, 0])
+        xfw2 = _x + Rc @ R @ np.array([self.dx1 / 2 + self.c1 / 2, self.b1 / 2, 0])
+        xfw3 = _x + Rc @ R @ np.array([self.dx1 / 2 - self.c1 / 2, self.b1 / 2, 0])
+        xfw4 = _x + Rc @ R @ np.array([self.dx1 / 2 - self.c1 / 2 - 0.01, 0, 0])
+        xfw5 = _x + Rc @ R @ np.array([self.dx1 / 2 - self.c1 / 2, -self.b1 / 2, 0])
+        xfw6 = _x + Rc @ R @ np.array([self.dx1 / 2 + self.c1 / 2, -self.b1 / 2, 0])
 
-        xrw1 = _x + R @ np.array([-self.dx3 / 2 + self.c2 / 2 + 0.01, 0, 0])
-        xrw2 = _x + R @ np.array([-self.dx3 / 2 + self.c2 / 2, self.b2 / 2, 0])
-        xrw3 = _x + R @ np.array([-self.dx3 / 2 - self.c2 / 2, self.b2 / 2, 0])
-        xrw4 = _x + R @ np.array([-self.dx3 / 2 - self.c2 / 2 - 0.01, 0, 0])
-        xrw5 = _x + R @ np.array([-self.dx3 / 2 - self.c2 / 2, -self.b2 / 2, 0])
-        xrw6 = _x + R @ np.array([-self.dx3 / 2 + self.c2 / 2, -self.b2 / 2, 0])
+        xrw1 = _x + Rc @ R @ np.array([-self.dx3 / 2 + self.c2 / 2 + 0.01, 0, 0])
+        xrw2 = _x + Rc @ R @ np.array([-self.dx3 / 2 + self.c2 / 2, self.b2 / 2, 0])
+        xrw3 = _x + Rc @ R @ np.array([-self.dx3 / 2 - self.c2 / 2, self.b2 / 2, 0])
+        xrw4 = _x + Rc @ R @ np.array([-self.dx3 / 2 - self.c2 / 2 - 0.01, 0, 0])
+        xrw5 = _x + Rc @ R @ np.array([-self.dx3 / 2 - self.c2 / 2, -self.b2 / 2, 0])
+        xrw6 = _x + Rc @ R @ np.array([-self.dx3 / 2 + self.c2 / 2, -self.b2 / 2, 0])
 
         # Fuselage
         self.ax.add_patch(
