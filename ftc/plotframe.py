@@ -1,10 +1,96 @@
-import fym
+import matplotlib
 import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d.art3d as art3d
 import numpy as np
-from fym.utils.rot import quat2dcm
+from fym.utils.rot import angle2quat, quat2angle, quat2dcm
 from matplotlib import animation
-from matplotlib.patches import Circle, Ellipse, Polygon, Rectangle
+from matplotlib.patches import Circle, Ellipse, FancyArrowPatch, Polygon
+from mpl_toolkits.mplot3d.axes3d import Axes3D
+from mpl_toolkits.mplot3d.proj3d import proj_transform
+
+
+def _transform_zdir(zdir):
+    zdir = art3d.get_dir_vector(zdir)
+    zn = zdir / np.linalg.norm(zdir)
+
+    cos_angle = zn[2]
+    sin_angle = np.linalg.norm(zn[:2])
+    if sin_angle == 0:
+        return np.sign(cos_angle) * np.eye(3)
+
+    d = np.array((zn[1], -zn[0], 0))
+    d /= sin_angle
+    ddt = np.outer(d, d)
+    skew = np.array([[0, 0, -d[1]], [0, 0, d[0]], [d[1], -d[0], 0]], dtype=np.float64)
+    return ddt + cos_angle * (np.eye(3) - ddt) + sin_angle * skew
+
+
+def set_3d_properties(self, verts, zs=0, zdir="z"):
+    zs = np.broadcast_to(zs, len(verts))
+    self._segment3d = np.asarray(
+        [
+            np.dot(_transform_zdir(zdir), (x, y, 0)) + (0, 0, z)
+            for ((x, y), z) in zip(verts, zs)
+        ]
+    )
+
+
+def pathpatch_translate(pathpatch, delta):
+    pathpatch._segment3d += np.asarray(delta)
+
+
+art3d.Patch3D.set_3d_properties = set_3d_properties
+art3d.Patch3D.translate = pathpatch_translate
+
+
+def to_3d(pathpatch, z=0.0, zdir="z", delta=(0, 0, 0)):
+    if not hasattr(pathpatch.axes, "get_zlim"):
+        raise ValueError("Axes projection must be 3D")
+    art3d.pathpatch_2d_to_3d(pathpatch, z=z, zdir=zdir)
+    pathpatch.translate(delta)
+    return pathpatch
+
+
+matplotlib.patches.Patch.to_3d = to_3d
+
+
+class Arrow3D(FancyArrowPatch):
+    def __init__(self, x, y, z, dx, dy, dz, *args, **kwargs):
+        super().__init__((0, 0), (0, 0), *args, **kwargs)
+        self._xyz = (x, y, z)
+        self._dxdydz = (dx, dy, dz)
+
+    def draw(self, renderer):
+        x1, y1, z1 = self._xyz
+        dx, dy, dz = self._dxdydz
+        x2, y2, z2 = (x1 + dx, y1 + dy, z1 + dz)
+
+        xs, ys, zs = proj_transform((x1, x2), (y1, y2), (z1, z2), self.axes.M)
+        self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
+        super().draw(renderer)
+
+    def do_3d_projection(self, renderer=None):
+        x1, y1, z1 = self._xyz
+        dx, dy, dz = self._dxdydz
+        x2, y2, z2 = (x1 + dx, y1 + dy, z1 + dz)
+
+        xs, ys, zs = proj_transform((x1, x2), (y1, y2), (z1, z2), self.axes.M)
+        self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))
+
+        return np.min(zs)
+
+
+def _arrow3D(ax, x, y, z, dx, dy, dz, *args, **kwargs):
+    """Add an 3d arrow to an `Axes3D` instance."""
+
+    arrow = Arrow3D(x, y, z, dx, dy, dz, *args, **kwargs)
+    arrow.set_mutation_scale(15)
+    arrow.set_edgecolor("red")
+    arrow.set_facecolor("red")
+    ax.add_artist(arrow)
+
+
+setattr(Axes3D, "arrow3D", _arrow3D)
 
 
 class QUADFrame:
@@ -16,9 +102,9 @@ class QUADFrame:
         self.rr = 0.1  # radius of rotor
         self.rc = 0.01
 
-        self.b1 = np.vstack([1.0, 0.0, 0.0])
-        self.b2 = np.vstack([0.0, 1.0, 0.0])
-        self.b3 = np.vstack([0.0, 0.0, 1.0])
+        self.b1 = np.array([1.0, 0.0, 0.0])
+        self.b2 = np.array([0.0, 1.0, 0.0])
+        self.b3 = np.array([0.0, 0.0, 1.0])
 
         self.ax.set(xlim3d=self.xlim, xlabel="X")
         self.ax.set(ylim3d=self.ylim, ylabel="Y")
@@ -27,24 +113,30 @@ class QUADFrame:
         self.alp_list = [0.1, 0.5, 1]
 
     def draw_at(
-        self, x=np.zeros((3, 1)), q=np.vstack([1, 0, 0, 0]), lamb=np.ones((4, 1))
+        self,
+        x=np.zeros((3, 1)),
+        u=np.ones((4, 1)),
+        q=np.vstack((1, 0, 0, 0)),
+        lamb=np.ones((4, 1)),
+        wu=np.eye(4),
     ):
         self.ax.clear()
         R = quat2dcm(q)
 
-        x1 = (x + R @ self.b1 * self.d).ravel()
-        x2 = (x + R @ self.b2 * self.d).ravel()
-        x3 = (x + R @ (-self.b1) * self.d).ravel()
-        x4 = (x + R @ (-self.b2) * self.d).ravel()
+        Rc = np.array([[0, 1, 0], [1, 0, 0], [0, 0, -1]])  # NED to ENU
+        x = Rc @ x
+        _x = x.ravel()
+        x1 = _x + Rc @ R @ self.b2 * self.d
+        x2 = _x + Rc @ R @ -self.b2 * self.d
+        x3 = _x + Rc @ R @ self.b1 * self.d
+        x4 = _x + Rc @ R @ -self.b1 * self.d
+        e3 = tuple(Rc @ R @ self.b3)
 
         # Center of the quadrotor
-        body = self.ax.add_patch(Circle((x[0], x[1]), self.rc, color="y"))
-        art3d.pathpatch_2d_to_3d(body, z=x[2])
+        self.ax.add_patch(Circle((0, 0), self.rc, color="y")).to_3d(zdir=e3, delta=_x)
 
         # Fault
-        alps = np.ones(
-            4,
-        )
+        alps = np.ones(4)
         for i in range(len(alps)):
             if lamb[i] == 0:
                 alps[i] = self.alp_list[0]
@@ -54,29 +146,31 @@ class QUADFrame:
                 alps[i] = self.alp_list[1]
 
         # Rotor
-        r1 = self.ax.add_patch(
-            Circle((x1[0], x1[1]), self.rr, color="r", alpha=alps[0])
+        self.ax.add_patch(Circle((0, 0), self.rr, color="r", alpha=alps[0])).to_3d(
+            zdir=e3, delta=x1
         )
-        r2 = self.ax.add_patch(
-            Circle((x2[0], x2[1]), self.rr, color="b", alpha=alps[1])
+        self.ax.add_patch(Circle((0, 0), self.rr, color="r", alpha=alps[1])).to_3d(
+            zdir=e3, delta=x2
         )
-        r3 = self.ax.add_patch(
-            Circle((x3[0], x3[1]), self.rr, color="r", alpha=alps[2])
+        self.ax.add_patch(Circle((0, 0), self.rr, color="b", alpha=alps[2])).to_3d(
+            zdir=e3, delta=x3
         )
-        r4 = self.ax.add_patch(
-            Circle((x4[0], x4[1]), self.rr, color="b", alpha=alps[3])
+        self.ax.add_patch(Circle((0, 0), self.rr, color="b", alpha=alps[3])).to_3d(
+            zdir=e3, delta=x4
         )
-        art3d.pathpatch_2d_to_3d(r1, z=x1[2])
-        art3d.pathpatch_2d_to_3d(r2, z=x2[2])
-        art3d.pathpatch_2d_to_3d(r3, z=x3[2])
-        art3d.pathpatch_2d_to_3d(r4, z=x4[2])
 
         # Quadrotor arms
-        _x = x.ravel()
         self.ax.plot([_x[0], x1[0]], [_x[1], x1[1]], [_x[2], x1[2]], "k")
         self.ax.plot([_x[0], x2[0]], [_x[1], x2[1]], [_x[2], x2[2]], "k")
         self.ax.plot([_x[0], x3[0]], [_x[1], x3[1]], [_x[2], x3[2]], "k")
         self.ax.plot([_x[0], x4[0]], [_x[1], x4[1]], [_x[2], x4[2]], "k")
+
+        # Arrow
+        dar = (wu @ -u) * np.vstack((e3, e3, e3, e3))
+        self.ax.arrow3D(x1[0], x1[1], x1[2], dar[0, 0], dar[0, 1], dar[0, 2])
+        self.ax.arrow3D(x2[0], x2[1], x2[2], dar[1, 0], dar[1, 1], dar[1, 2])
+        self.ax.arrow3D(x3[0], x3[1], x3[2], dar[2, 0], dar[2, 1], dar[2, 2])
+        self.ax.arrow3D(x4[0], x4[1], x4[2], dar[3, 0], dar[3, 1], dar[3, 2])
 
 
 class LC62Frame:
@@ -104,50 +198,49 @@ class LC62Frame:
         self.alp_list = [0.1, 0.5, 1]
 
     def draw_at(
-        self, x=np.zeros((3, 1)), q=np.vstack([1, 0, 0, 0]), lamb=np.ones((11, 1))
+        self,
+        x=np.zeros((3, 1)),
+        u=np.ones((4, 1)),
+        q=np.vstack((1, 0, 0, 0)),
+        lamb=np.ones((11, 1)),
+        wu=np.eye(11),
     ):
         self.ax.clear()
         R = quat2dcm(q)
+        ang = quat2angle(q)[::-1]
 
-        xr1 = (x + R @ np.vstack([self.dx1, self.dy, 0.0])).ravel()
-        xr2 = (x + R @ np.vstack([self.dx2, self.dy, 0.0])).ravel()
-        xr3 = (x + R @ np.vstack([-self.dx3, self.dy, 0.0])).ravel()
-        xr4 = (x + R @ np.vstack([self.dx1, -self.dy, 0.0])).ravel()
-        xr5 = (x + R @ np.vstack([self.dx2, -self.dy, 0.0])).ravel()
-        xr6 = (x + R @ np.vstack([-self.dx3, -self.dy, 0.0])).ravel()
+        _x = x.ravel()
+        e1 = tuple(R @ np.array([1, 0, 0]))
+        e3 = tuple(R @ np.array([0, 0, 1]))
 
-        xp1 = (x + R @ np.vstack([-self.dx3 / 2, self.b2 / 2, 0.0])).ravel()
-        xp2 = (x + R @ np.vstack([-self.dx3 / 2, -self.b2 / 2, 0.0])).ravel()
+        xr1 = _x + R @ np.array([self.dx1, self.dy, 0.0])
+        xr2 = _x + R @ np.array([self.dx2, self.dy, 0.0])
+        xr3 = _x + R @ np.array([-self.dx3, self.dy, 0.0])
+        xr4 = _x + R @ np.array([self.dx1, -self.dy, 0.0])
+        xr5 = _x + R @ np.array([self.dx2, -self.dy, 0.0])
+        xr6 = _x + R @ np.array([-self.dx3, -self.dy, 0.0])
 
-        xfw1 = (x + R @ np.vstack([self.dx1 / 2 + self.c1 / 2 + 0.01, 0, 0])).ravel()
-        xfw2 = (x + R @ np.vstack([self.dx1 / 2 + self.c1 / 2, self.b1 / 2, 0])).ravel()
-        xfw3 = (x + R @ np.vstack([self.dx1 / 2 - self.c1 / 2, self.b1 / 2, 0])).ravel()
-        xfw4 = (x + R @ np.vstack([self.dx1 / 2 - self.c1 / 2 - 0.1, 0, 0])).ravel()
-        xfw5 = (
-            x + R @ np.vstack([self.dx1 / 2 - self.c1 / 2, -self.b1 / 2, 0])
-        ).ravel()
-        xfw6 = (
-            x + R @ np.vstack([self.dx1 / 2 + self.c1 / 2, -self.b1 / 2, 0])
-        ).ravel()
+        xp1 = _x + R @ np.array([-self.dx3 / 2, self.b2 / 2, 0.0])
+        xp2 = _x + R @ np.array([-self.dx3 / 2, -self.b2 / 2, 0.0])
 
-        xrw1 = (x + R @ np.vstack([-self.dx3 / 2 + self.c2 / 2 + 0.01, 0, 0])).ravel()
-        xrw2 = (
-            x + R @ np.vstack([-self.dx3 / 2 + self.c2 / 2, self.b2 / 2, 0])
-        ).ravel()
-        xrw3 = (
-            x + R @ np.vstack([-self.dx3 / 2 - self.c2 / 2, self.b2 / 2, 0])
-        ).ravel()
-        xrw4 = (x + R @ np.vstack([-self.dx3 / 2 - self.c2 / 2 - 0.1, 0, 0])).ravel()
-        xrw5 = (
-            x + R @ np.vstack([-self.dx3 / 2 - self.c2 / 2, -self.b2 / 2, 0])
-        ).ravel()
-        xrw6 = (
-            x + R @ np.vstack([-self.dx3 / 2 + self.c2 / 2, -self.b2 / 2, 0])
-        ).ravel()
+        xfw1 = _x + R @ np.array([self.dx1 / 2 + self.c1 / 2 + 0.01, 0, 0])
+        xfw2 = _x + R @ np.array([self.dx1 / 2 + self.c1 / 2, self.b1 / 2, 0])
+        xfw3 = _x + R @ np.array([self.dx1 / 2 - self.c1 / 2, self.b1 / 2, 0])
+        xfw4 = _x + R @ np.array([self.dx1 / 2 - self.c1 / 2 - 0.01, 0, 0])
+        xfw5 = _x + R @ np.array([self.dx1 / 2 - self.c1 / 2, -self.b1 / 2, 0])
+        xfw6 = _x + R @ np.array([self.dx1 / 2 + self.c1 / 2, -self.b1 / 2, 0])
+
+        xrw1 = _x + R @ np.array([-self.dx3 / 2 + self.c2 / 2 + 0.01, 0, 0])
+        xrw2 = _x + R @ np.array([-self.dx3 / 2 + self.c2 / 2, self.b2 / 2, 0])
+        xrw3 = _x + R @ np.array([-self.dx3 / 2 - self.c2 / 2, self.b2 / 2, 0])
+        xrw4 = _x + R @ np.array([-self.dx3 / 2 - self.c2 / 2 - 0.01, 0, 0])
+        xrw5 = _x + R @ np.array([-self.dx3 / 2 - self.c2 / 2, -self.b2 / 2, 0])
+        xrw6 = _x + R @ np.array([-self.dx3 / 2 + self.c2 / 2, -self.b2 / 2, 0])
 
         # Fuselage
-        fuselage = self.ax.add_patch(Ellipse((x[0], x[1]), self.wf, self.hf, fc="0.5"))
-        art3d.pathpatch_2d_to_3d(fuselage, z=x[2])
+        self.ax.add_patch(
+            Ellipse((0, 0), self.wf, self.hf, np.rad2deg(-ang[2]), fc="0.5")
+        ).to_3d(zdir=e3, delta=_x)
 
         # Wing
         fwxs = [xfw1[0], xfw2[0], xfw3[0], xfw4[0], xfw5[0], xfw6[0]]
@@ -160,9 +253,7 @@ class LC62Frame:
         art3d.pathpatch_2d_to_3d(rw, z=(xrw1[2] + xrw4[2]) / 2)
 
         # Fault
-        alps = np.ones(
-            11,
-        )
+        alps = np.ones(11)
         for i in range(len(alps)):
             if lamb[i] == 0:
                 alps[i] = self.alp_list[0]
@@ -172,51 +263,45 @@ class LC62Frame:
                 alps[i] = self.alp_list[1]
 
         # Rotor
-        r1 = self.ax.add_patch(
-            Circle((xr1[0], xr1[1]), self.rr, fc="tab:pink", ec="0.3", alpha=alps[2])
-        )
-        r2 = self.ax.add_patch(
-            Circle((xr2[0], xr2[1]), self.rr, fc="tab:pink", ec="0.3", alpha=alps[1])
-        )
-        r3 = self.ax.add_patch(
-            Circle((xr3[0], xr3[1]), self.rr, fc="tab:pink", ec="0.3", alpha=alps[5])
-        )
-        r4 = self.ax.add_patch(
-            Circle((xr4[0], xr4[1]), self.rr, fc="tab:pink", ec="0.3", alpha=alps[4])
-        )
-        r5 = self.ax.add_patch(
-            Circle((xr5[0], xr5[1]), self.rr, fc="tab:pink", ec="0.3", alpha=alps[0])
-        )
-        r6 = self.ax.add_patch(
-            Circle((xr6[0], xr6[1]), self.rr, fc="tab:pink", ec="0.3", alpha=alps[3])
-        )
-        art3d.pathpatch_2d_to_3d(r1, z=xr1[2])
-        art3d.pathpatch_2d_to_3d(r2, z=xr2[2])
-        art3d.pathpatch_2d_to_3d(r3, z=xr3[2])
-        art3d.pathpatch_2d_to_3d(r4, z=xr4[2])
-        art3d.pathpatch_2d_to_3d(r5, z=xr5[2])
-        art3d.pathpatch_2d_to_3d(r6, z=xr6[2])
+        self.ax.add_patch(
+            Circle((0, 0), self.rr, fc="tab:pink", ec="0.3", alpha=alps[2])
+        ).to_3d(zdir=e3, delta=xr1)
+        self.ax.add_patch(
+            Circle((0, 0), self.rr, fc="tab:pink", ec="0.3", alpha=alps[1])
+        ).to_3d(zdir=e3, delta=xr2)
+        self.ax.add_patch(
+            Circle((0, 0), self.rr, fc="tab:pink", ec="0.3", alpha=alps[5])
+        ).to_3d(zdir=e3, delta=xr3)
+        self.ax.add_patch(
+            Circle((0, 0), self.rr, fc="tab:pink", ec="0.3", alpha=alps[4])
+        ).to_3d(zdir=e3, delta=xr4)
+        self.ax.add_patch(
+            Circle((0, 0), self.rr, fc="tab:pink", ec="0.3", alpha=alps[0])
+        ).to_3d(zdir=e3, delta=xr5)
+        self.ax.add_patch(
+            Circle((0, 0), self.rr, fc="tab:pink", ec="0.3", alpha=alps[3])
+        ).to_3d(zdir=e3, delta=xr6)
 
         # Arms
         self.ax.plot([xr1[0], xr3[0]], [xr1[1], xr3[1]], [xr1[2], xr3[2]], "k")
         self.ax.plot([xr4[0], xr6[0]], [xr4[1], xr6[1]], [xr4[2], xr6[2]], "k")
 
         # Pusher
-        p1 = self.ax.add_patch(
-            Circle((xp1[1], xp1[2]), self.rp, fc="tab:purple", ec="0.3", alpha=alps[6])
-        )
-        p2 = self.ax.add_patch(
-            Circle((xp2[1], xp2[2]), self.rp, fc="tab:purple", ec="0.3", alpha=alps[7])
-        )
-        art3d.pathpatch_2d_to_3d(p1, z=xp1[0], zdir="x")
-        art3d.pathpatch_2d_to_3d(p2, z=xp2[0], zdir="x")
+        self.ax.add_patch(
+            Circle((0, 0), self.rp, fc="tab:purple", ec="0.3", alpha=alps[6])
+        ).to_3d(zdir=e1, delta=xp1)
+        self.ax.add_patch(
+            Circle((0, 0), self.rp, fc="tab:purple", ec="0.3", alpha=alps[7])
+        ).to_3d(zdir=e1, delta=xp2)
 
 
-def update_plot(i, uav, t, x, q, lamb, numFrames=1):
+def update_plot(i, uav, t, x, u, q, lamb, wu, numFrames=1):
     uav.draw_at(
-        np.vstack(x[:, i * numFrames]),
-        np.vstack(q[:, i * numFrames]),
-        lamb[:, i * numFrames],
+        np.vstack(x[i * numFrames, :]),
+        np.vstack(u[i * numFrames, :]),
+        np.vstack(q[i * numFrames, :]),
+        lamb[i * numFrames, :],
+        wu,
     )
 
     uav.ax.set(xlim3d=uav.xlim, xlabel="X")
@@ -228,24 +313,49 @@ def update_plot(i, uav, t, x, q, lamb, numFrames=1):
 
 
 if __name__ == "__main__":
-    data = fym.load("data.h5")["env"]
-    t = data["t"]
-    x = data["plant"]["pos"].squeeze(-1).T
-    q = data["plant"]["quat"].squeeze(-1).T
-    lamb = data["Lambda"].squeeze(-1).T
+    vehicle = ""
 
-    numFrames = 10
+    t = np.arange(0, 20, 0.01)
+    x = q = []
+    for i in t:
+        if i == 0:
+            x = np.vstack((i / 20, i / 20, -1)).T
+            q = np.vstack((1, 0, 0, 0)).T
+        else:
+            x = np.append(x, np.vstack((i / 20, i / 20, -1)).T, axis=0)
+            q = np.append(
+                q,
+                angle2quat(*np.deg2rad(np.array([100 * i, 2 * i, 2 * 0]))).T,
+                axis=0,
+            )
 
     fig = plt.figure()
     ax = fig.add_subplot(projection="3d")
 
-    # uav = QUADFrame(ax)
-    uav = LC62Frame(ax)
+    if vehicle == "quad":
+        u = np.ones((len(t), 4))
+        u[:, 3] = 0
+        lamb = np.ones((len(t), 4))
+        lamb[:, 3] = 0
+        wu = np.eye(4)
+
+        uav = QUADFrame(ax)
+    else:
+        u = np.ones((len(t), 11))
+        u[:, 3] = 0
+        lamb = np.ones((len(t), 11))
+        lamb[:, 3] = 0
+        wu = np.eye(11)
+
+        uav = LC62Frame(ax)
+
+    numFrames = 10
+
     ani = animation.FuncAnimation(
         fig,
         update_plot,
         frames=len(t[::numFrames]),
-        fargs=(uav, t, x, q, lamb, numFrames),
+        fargs=(uav, t, x, u, q, lamb, wu, numFrames),
         interval=1,
     )
     # ani.save("animation.gif", dpi=80, writer="imagemagick", fps=25)
