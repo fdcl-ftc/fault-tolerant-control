@@ -300,6 +300,15 @@ class LC62Frame:
             Circle((0, 0), self.rp, fc="tab:purple", ec="0.3", alpha=alps[7])
         ).to_3d(zdir=e1, delta=xp2)
 
+        # Arrow for Rotor
+        dar = (wu[:6, :6] @ -u[:6]) * np.vstack((e3, e3, e3, e3, e3, e3))
+        self.ax.arrow3D(xr1[0], xr1[1], xr1[2], dar[0, 0], dar[0, 1], dar[0, 2])
+        self.ax.arrow3D(xr2[0], xr2[1], xr2[2], dar[1, 0], dar[1, 1], dar[1, 2])
+        self.ax.arrow3D(xr3[0], xr3[1], xr3[2], dar[2, 0], dar[2, 1], dar[2, 2])
+        self.ax.arrow3D(xr4[0], xr4[1], xr4[2], dar[3, 0], dar[3, 1], dar[3, 2])
+        self.ax.arrow3D(xr5[0], xr5[1], xr5[2], dar[4, 0], dar[4, 1], dar[4, 2])
+        self.ax.arrow3D(xr6[0], xr6[1], xr6[2], dar[5, 0], dar[5, 1], dar[5, 2])
+
 
 def update_plot(i, uav, t, x, u, q, lamb, wu, numFrames=1):
     uav.draw_at(
