@@ -52,7 +52,7 @@ def sigmoid_shift(x, a=1):
     """
     x in R
     """
-    return 1/(1+np.exp(-a*(x-0.5)))
+    return max(1/(1+np.exp(-a*x)) - 0.5, 0)
 
 
 def get_alpha(x):
