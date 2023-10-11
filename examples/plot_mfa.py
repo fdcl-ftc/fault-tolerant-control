@@ -48,11 +48,26 @@ def _arrow3D(ax, x, y, z, dx, dy, dz, *args, **kwargs):
 setattr(Axes3D, "arrow3D", _arrow3D)
 
 
+def sigmoid_shift(x, a=1):
+    """
+    x in R
+    """
+    return 1/(1+np.exp(-a*(x-0.5)))
+
+
+def get_alpha(x):
+    """
+    x in R^3
+    """
+    return sigmoid_shift(np.linalg.norm(x))
+
+
 def update_plot(
     i, ax, data, numFrames,
     Elim=(-2, 2), Nlim=(-2, 2), Ulim=(-2, 2),
-    scale_F=0.01,
-    scale_M=0.01,
+    scale_F=1.0,
+    scale_M=1.0,
+    eps=1e-6,
 ):
     ax.clear()
     _i = i * numFrames
@@ -82,24 +97,28 @@ def update_plot(
         }
 
     ax.scatter(*(NED2ENU @ pos).ravel(), color="black")
-    ax.arrow3D(
-        *(NED2ENU @ pos).ravel(),
-        *(NED2ENU @ (pos + scale_F*F)).ravel(),
-        edgecolor=colors["force"],
-        facecolor=colors["force"],
-        label=f"force (scale: {scale_F})",
-    )
-    ax.arrow3D(
-        *(NED2ENU @ pos).ravel(),
-        *(NED2ENU @ (pos + scale_M*M)).ravel(),
-        edgecolor=colors["torque"],
-        facecolor=colors["torque"],
-        label=f"torque (scale: {scale_M})",
-    )
+    if np.linalg.norm(F) > eps:
+        ax.arrow3D(
+            *(NED2ENU @ pos).ravel(),
+            *((scale_F/np.linalg.norm(F))*(NED2ENU @ F)).ravel(),
+            edgecolor=colors["force"],
+            facecolor=colors["force"],
+            alpha=get_alpha(F),
+            label=f"force (scale: {scale_F})",
+        )
+    if np.linalg.norm(M) > eps:
+        ax.arrow3D(
+            *(NED2ENU @ pos).ravel(),
+            *((scale_M/np.linalg.norm(M))*(NED2ENU @ M)).ravel(),
+            edgecolor=colors["torque"],
+            facecolor=colors["torque"],
+            alpha=get_alpha(M),
+            label=f"torque (scale: {scale_M})",
+        )
 
-    ax.set(xlim3d=Elim, xlabel="E")
-    ax.set(ylim3d=Nlim, ylabel="N")
-    ax.set(zlim3d=Ulim, zlabel="U")
+    ax.set(xlim3d=[lim+(NED2ENU@pos)[0] for lim in Elim], xlabel="E")
+    ax.set(ylim3d=[lim+(NED2ENU@pos)[1] for lim in Nlim], xlabel="N")
+    ax.set(zlim3d=[lim+(NED2ENU@pos)[2] for lim in Ulim], xlabel="U")
     titleTime = ax.text2D(0.05, 0.95, "", transform=ax.transAxes)
     titleTime.set_text("Time = {:.2f} s".format(t[_i]))
     titleForce = ax.text2D(0.95, 0.95, "", transform=ax.transAxes, color=colors["force"])
