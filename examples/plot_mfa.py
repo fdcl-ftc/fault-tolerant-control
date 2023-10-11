@@ -65,8 +65,8 @@ def get_alpha(x):
 def update_plot(
     i, ax, data, numFrames,
     Elim=(-2, 2), Nlim=(-2, 2), Ulim=(-2, 2),
-    scale_F=1.0,
-    scale_M=1.0,
+    scale_F=2.0,
+    scale_M=2.0,
     eps=1e-6,
 ):
     ax.clear()
