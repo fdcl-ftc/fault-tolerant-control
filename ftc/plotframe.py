@@ -319,9 +319,10 @@ def update_plot(i, uav, t, x, u, q, lamb, wu, numFrames=1):
         wu,
     )
 
-    uav.ax.set(xlim3d=uav.xlim, xlabel="X")
-    uav.ax.set(ylim3d=uav.ylim, ylabel="Y")
-    uav.ax.set(zlim3d=uav.zlim, zlabel="Z")
+    posx, posy, posz = x[i * numFrames, :]
+    uav.ax.set(xlim3d=(posx + uav.xlim[0], posx + uav.xlim[1]), xlabel="X")
+    uav.ax.set(ylim3d=(posy + uav.ylim[0], posy + uav.ylim[1]), ylabel="Y")
+    uav.ax.set(zlim3d=(posz + uav.zlim[0], posz + uav.zlim[1]), zlabel="Z")
 
     titleTime = uav.ax.text2D(0.05, 0.95, "", transform=uav.ax.transAxes)
     titleTime.set_text("Time = {:.2f} s".format(t[i * numFrames]))
@@ -337,7 +338,7 @@ if __name__ == "__main__":
             x = np.vstack((i / 20, i / 20, -1)).T
             q = np.vstack((1, 0, 0, 0)).T
         else:
-            x = np.append(x, np.vstack((i / 20, i / 20, -1)).T, axis=0)
+            x = np.append(x, np.vstack((i / 2, i / 2, -1)).T, axis=0)
             q = np.append(
                 q,
                 angle2quat(*np.deg2rad(np.array([100 * i, 2 * i, 2 * i]))).T,
