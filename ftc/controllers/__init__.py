@@ -36,3 +36,11 @@ register(
     id="Flat",
     entry_point="ftc.controllers.Flat.flat:FlatController",
 )
+register(
+    id="PID",
+    entry_point="ftc.controllers.PID.pid:PIDController",
+)
+register(
+    id="LQR2",
+    entry_point="ftc.controllers.LQR2.quadlqr:QUADLQRController",
+)
