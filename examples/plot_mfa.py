@@ -1,14 +1,13 @@
 import argparse
 
-import numpy as np
+import fym
 import matplotlib.pyplot as plt
+import numpy as np
+from fym.utils.rot import angle2dcm
 from matplotlib import animation
 from matplotlib.patches import FancyArrowPatch
 from mpl_toolkits.mplot3d.axes3d import Axes3D
 from mpl_toolkits.mplot3d.proj3d import proj_transform
-
-import fym
-from fym.utils.rot import angle2dcm
 
 
 class Arrow3D(FancyArrowPatch):
@@ -52,7 +51,7 @@ def sigmoid_shift(x, a=1):
     """
     x in R
     """
-    return max(1/(1+np.exp(-a*x)) - 0.5, 0)
+    return max(1 / (1 + np.exp(-a * x)) - 0.5, 0)
 
 
 def get_alpha(x):
@@ -63,8 +62,13 @@ def get_alpha(x):
 
 
 def update_plot(
-    i, ax, data, numFrames,
-    Elim=(-2, 2), Nlim=(-2, 2), Ulim=(-2, 2),
+    i,
+    ax,
+    data,
+    numFrames,
+    Elim=(-2, 2),
+    Nlim=(-2, 2),
+    Ulim=(-2, 2),
     scale_F=2.0,
     scale_M=2.0,
     eps=1e-6,
@@ -74,11 +78,13 @@ def update_plot(
     t = data["t"]
     pos = data["posd"][_i, :, :]
     mfa = data["mfa"][_i]
-    NED2ENU = np.array([
-        [0, 1, 0],
-        [1, 0, 0],
-        [0, 0, -1],
-    ])
+    NED2ENU = np.array(
+        [
+            [0, 1, 0],
+            [1, 0, 0],
+            [0, 0, -1],
+        ]
+    )
     # ang = data["ang"][_i, :, :]  # Euler angle
     # dcm = angle2dcm(*ang)  # I (NED) to B (body)
     FM = data["FM"][_i, :, :]
@@ -100,7 +106,7 @@ def update_plot(
     if np.linalg.norm(F) > eps:
         ax.arrow3D(
             *(NED2ENU @ pos).ravel(),
-            *((scale_F/np.linalg.norm(F))*(NED2ENU @ F)).ravel(),
+            *((scale_F / np.linalg.norm(F)) * (NED2ENU @ F)).ravel(),
             edgecolor=colors["force"],
             facecolor=colors["force"],
             alpha=get_alpha(F),
@@ -109,21 +115,25 @@ def update_plot(
     if np.linalg.norm(M) > eps:
         ax.arrow3D(
             *(NED2ENU @ pos).ravel(),
-            *((scale_M/np.linalg.norm(M))*(NED2ENU @ M)).ravel(),
+            *((scale_M / np.linalg.norm(M)) * (NED2ENU @ M)).ravel(),
             edgecolor=colors["torque"],
             facecolor=colors["torque"],
             alpha=get_alpha(M),
             label=f"torque (scale: {scale_M})",
         )
 
-    ax.set(xlim3d=[lim+(NED2ENU@pos)[0] for lim in Elim], xlabel="E")
-    ax.set(ylim3d=[lim+(NED2ENU@pos)[1] for lim in Nlim], xlabel="N")
-    ax.set(zlim3d=[lim+(NED2ENU@pos)[2] for lim in Ulim], xlabel="U")
+    ax.set(xlim3d=[lim + (NED2ENU @ pos)[0] for lim in Elim], xlabel="E")
+    ax.set(ylim3d=[lim + (NED2ENU @ pos)[1] for lim in Nlim], xlabel="N")
+    ax.set(zlim3d=[lim + (NED2ENU @ pos)[2] for lim in Ulim], xlabel="U")
     titleTime = ax.text2D(0.05, 0.95, "", transform=ax.transAxes)
     titleTime.set_text("Time = {:.2f} s".format(t[_i]))
-    titleForce = ax.text2D(0.95, 0.95, "", transform=ax.transAxes, color=colors["force"])
+    titleForce = ax.text2D(
+        0.95, 0.95, "", transform=ax.transAxes, color=colors["force"]
+    )
     titleForce.set_text("Force scale: {:.2f}".format(scale_F))
-    titleTorque = ax.text2D(0.95, 0.90, "", transform=ax.transAxes, color=colors["torque"])
+    titleTorque = ax.text2D(
+        0.95, 0.90, "", transform=ax.transAxes, color=colors["torque"]
+    )
     titleTorque.set_text("Torque scale: {:.2f}".format(scale_M))
 
 
@@ -133,7 +143,7 @@ def main(args, numFrames=10):
     print(f"{args.data} is loaded for MFA visualization.")
     # plot figure
     fig = plt.figure()
-    ax = fig.add_subplot(projection='3d')
+    ax = fig.add_subplot(projection="3d")
 
     ani = animation.FuncAnimation(
         fig,
