@@ -301,7 +301,9 @@ class LC62Frame:
         ).to_3d(zdir=e1, delta=xp2)
 
         # Arrow for Rotor
-        dar = (wu[:6, :6] @ -u[:6]) * np.vstack((e3, e3, e3, e3, e3, e3))
+        dar = (
+            wu[:6, :6] @ -np.vstack((u[2], u[1], u[5], u[4], u[0], u[3]))
+        ) * np.vstack((e3, e3, e3, e3, e3, e3))
         self.ax.arrow3D(xr1[0], xr1[1], xr1[2], dar[0, 0], dar[0, 1], dar[0, 2])
         self.ax.arrow3D(xr2[0], xr2[1], xr2[2], dar[1, 0], dar[1, 1], dar[1, 2])
         self.ax.arrow3D(xr3[0], xr3[1], xr3[2], dar[2, 0], dar[2, 1], dar[2, 2])
