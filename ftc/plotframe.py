@@ -106,9 +106,9 @@ class QUADFrame:
         self.b2 = np.array([0.0, 1.0, 0.0])
         self.b3 = np.array([0.0, 0.0, 1.0])
 
-        self.ax.set(xlim3d=self.xlim, xlabel="X")
-        self.ax.set(ylim3d=self.ylim, ylabel="Y")
-        self.ax.set(zlim3d=self.zlim, zlabel="Z")
+        self.ax.set(xlim3d=self.xlim, xlabel="E")
+        self.ax.set(ylim3d=self.ylim, ylabel="N")
+        self.ax.set(zlim3d=self.zlim, zlabel="U")
 
         self.alp_list = [0.1, 0.5, 1]
 
@@ -191,9 +191,9 @@ class LC62Frame:
         self.wf = 2.025  # width of fuselage
         self.hf = 0.350  # height of fuselage
 
-        self.ax.set(xlim3d=self.xlim, xlabel="X")
-        self.ax.set(ylim3d=self.ylim, ylabel="Y")
-        self.ax.set(zlim3d=self.zlim, zlabel="Z")
+        self.ax.set(xlim3d=self.xlim, xlabel="E")
+        self.ax.set(ylim3d=self.ylim, ylabel="N")
+        self.ax.set(zlim3d=self.zlim, zlabel="U")
 
         self.alp_list = [0.1, 0.5, 1]
 
@@ -322,9 +322,9 @@ def update_plot(i, uav, t, x, u, q, lamb, wu, numFrames=1):
     )
 
     posx, posy, posz = x[i * numFrames, :]
-    uav.ax.set(xlim3d=(posx + uav.xlim[0], posx + uav.xlim[1]), xlabel="X")
-    uav.ax.set(ylim3d=(posy + uav.ylim[0], posy + uav.ylim[1]), ylabel="Y")
-    uav.ax.set(zlim3d=(posz + uav.zlim[0], posz + uav.zlim[1]), zlabel="Z")
+    uav.ax.set(xlim3d=(posx + uav.xlim[0], posx + uav.xlim[1]), xlabel="E")
+    uav.ax.set(ylim3d=(posy + uav.ylim[0], posy + uav.ylim[1]), ylabel="N")
+    uav.ax.set(zlim3d=(posz + uav.zlim[0], posz + uav.zlim[1]), zlabel="U")
 
     titleTime = uav.ax.text2D(0.05, 0.95, "", transform=uav.ax.transAxes)
     titleTime.set_text("Time = {:.2f} s".format(t[i * numFrames]))
