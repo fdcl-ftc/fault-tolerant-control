@@ -241,7 +241,7 @@ class LC62Frame:
 
         # Fuselage
         self.ax.add_patch(
-            Ellipse((0, 0), self.wf, self.hf, np.rad2deg(-ang[2]), fc="0.5")
+            Ellipse((0, 0), self.wf, self.hf, angle=np.rad2deg(-ang[2]), fc="0.5")
         ).to_3d(zdir=e3, delta=_x)
 
         # Wing
@@ -252,10 +252,10 @@ class LC62Frame:
         rwys = [xrw1[1], xrw2[1], xrw3[1], xrw4[1], xrw5[1], xrw6[1]]
         rwzs = [xrw1[2], xrw2[2], xrw3[2], xrw4[2], xrw5[2], xrw6[2]]
         self.ax.add_patch(
-            Ellipse((0, 0), self.c1, self.b1, np.rad2deg(-ang[2]), fc="0.5")
+            Ellipse((0, 0), self.c1, self.b1, angle=np.rad2deg(-ang[2]), fc="0.5")
         ).to_3d(zdir=e3, delta=[sum(fwxs) / 6, sum(fwys) / 6, sum(fwzs) / 6])
         self.ax.add_patch(
-            Ellipse((0, 0), self.c2, self.b2, np.rad2deg(-ang[2]), fc="0.5")
+            Ellipse((0, 0), self.c2, self.b2, angle=np.rad2deg(-ang[2]), fc="0.5")
         ).to_3d(zdir=e3, delta=[sum(rwxs) / 6, sum(rwys) / 6, sum(rwzs) / 6])
 
         # Fault
