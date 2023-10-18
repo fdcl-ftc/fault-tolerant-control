@@ -32,7 +32,9 @@ def sim(i, initial, Env):
         data,
         info=dict(
             mae=calculate_mae(data, env.cuttime),
-            eval_mfa=evaluate_mfa(data, evaluate_pos_error(data, env.cuttime)),
+            eval_mfa=evaluate_mfa(
+                data, evaluate_pos_error(data, env.cuttime, verbose=True), verbose=True
+            ),
         ),
     )
 
@@ -96,10 +98,10 @@ def evaluate_mfa(data, eval, verbose=False):
     mfa = np.all(data["env"]["mfa"])
     if mfa == eval:
         if verbose:
-            print("MFA Success")
+            print(f"MFA Success: MFA={mfa}, evaluation={eval}")
     else:
         if verbose:
-            print("MFA Fails")
+            print(f"MFA Fails: MFA={mfa}, evaluation={eval}")
     return mfa == eval
 
 

@@ -353,4 +353,4 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--plot", action="store_true")
     parser.add_argument("-P", "--only-plot", action="store_true")
     args = parser.parse_args()
-    main(args, N=1, seed=0, i=0)
+    main(args, N=10, seed=0, i=0)
