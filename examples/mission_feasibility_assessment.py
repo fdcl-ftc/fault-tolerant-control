@@ -8,7 +8,7 @@ import numpy as np
 import ftc
 from ftc.mfa import MFA
 from ftc.models.LC62 import LC62
-from ftc.sim_parallel import evaluate_mfa, evaluate_pos
+from ftc.sim_parallel import evaluate_mfa, evaluate_pos_error
 from ftc.utils import safeupdate
 
 np.seterr(all="raise")
@@ -144,7 +144,7 @@ class MyEnv(fym.BaseEnv):
 
     def set_Lambda(self, t, ctrls):
         Lambda = self.get_Lambda(t)
-        ctrls[:6] = np.diag(Lambda[:6]) @ ((ctrls[:6] - 1000) / 1000) * 1000 + 1000
+        ctrls[:6] = np.diag(Lambda[:6]) @ (ctrls[:6] - 1000) + 1000
         return ctrls
 
 
@@ -171,7 +171,6 @@ def run():
 
     finally:
         flogger.close()
-        evaluate_mfa(evaluate_pos(), verbose=True)
         plot()
 
 
@@ -366,6 +365,8 @@ def main(args):
         return
     else:
         run()
+        data = fym.load("data.h5")
+        evaluate_mfa(data, evaluate_pos_error(data, verbose=True), verbose=True)
 
         if args.plot:
             plot()

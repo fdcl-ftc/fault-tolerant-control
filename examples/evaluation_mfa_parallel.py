@@ -3,15 +3,25 @@ from pathlib import Path
 
 import fym
 import matplotlib.pyplot as plt
+import numdifftools as nd
 import numpy as np
 from fym.utils.rot import angle2quat
 
 import ftc
+from ftc.mfa import MFA
 from ftc.models.LC62 import LC62
-from ftc.sim_parallel import evaluate_recovery_rate, sim_parallel
+from ftc.sim_parallel import evaluate_mfa_success_rate, sim_parallel
 from ftc.utils import safeupdate
 
 np.seterr(all="raise")
+
+
+def shrink(u_min, u_max, scaling_factor=1.0):
+    mean = (u_min + u_max) / 2
+    width = (u_max - u_min) / 2
+    u_min = mean - scaling_factor * width
+    u_max = mean + scaling_factor * width
+    return u_min, u_max
 
 
 class Env(fym.BaseEnv):
@@ -36,25 +46,75 @@ class Env(fym.BaseEnv):
             },
         }
         self.plant = LC62(plant_init)
-        self.controller = ftc.make("NDI", self)
+        self.controller = ftc.make("INDI", self)
         self.cuttime = 2
 
+        self.posd = lambda t: np.vstack((0, 0, 0))
+        self.posd_dot = nd.Derivative(self.posd, n=1)
+
+        pwm_min, pwm_max = self.plant.control_limits["pwm"]
+        self.mfa = MFA(
+            pwm_min * np.ones(6),
+            pwm_max * np.ones(6),
+            predictor=ftc.make("Flat", self),
+            distribute=self.distribute,
+            is_success=lambda polynus: all(
+                polytope.contains(nu) for polytope, nu in polynus
+            ),
+        )
+
+        self.u0 = self.controller.get_u0(self)
+
+        dx1, dx2, dx3 = self.plant.dx1, self.plant.dx2, self.plant.dx3
+        dy1, dy2 = self.plant.dy1, self.plant.dy2
+        c, self.c_th = 0.0338, 128  # tq / th, th / rcmds
+        self.B_r2f = np.array(
+            (
+                [-1, -1, -1, -1, -1, -1],
+                [-dy2, dy1, dy1, -dy2, -dy2, dy1],
+                [-dx2, -dx2, dx1, -dx3, dx1, -dx3],
+                [-c, c, -c, c, c, -c],
+            )
+        )
+
+    def distribute(self, t, state, pwms_rotor):
+        nu = self.B_r2f @ (pwms_rotor - 1000) / 1000 * self.c_th
+        return nu
+
     def step(self):
+        t = self.clock.get()
+
+        if np.isclose(t, 3):
+            tspan = self.clock.tspan
+            tspan = tspan[tspan >= t][::20]
+            lmbd = self.get_Lambda(t)[:6]
+            loe = lambda u_min, u_max: (
+                lmbd * (u_min - 1000) + 1000,
+                lmbd * (u_max - 1000) + 1000,
+            )
+            mfa_predict = self.mfa.predict(tspan, [loe, shrink])
+        else:
+            mfa_predict = True
+
         env_info, done = self.update()
-        return done, env_info
+
+        return done, env_info | {"mfa": mfa_predict}
 
     def observation(self):
         return self.observe_flat()
 
+    def psid(self, t):
+        return 0
+
     def get_ref(self, t, *args):
-        posd = np.vstack((0, 0, 0))
-        posd_dot = np.vstack((0, 0, 0))
-        refs = {"posd": posd, "posd_dot": posd_dot}
+        refs = {
+            "posd": self.posd(t),
+            "posd_dot": self.posd_dot(t),
+        }
         return [refs[key] for key in args]
 
     def set_dot(self, t):
         ctrls0, controller_info = self.controller.get_control(t, self)
-        ctrls = ctrls0
         bctrls = self.plant.saturate(ctrls0)
 
         """ set faults """
@@ -79,12 +139,17 @@ class Env(fym.BaseEnv):
     def get_Lambda(self, t):
         """Lambda function"""
 
-        Lambda = np.ones((11, 1))
+        Lambda = np.ones(11)
+        if t >= 3:
+            Lambda[0] = 0.0
+            Lambda[1] = 0.3
+            Lambda[2] = 0.3
         return Lambda
 
     def set_Lambda(self, t, ctrls):
         Lambda = self.get_Lambda(t)
-        return Lambda * ctrls
+        ctrls[:6] = np.diag(Lambda[:6]) @ (ctrls[:6] - 1000) + 1000
+        return ctrls
 
 
 def parsim(N=1, seed=0):
@@ -277,7 +342,7 @@ def main(args, N, seed, i):
         return
     else:
         parsim(N, seed)
-        evaluate_recovery_rate(N)
+        evaluate_mfa_success_rate(N)
 
         if args.plot:
             plot(i)

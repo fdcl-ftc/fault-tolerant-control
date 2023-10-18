@@ -32,7 +32,7 @@ def sim(i, initial, Env):
         data,
         info=dict(
             mae=calculate_mae(data, env.cuttime),
-            # eval_mfa=evaluate_mfa(data, evaluate_pos_error(data, env.cuttime)),
+            eval_mfa=evaluate_mfa(data, evaluate_pos_error(data, env.cuttime)),
         ),
     )
 
@@ -77,13 +77,15 @@ def evaluate_recovery_rate(N, threshold=0.5):
     print(f"Recovery rate is {recovery_rate:.3f}.")
 
 
-def evaluate_pos_error(data, cuttime=5, threshold=np.ones(3)):
+def evaluate_pos_error(data, cuttime=5, threshold=np.ones(3), verbose=False):
     time_index = data["env"]["t"] > max(data["env"]["t"]) - cuttime
     errors = (
-        data["posd"][time_index, :, 0] - data["env"]["plant"]["pos"][time_index, :, 0]
+        data["env"]["posd"][time_index, :, 0]
+        - data["env"]["plant"]["pos"][time_index, :, 0]
     ).squeeze()
     error_norms = np.linalg.norm(errors, axis=0)
-    print(f"Position trajectory error norms are {error_norms}.")
+    if verbose:
+        print(f"Position trajectory error norms are {error_norms}.")
     return np.all(error_norms <= threshold)
 
 
@@ -98,6 +100,7 @@ def evaluate_mfa(data, eval, verbose=False):
     else:
         if verbose:
             print("MFA Fails")
+    return mfa == eval
 
 
 def evaluate_mfa_success_rate(N):
