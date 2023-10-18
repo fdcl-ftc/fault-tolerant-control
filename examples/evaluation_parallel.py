@@ -8,7 +8,7 @@ from fym.utils.rot import angle2quat
 
 import ftc
 from ftc.models.LC62 import LC62
-from ftc.sim_parallel import evaluate, sim_parallel
+from ftc.sim_parallel import evaluate_recovery_rate, sim_parallel
 from ftc.utils import safeupdate
 
 np.seterr(all="raise")
@@ -42,8 +42,6 @@ class Env(fym.BaseEnv):
 
     def step(self):
         env_info, done = self.update()
-        if not all(-50 < a < 50 for a in np.rad2deg(env_info["ang"][:2])):
-            done = True
         return done, env_info
 
     def observation(self):
@@ -176,7 +174,7 @@ def plot(i):
 
     ax.set_xlabel("Time, sec")
 
-    fig.tight_layout()
+    plt.tight_layout()
     fig.subplots_adjust(wspace=0.3)
     fig.align_ylabels(axes)
 
@@ -222,7 +220,7 @@ def plot(i):
 
     ax.set_xlabel("Time, sec")
 
-    fig.tight_layout()
+    plt.tight_layout()
     fig.subplots_adjust(wspace=0.5)
     fig.align_ylabels(axes)
 
@@ -245,7 +243,7 @@ def plot(i):
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Rotor Thrusts")
 
-    fig.tight_layout()
+    plt.tight_layout()
     fig.subplots_adjust(wspace=0.5)
     fig.align_ylabels(axs)
 
@@ -267,7 +265,7 @@ def plot(i):
     plt.gcf().supxlabel("Time, sec")
     plt.gcf().supylabel("Pusher and Control Surfaces")
 
-    fig.tight_layout()
+    plt.tight_layout()
     fig.subplots_adjust(wspace=0.5)
     fig.align_ylabels(axs)
 
@@ -280,7 +278,7 @@ def main(args, N, seed, i):
         return
     else:
         parsim(N, seed)
-        evaluate(N)
+        evaluate_recovery_rate(N)
 
         if args.plot:
             plot(i)

@@ -27,16 +27,14 @@ def sim(i, initial, Env):
     flogger.close()
 
     data = fym.load(loggerpath)
-    time_index = data["env"]["t"] > env.tf - env.cuttime
-    alt_error = (
-        data["env"]["posd"][time_index, 2, 0]
-        - data["env"]["plant"]["pos"][time_index, 2, 0]
+    fym.save(
+        loggerpath,
+        data,
+        info=dict(
+            mae=calculate_mae(data, env.cuttime),
+            # eval_mfa=evaluate_mfa(data, evaluate_pos_error(data, env.cuttime)),
+        ),
     )
-    if bool(list(alt_error)):
-        mae = np.mean(alt_error)
-    else:
-        mae = []
-    fym.save(loggerpath, data, info=dict(alt_error=mae))
 
 
 def sim_parallel(N, initials, Env, workers=None):
@@ -48,6 +46,19 @@ def sim_parallel(N, initials, Env, workers=None):
         list(tqdm.tqdm(p.map(sim, range(N), initials, itertools.repeat(Env)), total=N))
 
 
+def calculate_mae(data, cuttime=5):
+    time_index = data["env"]["t"] > max(data["env"]["t"]) - cuttime
+    alt_error = (
+        data["env"]["posd"][time_index, 2, 0]
+        - data["env"]["plant"]["pos"][time_index, 2, 0]
+    )
+    if bool(list(alt_error)):
+        mae = np.mean(alt_error)
+    else:
+        mae = []
+    return mae
+
+
 def calculate_recovery_rate(errors, threshold=0.5):
     assert threshold > 0
     if bool(list(errors)):
@@ -57,35 +68,42 @@ def calculate_recovery_rate(errors, threshold=0.5):
     return recovery_rate
 
 
-def evaluate(N, threshold=0.5):
-    alt_errors = []
+def evaluate_recovery_rate(N, threshold=0.5):
+    maes = []
     for i in range(N):
         _, info = fym.load(Path("data", f"env_{i:04d}.h5"), with_info=True)
-        alt_errors = np.append(alt_errors, info["alt_error"])
-    recovery_rate = calculate_recovery_rate(alt_errors, threshold=threshold)
+        maes = np.append(maes, info["mae"])
+    recovery_rate = calculate_recovery_rate(maes, threshold=threshold)
     print(f"Recovery rate is {recovery_rate:.3f}.")
 
 
-def evaluate_pos(threshold=np.ones(3), cuttime=5):
-    data = fym.load("data.h5")["env"]
-    time_index = data["t"] > max(data["t"]) - cuttime
+def evaluate_pos_error(data, cuttime=5, threshold=np.ones(3)):
+    time_index = data["env"]["t"] > max(data["env"]["t"]) - cuttime
     errors = (
-        data["posd"][time_index, :, 0] - data["plant"]["pos"][time_index, :, 0]
+        data["posd"][time_index, :, 0] - data["env"]["plant"]["pos"][time_index, :, 0]
     ).squeeze()
     error_norms = np.linalg.norm(errors, axis=0)
     print(f"Position trajectory error norms are {error_norms}.")
     return np.all(error_norms <= threshold)
 
 
-def evaluate_mfa(eval, verbose=False):
+def evaluate_mfa(data, eval, verbose=False):
     """
     Is the mission feasibility assessment success?
     """
-    data = fym.load("data.h5")["env"]
-    mfa = np.all(data["mfa"])
+    mfa = np.all(data["env"]["mfa"])
     if mfa == eval:
         if verbose:
             print("MFA Success")
     else:
         if verbose:
             print("MFA Fails")
+
+
+def evaluate_mfa_success_rate(N):
+    eval_mfas = []
+    for i in range(N):
+        _, info = fym.load(Path("data", f"env_{i:04d}.h5"), with_info=True)
+        eval_mfas = np.append(eval_mfas, info["eval_mfa"])
+    mfa_success_rate = np.average(eval_mfas)
+    print(f"MFA rate is {mfa_success_rate:.3f}.")
