@@ -8,7 +8,7 @@ import numpy as np
 import ftc
 from ftc.mfa import MFA
 from ftc.models.LC62 import LC62
-from ftc.sim_parallel import evaluate_mfa
+from ftc.sim_parallel import calculate_mae, evaluate_mfa
 from ftc.utils import safeupdate
 
 np.seterr(all="raise")
@@ -366,7 +366,9 @@ def main(args):
     else:
         run()
         data = fym.load("data.h5")
-        evaluate_mfa(data, time_from=2, verbose=True)
+        evaluate_mfa(
+            np.all(data["env"]["mfa"]), calculate_mae(data, time_from=2), verbose=True
+        )
 
         if args.plot:
             plot()

@@ -8,8 +8,7 @@ import numpy as np
 import tqdm
 
 
-def sim(i, initial, Env):
-    dirpath = "data"
+def sim(i, initial, Env, dirpath="data"):
     loggerpath = Path(dirpath, f"env_{i:04d}.h5")
     env = Env(initial)
     flogger = fym.Logger(loggerpath)
@@ -32,8 +31,7 @@ def sim(i, initial, Env):
         loggerpath,
         data,
         info=dict(
-            alt_mae=calculate_mae(data, env.time_from, error_type="alt"),
-            eval_mfa=evaluate_mfa(data, env.time_from, verbose=True),
+            mae=calculate_mae(data, env.time_from, error_type=env.error_type),
         ),
     )
 
@@ -84,19 +82,16 @@ def evaluate_recovery_rate(N, threshold=0.5, dirpath="data"):
     alt_maes = []
     for i in range(N):
         _, info = fym.load(Path(dirpath, f"env_{i:04d}.h5"), with_info=True)
-        alt_maes = np.append(alt_maes, info["alt_mae"])
+        alt_maes = np.append(alt_maes, info["mae"])
     recovery_rate = calculate_recovery_rate(alt_maes, threshold=threshold)
     print(f"Recovery rate is {recovery_rate:.3f}.")
 
 
-def evaluate_mfa(data, time_from=5, threshold=0.5 * np.ones(3), verbose=False):
+def evaluate_mfa(mfa, mae, threshold=0.5 * np.ones(3), verbose=False):
     """
     Is the mission feasibility assessment success?
     """
-    mae = calculate_mae(data, time_from)
     eval = np.all(mae <= threshold)
-
-    mfa = np.all(data["env"]["mfa"])
     if verbose:
         print(f"MAE of position trajectory is {mae}.")
         if mfa == eval:
@@ -106,10 +101,15 @@ def evaluate_mfa(data, time_from=5, threshold=0.5 * np.ones(3), verbose=False):
     return mfa == eval
 
 
-def evaluate_mfa_success_rate(N, dirpath="data"):
-    eval_mfas = []
+def evaluate_mfa_success_rate(
+    N, threshold=0.5 * np.ones(3), dirpath="data", verbose=False
+):
+    evals = []
     for i in range(N):
-        _, info = fym.load(Path(dirpath, f"env_{i:04d}.h5"), with_info=True)
-        eval_mfas = np.append(eval_mfas, info["eval_mfa"])
-    mfa_success_rate = np.mean(eval_mfas)
+        data, info = fym.load(Path(dirpath, f"env_{i:04d}.h5"), with_info=True)
+        mfa = np.all(data["env"]["mfa"])
+        evals = np.append(
+            evals, evaluate_mfa(mfa, info["mae"], threshold=threshold, verbose=verbose)
+        )
+    mfa_success_rate = np.mean(evals)
     print(f"MFA rate is {mfa_success_rate:.3f}.")

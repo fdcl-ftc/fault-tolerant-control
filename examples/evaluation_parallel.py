@@ -38,6 +38,7 @@ class Env(fym.BaseEnv):
         self.plant = LC62(plant_init)
         self.controller = ftc.make("NDI", self)
         self.time_from = 2
+        self.error_type = "alt"
 
     def step(self):
         env_info, done = self.update()

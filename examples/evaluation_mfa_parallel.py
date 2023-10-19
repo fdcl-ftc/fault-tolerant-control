@@ -48,6 +48,7 @@ class Env(fym.BaseEnv):
         self.plant = LC62(plant_init)
         self.controller = ftc.make("INDI", self)
         self.time_from = 2
+        self.error_type = None
 
         self.posd = lambda t: np.vstack((0, 0, 0))
         self.posd_dot = nd.Derivative(self.posd, n=1)
@@ -340,7 +341,7 @@ def main(args, N, seed, i):
         return
     else:
         parsim(N, seed)
-        evaluate_mfa_success_rate(N)
+        evaluate_mfa_success_rate(N, threshold=np.ones(3), verbose=True)
 
         if args.plot:
             plot(i)
