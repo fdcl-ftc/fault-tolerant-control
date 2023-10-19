@@ -365,7 +365,8 @@ def main(args):
         return
     else:
         run()
-        evaluate_mfa(2, verbose=True)
+        data = fym.load("data.h5")
+        evaluate_mfa(data, time_from=2, verbose=True)
 
         if args.plot:
             plot()

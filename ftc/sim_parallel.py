@@ -9,7 +9,8 @@ import tqdm
 
 
 def sim(i, initial, Env):
-    loggerpath = Path("data", f"env_{i:04d}.h5")
+    dirpath = "data"
+    loggerpath = Path(dirpath, f"env_{i:04d}.h5")
     env = Env(initial)
     flogger = fym.Logger(loggerpath)
 
@@ -32,7 +33,7 @@ def sim(i, initial, Env):
         data,
         info=dict(
             alt_mae=calculate_mae(data, env.time_from, error_type="alt"),
-            eval_mfa=evaluate_mfa(env.time_from, loggerpath=loggerpath, verbose=True),
+            eval_mfa=evaluate_mfa(data, env.time_from, verbose=True),
         ),
     )
 
@@ -61,7 +62,7 @@ def get_errors(data, time_from=5, error_type=None):
     return errors
 
 
-def calculate_mae(data, time_from, error_type=None):
+def calculate_mae(data, time_from=5, error_type=None):
     errors = get_errors(data, time_from, error_type)
     if bool(list(errors)):
         mae = np.mean(np.abs(errors), axis=0)
@@ -79,23 +80,19 @@ def calculate_recovery_rate(errors, threshold=0.5):
     return recovery_rate
 
 
-def evaluate_recovery_rate(N, threshold=0.5):
+def evaluate_recovery_rate(N, threshold=0.5, dirpath="data"):
     alt_maes = []
     for i in range(N):
-        _, info = fym.load(Path("data", f"env_{i:04d}.h5"), with_info=True)
+        _, info = fym.load(Path(dirpath, f"env_{i:04d}.h5"), with_info=True)
         alt_maes = np.append(alt_maes, info["alt_mae"])
     recovery_rate = calculate_recovery_rate(alt_maes, threshold=threshold)
     print(f"Recovery rate is {recovery_rate:.3f}.")
 
 
-def evaluate_mfa(time_from, threshold=0.5 * np.ones(3), loggerpath=None, verbose=False):
+def evaluate_mfa(data, time_from=5, threshold=0.5 * np.ones(3), verbose=False):
     """
     Is the mission feasibility assessment success?
     """
-    if loggerpath is None:
-        loggerpath = "data.h5"
-    data = fym.load(loggerpath)
-
     mae = calculate_mae(data, time_from)
     eval = np.all(mae <= threshold)
 
@@ -109,10 +106,10 @@ def evaluate_mfa(time_from, threshold=0.5 * np.ones(3), loggerpath=None, verbose
     return mfa == eval
 
 
-def evaluate_mfa_success_rate(N):
+def evaluate_mfa_success_rate(N, dirpath="data"):
     eval_mfas = []
     for i in range(N):
-        _, info = fym.load(Path("data", f"env_{i:04d}.h5"), with_info=True)
+        _, info = fym.load(Path(dirpath, f"env_{i:04d}.h5"), with_info=True)
         eval_mfas = np.append(eval_mfas, info["eval_mfa"])
     mfa_success_rate = np.mean(eval_mfas)
     print(f"MFA rate is {mfa_success_rate:.3f}.")
