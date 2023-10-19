@@ -47,7 +47,7 @@ class Env(fym.BaseEnv):
         }
         self.plant = LC62(plant_init)
         self.controller = ftc.make("INDI", self)
-        self.cuttime = 2
+        self.time_from = 2
 
         self.posd = lambda t: np.vstack((0, 0, 0))
         self.posd_dot = nd.Derivative(self.posd, n=1)
@@ -141,9 +141,7 @@ class Env(fym.BaseEnv):
 
         Lambda = np.ones(11)
         if t >= 3:
-            Lambda[0] = 0.0
             Lambda[1] = 0.3
-            Lambda[2] = 0.3
         return Lambda
 
     def set_Lambda(self, t, ctrls):

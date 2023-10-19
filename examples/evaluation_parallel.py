@@ -37,7 +37,7 @@ class Env(fym.BaseEnv):
         }
         self.plant = LC62(plant_init)
         self.controller = ftc.make("NDI", self)
-        self.cuttime = 2
+        self.time_from = 2
 
     def step(self):
         env_info, done = self.update()

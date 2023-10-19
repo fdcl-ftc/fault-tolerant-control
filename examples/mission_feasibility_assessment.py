@@ -8,7 +8,7 @@ import numpy as np
 import ftc
 from ftc.mfa import MFA
 from ftc.models.LC62 import LC62
-from ftc.sim_parallel import evaluate_mfa, evaluate_pos_error
+from ftc.sim_parallel import evaluate_mfa
 from ftc.utils import safeupdate
 
 np.seterr(all="raise")
@@ -365,8 +365,7 @@ def main(args):
         return
     else:
         run()
-        data = fym.load("data.h5")
-        evaluate_mfa(data, evaluate_pos_error(data, verbose=True), verbose=True)
+        evaluate_mfa(2, verbose=True)
 
         if args.plot:
             plot()
