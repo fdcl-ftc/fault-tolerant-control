@@ -37,8 +37,6 @@ class Env(fym.BaseEnv):
         }
         self.plant = LC62(plant_init)
         self.controller = ftc.make("NDI", self)
-        self.time_from = 2
-        self.error_type = "alt"
 
     def step(self):
         env_info, done = self.update()
@@ -88,6 +86,25 @@ class Env(fym.BaseEnv):
         return Lambda * ctrls
 
 
+def sim(i, initial, Env, dirpath="data"):
+    loggerpath = Path(dirpath, f"env_{i:04d}.h5")
+    env = Env(initial)
+    flogger = fym.Logger(loggerpath)
+
+    env.reset()
+
+    while True:
+        env.render(mode=None)
+
+        done, env_info = env.step()
+        flogger.record(env=env_info, initial=initial)
+
+        if done:
+            break
+
+    flogger.close()
+
+
 def parsim(N=1, seed=0):
     np.random.seed(seed)
     pos = np.random.uniform(0, 0, size=(N, 3, 1))
@@ -96,7 +113,7 @@ def parsim(N=1, seed=0):
     omega = np.random.uniform(*np.deg2rad((-1, 1)), size=(N, 3, 1))
 
     initials = np.stack((pos, vel, angle, omega), axis=1)
-    sim_parallel(N, initials, Env)
+    sim_parallel(sim, N, initials, Env)
 
 
 def plot(i):
@@ -278,7 +295,7 @@ def main(args, N, seed, i):
         return
     else:
         parsim(N, seed)
-        evaluate_recovery_rate(N)
+        evaluate_recovery_rate(N, time_from=2, error_type="alt")
 
         if args.plot:
             plot(i)

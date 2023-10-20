@@ -47,8 +47,6 @@ class Env(fym.BaseEnv):
         }
         self.plant = LC62(plant_init)
         self.controller = ftc.make("INDI", self)
-        self.time_from = 2
-        self.error_type = None
 
         self.posd = lambda t: np.vstack((0, 0, 0))
         self.posd_dot = nd.Derivative(self.posd, n=1)
@@ -82,20 +80,21 @@ class Env(fym.BaseEnv):
         nu = self.B_r2f @ (pwms_rotor - 1000) / 1000 * self.c_th
         return nu
 
-    def step(self):
+    def step(self, mfa_predict_prev, Lambda_prev):
         t = self.clock.get()
 
-        if np.isclose(t, 3):
+        Lambda = self.get_Lambda(t)
+        if np.allclose(Lambda, Lambda_prev):
+            mfa_predict = mfa_predict_prev
+        else:
+            lmbd = Lambda[:6]
             tspan = self.clock.tspan
             tspan = tspan[tspan >= t][::20]
-            lmbd = self.get_Lambda(t)[:6]
             loe = lambda u_min, u_max: (
                 lmbd * (u_min - 1000) + 1000,
                 lmbd * (u_max - 1000) + 1000,
             )
             mfa_predict = self.mfa.predict(tspan, [loe, shrink])
-        else:
-            mfa_predict = True
 
         env_info, done = self.update()
 
@@ -151,6 +150,31 @@ class Env(fym.BaseEnv):
         return ctrls
 
 
+def sim(i, initial, Env, dirpath="data"):
+    loggerpath = Path(dirpath, f"env_{i:04d}.h5")
+    env = Env(initial)
+    flogger = fym.Logger(loggerpath)
+
+    env.reset()
+
+    # initialization
+    Lambda_prev = env.get_Lambda(env.clock.get())
+    mfa_predict_prev = True
+    while True:
+        env.render(mode=None)
+
+        done, env_info = env.step(mfa_predict_prev, Lambda_prev)
+        flogger.record(env=env_info, initial=initial)
+
+        Lambda_prev = env_info["Lambda"]
+        mfa_predict_prev = env_info["mfa"]
+
+        if done:
+            break
+
+    flogger.close()
+
+
 def parsim(N=1, seed=0):
     np.random.seed(seed)
     pos = np.random.uniform(0, 0, size=(N, 3, 1))
@@ -159,7 +183,7 @@ def parsim(N=1, seed=0):
     omega = np.random.uniform(*np.deg2rad((-1, 1)), size=(N, 3, 1))
 
     initials = np.stack((pos, vel, angle, omega), axis=1)
-    sim_parallel(N, initials, Env)
+    sim_parallel(sim, N, initials, Env)
 
 
 def plot(i):
@@ -341,7 +365,9 @@ def main(args, N, seed, i):
         return
     else:
         parsim(N, seed)
-        evaluate_mfa_success_rate(N, threshold=np.ones(3), verbose=True)
+        evaluate_mfa_success_rate(
+            N, time_from=2, error_type=None, threshold=np.ones(3), verbose=True
+        )
 
         if args.plot:
             plot(i)

@@ -8,35 +8,7 @@ import numpy as np
 import tqdm
 
 
-def sim(i, initial, Env, dirpath="data"):
-    loggerpath = Path(dirpath, f"env_{i:04d}.h5")
-    env = Env(initial)
-    flogger = fym.Logger(loggerpath)
-
-    env.reset()
-
-    while True:
-        env.render(mode=None)
-
-        done, env_info = env.step()
-        flogger.record(env=env_info, initial=initial)
-
-        if done:
-            break
-
-    flogger.close()
-
-    data = fym.load(loggerpath)
-    fym.save(
-        loggerpath,
-        data,
-        info=dict(
-            mae=calculate_mae(data, env.time_from, error_type=env.error_type),
-        ),
-    )
-
-
-def sim_parallel(N, initials, Env, workers=None):
+def sim_parallel(sim, N, initials, Env, workers=None):
     cpu_workers = os.cpu_count()
     workers = int(workers or cpu_workers)
     assert workers <= os.cpu_count(), f"workers should be less than {cpu_workers}"
@@ -78,11 +50,14 @@ def calculate_recovery_rate(errors, threshold=0.5):
     return recovery_rate
 
 
-def evaluate_recovery_rate(N, threshold=0.5, dirpath="data"):
+def evaluate_recovery_rate(
+    N, time_from=5, error_type="alt", threshold=0.5, dirpath="data"
+):
     alt_maes = []
     for i in range(N):
-        _, info = fym.load(Path(dirpath, f"env_{i:04d}.h5"), with_info=True)
-        alt_maes = np.append(alt_maes, info["mae"])
+        data = fym.load(Path(dirpath, f"env_{i:04d}.h5"))
+        alt_mae = calculate_mae(data, time_from=time_from, error_type=error_type)
+        alt_maes = np.append(alt_maes, alt_mae)
     recovery_rate = calculate_recovery_rate(alt_maes, threshold=threshold)
     print(f"Recovery rate is {recovery_rate:.3f}.")
 
@@ -102,14 +77,20 @@ def evaluate_mfa(mfa, mae, threshold=0.5 * np.ones(3), verbose=False):
 
 
 def evaluate_mfa_success_rate(
-    N, threshold=0.5 * np.ones(3), dirpath="data", verbose=False
+    N,
+    time_from=5,
+    error_type=None,
+    threshold=0.5 * np.ones(3),
+    dirpath="data",
+    verbose=False,
 ):
     evals = []
     for i in range(N):
-        data, info = fym.load(Path(dirpath, f"env_{i:04d}.h5"), with_info=True)
+        data = fym.load(Path(dirpath, f"env_{i:04d}.h5"))
         mfa = np.all(data["env"]["mfa"])
+        mae = calculate_mae(data, time_from=time_from, error_type=error_type)
         evals = np.append(
-            evals, evaluate_mfa(mfa, info["mae"], threshold=threshold, verbose=verbose)
+            evals, evaluate_mfa(mfa, mae, threshold=threshold, verbose=verbose)
         )
     mfa_success_rate = np.mean(evals)
     print(f"MFA rate is {mfa_success_rate:.3f}.")
