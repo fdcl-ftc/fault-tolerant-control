@@ -112,9 +112,9 @@ def update_plot(
         0.95, 0.90, "", transform=ax.transAxes, color=colors["torque"]
     )
     titleTorque.set_text("Torque scale: {:.2f}".format(scale_M))
-    ax.text2D(1.0, 0.15, "x_B", transform=ax.transAxes, color="r")
-    ax.text2D(1.0, 0.10, "y_B", transform=ax.transAxes, color="g")
-    ax.text2D(1.0, 0.05, "z_B", transform=ax.transAxes, color="b")
+    ax.text2D(1.0, 0.15, r"$X_B$", transform=ax.transAxes, color="r")
+    ax.text2D(1.0, 0.10, r"$Y_B$", transform=ax.transAxes, color="g")
+    ax.text2D(1.0, 0.05, r"$Z_B$", transform=ax.transAxes, color="b")
 
 
 def main(args, numFrames=10):
