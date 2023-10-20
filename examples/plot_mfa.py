@@ -52,15 +52,10 @@ def update_plot(
     t = data["t"]
     pos = data["plant"]["pos"][_i, :, :]
     mfa = data["mfa"][_i]
-    NED2ENU = np.array(
-        [
-            [0, 1, 0],
-            [1, 0, 0],
-            [0, 0, -1],
-        ]
-    )
     quat = data["plant"]["quat"][_i, :, :]  # Unit quaternion
     dcm = quat2dcm(quat)  # I (NED) to B (body)
+    NED2ENU = np.array([[0, 1, 0], [1, 0, 0], [0, 0, -1]])
+
     _x = NED2ENU @ pos.ravel()
     _xe = _x + NED2ENU @ dcm @ np.array([1, 0, 0])
     _ye = _x + NED2ENU @ dcm @ np.array([0, 1, 0])
@@ -105,8 +100,8 @@ def update_plot(
         )
 
     ax.set(xlim3d=[lim + (NED2ENU @ pos)[0] for lim in Elim], xlabel="E")
-    ax.set(ylim3d=[lim + (NED2ENU @ pos)[1] for lim in Nlim], xlabel="N")
-    ax.set(zlim3d=[lim + (NED2ENU @ pos)[2] for lim in Ulim], xlabel="U")
+    ax.set(ylim3d=[lim + (NED2ENU @ pos)[1] for lim in Nlim], ylabel="N")
+    ax.set(zlim3d=[lim + (NED2ENU @ pos)[2] for lim in Ulim], zlabel="U")
     titleTime = ax.text2D(0.05, 0.95, "", transform=ax.transAxes)
     titleTime.set_text("Time = {:.2f} s".format(t[_i]))
     titleForce = ax.text2D(
@@ -117,6 +112,9 @@ def update_plot(
         0.95, 0.90, "", transform=ax.transAxes, color=colors["torque"]
     )
     titleTorque.set_text("Torque scale: {:.2f}".format(scale_M))
+    ax.text2D(1.0, 0.15, "x_B", transform=ax.transAxes, color="r")
+    ax.text2D(1.0, 0.10, "y_B", transform=ax.transAxes, color="g")
+    ax.text2D(1.0, 0.05, "z_B", transform=ax.transAxes, color="b")
 
 
 def main(args, numFrames=10):
