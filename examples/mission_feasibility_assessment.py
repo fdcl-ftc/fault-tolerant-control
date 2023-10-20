@@ -76,20 +76,21 @@ class MyEnv(fym.BaseEnv):
         nu = self.B_r2f @ (pwms_rotor - 1000) / 1000 * self.c_th
         return nu
 
-    def step(self):
+    def step(self, mfa_predict_prev, Lambda_prev):
         t = self.clock.get()
 
-        if np.isclose(t, 3):
+        Lambda = self.get_Lambda(t)
+        if np.allclose(Lambda, Lambda_prev):
+            mfa_predict = mfa_predict_prev
+        else:
+            lmbd = Lambda[:6]
             tspan = self.clock.tspan
             tspan = tspan[tspan >= t][::20]
-            lmbd = self.get_Lambda(t)[:6]
             loe = lambda u_min, u_max: (
                 lmbd * (u_min - 1000) + 1000,
                 lmbd * (u_max - 1000) + 1000,
             )
             mfa_predict = self.mfa.predict(tspan, [loe, shrink])
-        else:
-            mfa_predict = True
 
         env_info, done = self.update()
 
@@ -153,11 +154,17 @@ def run():
 
     env.reset()
     try:
+        # initialization
+        Lambda_prev = env.get_Lambda(env.clock.get())
+        mfa_predict_prev = True
         while True:
             env.render()
 
-            done, env_info = env.step()
+            done, env_info = env.step(mfa_predict_prev, Lambda_prev)
             flogger.record(env=env_info)
+
+            Lambda_prev = env_info["Lambda"]
+            mfa_predict_prev = env_info["mfa"]
 
             if done:
                 break
