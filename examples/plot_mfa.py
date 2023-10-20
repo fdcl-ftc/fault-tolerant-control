@@ -3,7 +3,7 @@ import argparse
 import fym
 import matplotlib.pyplot as plt
 import numpy as np
-from fym.utils.rot import angle2dcm
+from fym.utils.rot import quat2dcm
 from matplotlib import animation
 from mpl_toolkits.mplot3d.axes3d import Axes3D
 
@@ -50,7 +50,7 @@ def update_plot(
     ax.clear()
     _i = i * numFrames
     t = data["t"]
-    pos = data["posd"][_i, :, :]
+    pos = data["plant"]["pos"][_i, :, :]
     mfa = data["mfa"][_i]
     NED2ENU = np.array(
         [
@@ -59,8 +59,16 @@ def update_plot(
             [0, 0, -1],
         ]
     )
-    # ang = data["ang"][_i, :, :]  # Euler angle
-    # dcm = angle2dcm(*ang)  # I (NED) to B (body)
+    quat = data["plant"]["quat"][_i, :, :]  # Unit quaternion
+    dcm = quat2dcm(quat)  # I (NED) to B (body)
+    _x = NED2ENU @ pos.ravel()
+    _xe = _x + NED2ENU @ dcm @ np.array([1, 0, 0])
+    _ye = _x + NED2ENU @ dcm @ np.array([0, 1, 0])
+    _ze = _x + NED2ENU @ dcm @ np.array([0, 0, 1])
+    ax.plot([_x[0], _xe[0]], [_x[1], _xe[1]], [_x[2], _xe[2]], "r")
+    ax.plot([_x[0], _ye[0]], [_x[1], _ye[1]], [_x[2], _ye[2]], "g")
+    ax.plot([_x[0], _ze[0]], [_x[1], _ze[1]], [_x[2], _ze[2]], "b")
+
     FM = data["FM"][_i, :, :]
     F = FM[0:3, :]
     M = FM[3:6, :]
