@@ -2,9 +2,9 @@ import matplotlib
 import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d.art3d as art3d
 import numpy as np
-from fym.utils.rot import angle2quat, quat2angle, quat2dcm
+from fym.utils.rot import angle2quat, quat2dcm
 from matplotlib import animation
-from matplotlib.patches import Circle, Ellipse, FancyArrowPatch
+from matplotlib.patches import Circle, FancyArrowPatch, Polygon
 from mpl_toolkits.mplot3d.axes3d import Axes3D
 from mpl_toolkits.mplot3d.proj3d import proj_transform
 
@@ -207,13 +207,11 @@ class LC62Frame:
     ):
         self.ax.clear()
         R = quat2dcm(q)
-        ang = quat2angle(q)[::-1]
-
         Rc = np.array([[0, 1, 0], [1, 0, 0], [0, 0, -1]])  # NED to ENU
-        x = Rc @ x
-        _x = x.ravel()
+        _x = Rc @ x.ravel()
         e1 = tuple(Rc @ R @ np.array([1, 0, 0]))
         e3 = tuple(Rc @ R @ np.array([0, 0, 1]))
+        me3 = tuple(Rc @ R @ np.array([0, 0, -1]))
 
         xr1 = _x + Rc @ R @ np.array([self.dx1, self.dy, 0.0])
         xr2 = _x + Rc @ R @ np.array([self.dx2, self.dy, 0.0])
@@ -225,38 +223,51 @@ class LC62Frame:
         xp1 = _x + Rc @ R @ np.array([-self.dx3 / 2, self.b2 / 2, 0.0])
         xp2 = _x + Rc @ R @ np.array([-self.dx3 / 2, -self.b2 / 2, 0.0])
 
-        xfw1 = _x + Rc @ R @ np.array([self.dx1 / 2 + self.c1 / 2 + 0.01, 0, 0])
-        xfw2 = _x + Rc @ R @ np.array([self.dx1 / 2 + self.c1 / 2, self.b1 / 2, 0])
-        xfw3 = _x + Rc @ R @ np.array([self.dx1 / 2 - self.c1 / 2, self.b1 / 2, 0])
-        xfw4 = _x + Rc @ R @ np.array([self.dx1 / 2 - self.c1 / 2 - 0.01, 0, 0])
-        xfw5 = _x + Rc @ R @ np.array([self.dx1 / 2 - self.c1 / 2, -self.b1 / 2, 0])
-        xfw6 = _x + Rc @ R @ np.array([self.dx1 / 2 + self.c1 / 2, -self.b1 / 2, 0])
-
-        xrw1 = _x + Rc @ R @ np.array([-self.dx3 / 2 + self.c2 / 2 + 0.01, 0, 0])
-        xrw2 = _x + Rc @ R @ np.array([-self.dx3 / 2 + self.c2 / 2, self.b2 / 2, 0])
-        xrw3 = _x + Rc @ R @ np.array([-self.dx3 / 2 - self.c2 / 2, self.b2 / 2, 0])
-        xrw4 = _x + Rc @ R @ np.array([-self.dx3 / 2 - self.c2 / 2 - 0.01, 0, 0])
-        xrw5 = _x + Rc @ R @ np.array([-self.dx3 / 2 - self.c2 / 2, -self.b2 / 2, 0])
-        xrw6 = _x + Rc @ R @ np.array([-self.dx3 / 2 + self.c2 / 2, -self.b2 / 2, 0])
-
         # Fuselage
-        self.ax.add_patch(
-            Ellipse((0, 0), self.wf, self.hf, angle=np.rad2deg(-ang[2]), fc="0.5")
-        ).to_3d(zdir=e3, delta=_x)
+        dff = 0.1
+        dfr = 0.5
+        xf1 = Rc @ R @ np.array([self.dx1 + dff, 0, 0])
+        xf2 = Rc @ R @ np.array([self.dx1, self.hf / 2, 0])
+        xf3 = Rc @ R @ np.array([-self.dx3 / 2, self.hf / 2, 0])
+        xf4 = Rc @ R @ np.array([-self.dx3 / 2 - dfr, 0, 0])
+        xf5 = Rc @ R @ np.array([-self.dx3 / 2, -self.hf / 2, 0])
+        xf6 = Rc @ R @ np.array([self.dx1, -self.hf / 2, 0])
+
+        fxs = [xf1[0], xf2[0], xf3[0], xf4[0], xf5[0], xf6[0]]
+        fys = [xf1[1], xf2[1], xf3[1], xf4[1], xf5[1], xf6[1]]
+        self.ax.add_patch(Polygon(list(zip(fxs, fys)), fc="0.5")).to_3d(
+            zdir=me3, delta=_x
+        )
 
         # Wing
+        dfw = 0.1
+        _xfw = Rc @ R @ np.array([self.dx1 / 2, 0, 0])
+        xfw1 = Rc @ R @ np.array([self.c1 / 2, self.b1 / 2 - dfw, 0])
+        xfw2 = Rc @ R @ np.array([0, self.b1 / 2, 0])
+        xfw3 = Rc @ R @ np.array([-self.c1 / 2, self.b1 / 2 - dfw, 0])
+        xfw4 = Rc @ R @ np.array([-self.c1 / 2, -self.b1 / 2 + dfw, 0])
+        xfw5 = Rc @ R @ np.array([0, -self.b1 / 2, 0])
+        xfw6 = Rc @ R @ np.array([self.c1 / 2, -self.b1 / 2 + dfw, 0])
+
+        drw = 0.1
+        _xrw = Rc @ R @ np.array([-self.dx3 / 2, 0, 0])
+        xrw1 = Rc @ R @ np.array([self.c2 / 2, self.b2 / 2 - drw, 0])
+        xrw2 = Rc @ R @ np.array([0, self.b2 / 2, 0])
+        xrw3 = Rc @ R @ np.array([-self.c2 / 2, self.b2 / 2 - drw, 0])
+        xrw4 = Rc @ R @ np.array([-self.c2 / 2, -self.b2 / 2 + drw, 0])
+        xrw5 = Rc @ R @ np.array([0, -self.b2 / 2, 0])
+        xrw6 = Rc @ R @ np.array([self.c2 / 2, -self.b2 / 2 + drw, 0])
+
         fwxs = [xfw1[0], xfw2[0], xfw3[0], xfw4[0], xfw5[0], xfw6[0]]
         fwys = [xfw1[1], xfw2[1], xfw3[1], xfw4[1], xfw5[1], xfw6[1]]
-        fwzs = [xfw1[2], xfw2[2], xfw3[2], xfw4[2], xfw5[2], xfw6[2]]
         rwxs = [xrw1[0], xrw2[0], xrw3[0], xrw4[0], xrw5[0], xrw6[0]]
         rwys = [xrw1[1], xrw2[1], xrw3[1], xrw4[1], xrw5[1], xrw6[1]]
-        rwzs = [xrw1[2], xrw2[2], xrw3[2], xrw4[2], xrw5[2], xrw6[2]]
-        self.ax.add_patch(
-            Ellipse((0, 0), self.c1, self.b1, angle=np.rad2deg(-ang[2]), fc="0.5")
-        ).to_3d(zdir=e3, delta=[sum(fwxs) / 6, sum(fwys) / 6, sum(fwzs) / 6])
-        self.ax.add_patch(
-            Ellipse((0, 0), self.c2, self.b2, angle=np.rad2deg(-ang[2]), fc="0.5")
-        ).to_3d(zdir=e3, delta=[sum(rwxs) / 6, sum(rwys) / 6, sum(rwzs) / 6])
+        self.ax.add_patch(Polygon(list(zip(fwxs, fwys)), fc="0.5")).to_3d(
+            zdir=me3, delta=_x + _xfw
+        )
+        self.ax.add_patch(Polygon(list(zip(rwxs, rwys)), fc="0.5")).to_3d(
+            zdir=me3, delta=_x + _xrw
+        )
 
         # Fault
         alps = np.ones(11)

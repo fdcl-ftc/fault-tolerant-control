@@ -7,7 +7,7 @@ from fym.utils.rot import quat2dcm
 from matplotlib import animation
 from mpl_toolkits.mplot3d.axes3d import Axes3D
 
-from ftc.plotframe import Arrow3D
+from ftc.plotframe import Arrow3D, LC62Frame
 
 
 def _arrow3D(ax, x, y, z, dx, dy, dz, *args, **kwargs):
@@ -55,6 +55,8 @@ def update_plot(
     quat = data["plant"]["quat"][_i, :, :]  # Unit quaternion
     dcm = quat2dcm(quat)  # I (NED) to B (body)
     NED2ENU = np.array([[0, 1, 0], [1, 0, 0], [0, 0, -1]])
+
+    LC62Frame(ax).draw_at(pos, np.zeros((11, 1)), quat)
 
     _x = NED2ENU @ pos.ravel()
     _xe = _x + NED2ENU @ dcm @ np.array([1, 0, 0])
