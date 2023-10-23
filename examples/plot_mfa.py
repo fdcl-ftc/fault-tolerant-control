@@ -60,9 +60,9 @@ def update_plot(
 
     scale = 1.5
     _x = NED2ENU @ pos.ravel()
-    _xe = _x + scale * NED2ENU @ dcm @ np.array([0, 1, 0])
-    _ye = _x + scale * NED2ENU @ dcm @ np.array([1, 0, 0])
-    _ze = _x + scale * NED2ENU @ dcm @ np.array([0, 0, -1])
+    _xe = _x + scale * NED2ENU @ dcm @ np.array([1, 0, 0])
+    _ye = _x + scale * NED2ENU @ dcm @ np.array([0, 1, 0])
+    _ze = _x + scale * NED2ENU @ dcm @ np.array([0, 0, 1])
     ax.plot([_x[0], _xe[0]], [_x[1], _xe[1]], [_x[2], _xe[2]], "r")
     ax.plot([_x[0], _ye[0]], [_x[1], _ye[1]], [_x[2], _ye[2]], "g")
     ax.plot([_x[0], _ze[0]], [_x[1], _ze[1]], [_x[2], _ze[2]], "b")
