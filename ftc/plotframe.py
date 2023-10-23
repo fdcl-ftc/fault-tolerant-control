@@ -111,8 +111,6 @@ class QUADFrame:
         self.ax.set(ylim3d=self.ylim, ylabel="N")
         self.ax.set(zlim3d=self.zlim, zlabel="U")
 
-        self.alp_list = [0.1, 0.5, 1]
-
     def draw_at(
         self,
         x=np.zeros((3, 1)),
@@ -136,14 +134,7 @@ class QUADFrame:
         self.ax.add_patch(Circle((0, 0), self.rc, color="y")).to_3d(zdir=e3, delta=_x)
 
         # Fault
-        alps = np.ones(4)
-        for i in range(len(alps)):
-            if lamb[i] == 0:
-                alps[i] = self.alp_list[0]
-            elif lamb[i] == 1:
-                alps[i] = self.alp_list[2]
-            else:
-                alps[i] = self.alp_list[1]
+        alps = lamb.ravel()
 
         # Rotor
         self.ax.add_patch(Circle((0, 0), self.rr, color="r", alpha=alps[0])).to_3d(
@@ -195,12 +186,10 @@ class LC62Frame:
         self.ax.set(ylim3d=self.ylim, ylabel="N")
         self.ax.set(zlim3d=self.zlim, zlabel="U")
 
-        self.alp_list = [0.1, 0.5, 1]
-
     def draw_at(
         self,
         x=np.zeros((3, 1)),
-        u=np.ones((4, 1)),
+        u=np.ones((11, 1)),
         q=np.vstack((1, 0, 0, 0)),
         lamb=np.ones((11, 1)),
         wu=np.eye(11),
@@ -272,14 +261,7 @@ class LC62Frame:
         )
 
         # Fault
-        alps = np.ones(11)
-        for i in range(len(alps)):
-            if lamb[i] == 0:
-                alps[i] = self.alp_list[0]
-            elif lamb[i] == 1:
-                alps[i] = self.alp_list[2]
-            else:
-                alps[i] = self.alp_list[1]
+        alps = lamb.ravel()
 
         # Rotor
         self.ax.add_patch(

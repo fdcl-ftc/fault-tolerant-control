@@ -53,10 +53,11 @@ def update_plot(
     pos = data["plant"]["pos"][_i, :, :]
     mfa = data["mfa"][_i]
     quat = data["plant"]["quat"][_i, :, :]  # Unit quaternion
+    lamb = data["Lambda"][_i, :, None]
     dcm = quat2dcm(quat)  # I (NED) to B (body)
     NED2ENU = np.array([[0, 1, 0], [1, 0, 0], [0, 0, -1]])
 
-    LC62Frame(ax).draw_at(pos, np.zeros((11, 1)), quat)
+    LC62Frame(ax).draw_at(pos, np.zeros((11, 1)), quat, lamb)
 
     scale = 1.5
     _x = NED2ENU @ pos.ravel()
