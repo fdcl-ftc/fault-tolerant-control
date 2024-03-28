@@ -1,8 +1,9 @@
 import fym
 import numpy as np
 import scipy
-from fym.utils.rot import angle2quat, dcm2quat, quat2angle, quat2dcm
+from fym.utils.rot import angle2quat, quat2dcm
 from numpy import cos, sin
+from scipy.interpolate import interp1d
 
 from ftc.utils import safeupdate
 
@@ -23,6 +24,8 @@ class LC62R(fym.BaseEnv):
     dx3 = 1.1725 - 0.049  # dx3 = 1.1235
     dy1 = 0.717 + temp_y
     dy2 = 0.717 + temp_y
+    dyp = 2.3 / 2
+    dzp = 0.0645
 
     Ixx = 1.3 * 8.094  # [kg * m^2]
     Iyy = 1.3 * 9.125  # [kg * m^2]
@@ -254,12 +257,19 @@ class LC62R(fym.BaseEnv):
         return np.vstack((Fx, Fy, Fz, l, m, n))
 
     def B_Pusher(self, pcmds):
-        th = np.interp(pcmds, self.tables["cmd"], self.tables["th_p"])
-        tq = np.interp(pcmds, self.tables["cmd"], self.tables["tq_p"])
+        th_p = interp1d(
+            self.tables["cmd"], self.tables["th_p"], fill_value="extrapolate"
+        )
+        tq_p = interp1d(
+            self.tables["cmd"], self.tables["tq_p"], fill_value="extrapolate"
+        )
+        th = th_p(pcmds)
+        tq = tq_p(pcmds)
         Fx = th[0] + th[1]
         Fy = Fz = 0
         l = tq[0] - tq[1]
-        m = n = 0
+        m = -self.dzp * (th[0] + th[1])
+        n = self.dyp * (th[0] - th[1])
         return np.vstack((Fx, Fy, Fz, l, m, n))
 
     def B_Fuselage(self, dels, pos, vel, omega):
